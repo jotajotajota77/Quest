@@ -1,0 +1,304 @@
+:root {
+  --bg: #0a0612;
+  --bg-2: #140a24;
+  --panel: rgba(255, 255, 255, 0.04);
+  --panel-border: rgba(255, 255, 255, 0.1);
+  --neon: #ff2e88;
+  --neon-2: #00e5ff;
+  --gold: #ffd24a;
+  --text: #f3eefc;
+  --text-dim: #a99fc4;
+  --good: #4ade80;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
+
+body {
+  background:
+    radial-gradient(1200px 600px at 50% -10%, var(--bg-2), transparent),
+    radial-gradient(900px 500px at 100% 110%, #1a0a2e, transparent),
+    var(--bg);
+  color: var(--text);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: inherit;
+}
+
+.app-shell {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 20px 18px 96px;
+}
+
+/* ── Tipografia de "tela de luta" ───────────────────────── */
+.title-fight {
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: linear-gradient(90deg, var(--neon), var(--gold));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 0 28px rgba(255, 46, 136, 0.25);
+}
+
+.subtle {
+  color: var(--text-dim);
+  font-size: 0.85rem;
+}
+
+/* ── Botões ─────────────────────────────────────────────── */
+.btn {
+  border: 1px solid var(--panel-border);
+  background: var(--panel);
+  color: var(--text);
+  padding: 12px 18px;
+  border-radius: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.08s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.btn:hover {
+  border-color: var(--neon-2);
+  box-shadow: 0 0 24px rgba(0, 229, 255, 0.25);
+}
+.btn:active {
+  transform: translateY(1px) scale(0.99);
+}
+.btn-primary {
+  background: linear-gradient(135deg, var(--neon), #b3155f);
+  border: none;
+}
+.btn-primary:hover {
+  box-shadow: 0 0 30px rgba(255, 46, 136, 0.5);
+}
+
+/* ── Botão gigante de registro (1 toque) ────────────────── */
+.log-tap {
+  width: 100%;
+  border: none;
+  border-radius: 28px;
+  padding: 34px;
+  font-size: 1.5rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #1a0010;
+  background: linear-gradient(135deg, var(--gold), var(--neon));
+  box-shadow: 0 0 40px rgba(255, 210, 74, 0.35);
+  cursor: pointer;
+  transition: transform 0.06s ease;
+}
+.log-tap:active {
+  transform: scale(0.97);
+}
+.log-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 14px;
+}
+
+/* ── Painéis ────────────────────────────────────────────── */
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 18px;
+  padding: 18px;
+  backdrop-filter: blur(8px);
+}
+
+/* ── Grid do hub de seleção (estilo MK/SF) ──────────────── */
+.roster-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px;
+}
+.roster-cell {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 2px solid var(--panel-border);
+  background: linear-gradient(160deg, #1c1030, #0d0718);
+  cursor: pointer;
+  transition: border-color 0.12s ease, transform 0.12s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.roster-cell:hover {
+  transform: translateY(-2px);
+}
+.roster-cell.selected {
+  border-color: var(--neon);
+  box-shadow: 0 0 26px rgba(255, 46, 136, 0.5);
+}
+.roster-face {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.roster-face-fallback {
+  font-size: 2.4rem;
+  font-weight: 900;
+  color: var(--neon-2);
+}
+
+/* ── Reveal do corpo inteiro ────────────────────────────── */
+.reveal {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 18px;
+  align-items: stretch;
+}
+.reveal-body {
+  min-height: 320px;
+  border-radius: 18px;
+  background: linear-gradient(160deg, #1c1030, #0d0718);
+  border: 1px solid var(--panel-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.reveal-body img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+@media (max-width: 720px) {
+  .reveal {
+    grid-template-columns: 1fr;
+  }
+  .log-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Placar ─────────────────────────────────────────────── */
+.stat-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+.stat {
+  text-align: center;
+  padding: 14px;
+  border-radius: 14px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+}
+.stat .num {
+  font-size: 1.8rem;
+  font-weight: 900;
+}
+.stat .lbl {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+}
+.xp-bar {
+  height: 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+.xp-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--neon-2), var(--neon));
+  transition: width 0.4s ease;
+}
+
+/* ── Hit-confirm (overlay de reforço local) ─────────────── */
+.hit-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+.hit-spark {
+  font-size: clamp(3rem, 14vw, 9rem);
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--gold);
+  text-shadow:
+    0 0 24px var(--neon),
+    0 0 60px var(--neon);
+  animation: hitpop 600ms cubic-bezier(0.2, 1.4, 0.3, 1) forwards;
+}
+@keyframes hitpop {
+  0% {
+    transform: scale(0.4) rotate(-6deg);
+    opacity: 0;
+  }
+  30% {
+    transform: scale(1.15) rotate(2deg);
+    opacity: 1;
+  }
+  70% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.05);
+    opacity: 0;
+  }
+}
+.hit-flash {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at 50% 50%, rgba(255, 46, 136, 0.35), transparent 60%);
+  animation: flash 360ms ease-out forwards;
+  pointer-events: none;
+  z-index: 49;
+}
+@keyframes flash {
+  0% {
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* ── Navegação inferior ─────────────────────────────────── */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+  background: linear-gradient(to top, rgba(10, 6, 18, 0.95), transparent);
+}
+.nav-link {
+  text-decoration: none;
+  padding: 10px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--panel-border);
+  background: var(--panel);
+  font-weight: 700;
+  font-size: 0.85rem;
+}

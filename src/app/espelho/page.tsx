@@ -1,0 +1,75 @@
+// ============================================================
+// Aba-espelho (corpo real) — PASSIVA e ENTERRADA. (TRAVA de exposição)
+// ------------------------------------------------------------
+//  * Só abre quando o usuário clica explicitamente nesta rota.
+//  * O sistema NÃO convoca, não notifica, não puxa o usuário pra cá.
+//    (O gancho de convocação existe em lib/engine/gates.ts, mas DESARMADO.)
+//  * Único lugar com input deliberado fora do registro 1-toque.
+// ============================================================
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import MirrorForm from "@/components/MirrorForm";
+import BottomNav from "@/components/BottomNav";
+
+export default async function EspelhoPage() {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const { data: registros } = await supabase
+    .from("corpo_real")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("ts", { ascending: false })
+    .limit(30);
+
+  return (
+    <main className="app-shell">
+      <h1 className="title-fight" style={{ fontSize: "1.8rem", margin: 0 }}>
+        Espelho
+      </h1>
+      <p className="subtle" style={{ marginTop: 4 }}>
+        Corpo real. Passivo — só você abre, ninguém te chama aqui.
+      </p>
+
+      <MirrorForm />
+
+      <div style={{ marginTop: 20 }}>
+        {(registros ?? []).length === 0 && (
+          <p className="subtle">Nenhum registro ainda.</p>
+        )}
+        {(registros ?? []).map((r) => (
+          <div className="panel" key={r.id} style={{ marginBottom: 10 }}>
+            <div className="subtle">
+              {new Date(r.ts as string).toLocaleString("pt-BR")}
+            </div>
+            <div style={{ marginTop: 4 }}>
+              {r.peso != null && <span>Peso: {r.peso as number}kg · </span>}
+              {(r.medidas as { cintura?: number } | null)?.cintura != null && (
+                <span>
+                  Cintura: {(r.medidas as { cintura: number }).cintura}cm ·{" "}
+                </span>
+              )}
+              {(r.composicao as { gordura_pct?: number } | null)?.gordura_pct !=
+                null && (
+                <span>
+                  Gordura: {(r.composicao as { gordura_pct: number }).gordura_pct}
+                  %
+                </span>
+              )}
+            </div>
+            {r.descricao && (
+              <p className="subtle" style={{ marginTop: 6 }}>
+                {r.descricao as string}
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <BottomNav />
+    </main>
+  );
+}
