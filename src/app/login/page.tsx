@@ -10,6 +10,8 @@ export default function LoginPage() {
   );
   // Erro vindo do callback de auth (ex.: falha na troca do code por sessão).
   const [erroCallback, setErroCallback] = useState<string | null>(null);
+  // Erro do envio do link mágico (ex.: rate limit de e-mail do Supabase).
+  const [erroEnvio, setErroEnvio] = useState<string | null>(null);
 
   useEffect(() => {
     const erro = new URLSearchParams(window.location.search).get("erro");
@@ -26,7 +28,13 @@ export default function LoginPage() {
       email,
       options: { emailRedirectTo: `${appUrl}/auth/callback` },
     });
-    setStatus(error ? "erro" : "enviado");
+    if (error) {
+      setErroEnvio(error.message);
+      setStatus("erro");
+    } else {
+      setErroEnvio(null);
+      setStatus("enviado");
+    }
   }
 
   return (
@@ -69,7 +77,7 @@ export default function LoginPage() {
         )}
         {status === "erro" && (
           <p className="subtle" style={{ color: "var(--neon)" }}>
-            Algo falhou. Tente de novo.
+            {erroEnvio ?? "Algo falhou. Tente de novo."}
           </p>
         )}
       </form>
