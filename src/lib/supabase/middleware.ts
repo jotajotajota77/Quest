@@ -19,7 +19,10 @@ export async function updateSession(request: NextRequest) {
   const publico =
     path.startsWith("/login") ||
     path.startsWith("/auth") ||
-    path.startsWith("/api/spotify/callback");
+    path.startsWith("/api/spotify/callback") ||
+    // Link mágico que cai na raiz com `?code=` precisa passar para a troca
+    // de sessão acontecer (senão o middleware bounce para /login perde o code).
+    request.nextUrl.searchParams.has("code");
 
   const url = request.nextUrl.clone();
   url.pathname = "/login";
