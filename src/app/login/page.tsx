@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
@@ -8,6 +8,13 @@ export default function LoginPage() {
   const [status, setStatus] = useState<"idle" | "enviando" | "enviado" | "erro">(
     "idle",
   );
+  // Erro vindo do callback de auth (ex.: falha na troca do code por sessão).
+  const [erroCallback, setErroCallback] = useState<string | null>(null);
+
+  useEffect(() => {
+    const erro = new URLSearchParams(window.location.search).get("erro");
+    if (erro) setErroCallback(erro);
+  }, []);
 
   async function enviarLink(e: React.FormEvent) {
     e.preventDefault();
@@ -66,6 +73,18 @@ export default function LoginPage() {
           </p>
         )}
       </form>
+
+      {erroCallback && (
+        <div
+          className="panel"
+          style={{ marginTop: 12, borderColor: "var(--neon)" }}
+        >
+          <strong style={{ color: "var(--neon)" }}>Erro no login:</strong>
+          <p className="subtle" style={{ marginTop: 4, wordBreak: "break-word" }}>
+            {erroCallback}
+          </p>
+        </div>
+      )}
     </main>
   );
 }

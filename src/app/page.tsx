@@ -15,7 +15,10 @@ export default async function Index({
   const supabase = createClient();
 
   if (searchParams.code) {
-    await supabase.auth.exchangeCodeForSession(searchParams.code);
+    const { error } = await supabase.auth.exchangeCodeForSession(
+      searchParams.code,
+    );
+    if (error) redirect(`/login?erro=${encodeURIComponent(error.message)}`);
   }
 
   const {
