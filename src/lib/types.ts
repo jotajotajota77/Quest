@@ -116,5 +116,7 @@ export interface DecisaoReforco {
   musica: SpotifyTrack | null;
   /** 'reward' (Nutri, esmaecível) | 'trilha' (Dança, não esmaece) | null. */
   modoAudio: ModoAudio | null;
+  /** Jackpot de comeback (VR extra no retorno após ausência), se disparou. */
+  jackpot: { xp: number; rotulo: string } | null;
   logId?: string;
 }

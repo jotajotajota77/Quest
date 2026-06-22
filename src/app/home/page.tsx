@@ -18,7 +18,9 @@ import {
   registrosHoje,
   spinDeHoje,
   hojeISO,
+  logs7Dias,
 } from "@/lib/data";
+import { analisarSemana } from "@/lib/analise";
 import { calcularStreak } from "@/lib/engine/streak";
 import { mensagemContextual } from "@/lib/voz";
 import Scoreboard from "@/components/Scoreboard";
@@ -38,13 +40,14 @@ export default async function HomePage() {
   const personagem = await personagemDoDia(user.id);
   if (!personagem) redirect("/hub");
 
-  const [attr, dia, comLog, nevoa, nHoje, spin] = await Promise.all([
+  const [attr, dia, comLog, nevoa, nHoje, spin, semana] = await Promise.all([
     garantirAtributos(user.id),
     diaDeHoje(user.id),
     diasComLogSet(user.id),
     diasNevoaSet(user.id),
     registrosHoje(user.id),
     spinDeHoje(user.id),
+    logs7Dias(user.id).then(analisarSemana),
   ]);
 
   const streak = calcularStreak(hojeISO(), comLog, nevoa);
@@ -117,6 +120,16 @@ export default async function HomePage() {
           spin ? { tipo: String(spin.tipo), rotulo: String(spin.rotulo) } : null
         }
       />
+
+      {/* Analisador semanal (passivo) — sugere o foco da próxima semana. */}
+      {semana.total > 0 && (
+        <div className="panel" style={{ marginTop: 16 }}>
+          <div className="lbl">Analisador da semana</div>
+          <div className="subtle" style={{ marginTop: 4 }}>
+            {semana.sugestao}
+          </div>
+        </div>
+      )}
 
       <div style={{ marginTop: 16 }}>
         <FogButton jaEhNevoa={dia.fog_mode} />

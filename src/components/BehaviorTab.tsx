@@ -18,6 +18,7 @@ import {
 import { garantirAtributos, historicoFamilia, personagemDoDia } from "@/lib/data";
 import LogButtons, { type AcaoLog } from "@/components/LogButtons";
 import BottomNav from "@/components/BottomNav";
+import { ABA_PORQUE, HIT_TEMATICO } from "@/lib/aba";
 
 const CORES_BOTAO: Partial<Record<string, string>> = {
   nutri_agua: "linear-gradient(135deg, var(--neon-2), #0077b6)",
@@ -26,9 +27,11 @@ const CORES_BOTAO: Partial<Record<string, string>> = {
 export default async function BehaviorTab({
   familia,
   children,
+  coachAtivo = false,
 }: {
   familia: Familia;
   children?: React.ReactNode;
+  coachAtivo?: boolean;
 }) {
   const supabase = createClient();
   const {
@@ -45,7 +48,7 @@ export default async function BehaviorTab({
   const acoes: AcaoLog[] = cfg.comportamentos.map((c) => ({
     comportamento: c,
     label: LABEL_COMPORTAMENTO[c],
-    hit: c === "nutri_agua" ? "GULP!" : "HIT!",
+    hit: HIT_TEMATICO[c], // flavor temático (cosmético)
     cor: CORES_BOTAO[c],
   }));
 
@@ -82,7 +85,7 @@ export default async function BehaviorTab({
         </div>
       </div>
 
-      <LogButtons acoes={acoes} />
+      <LogButtons acoes={acoes} coachAtivo={coachAtivo} abaPorque={ABA_PORQUE[familia]} />
 
       {cfg.motorInstalacao && (
         <div style={{ marginTop: 16, textAlign: "center" }}>

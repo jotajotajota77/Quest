@@ -22,8 +22,10 @@ import {
   garantirAtributos,
   garantirSchedule,
   personagemDoDia,
+  registrosHoje,
   registrosNutriDesdeUltimaMusica,
   sinalRobustez,
+  ultimaAtividadeAntesDeHoje,
   ultimasLatenciasNutri,
 } from "@/lib/data";
 
@@ -54,6 +56,24 @@ export async function POST(request: Request) {
   const familia = familiaDe(comportamento);
   const cfg = FAMILIAS[familia];
 
+  // 0. Jackpot de comeback (VR extra) — detectado ANTES de inserir o log:
+  //    é o 1º registro de hoje E houve ausência natural (>= 3 dias). Dispara
+  //    uma vez por retorno (os próximos logs do dia já não são o 1º). Sem
+  //    storage: derivado dos próprios logs. Combina com a voz de retorno.
+  const primeiroDeHoje = (await registrosHoje(user.id)) === 0;
+  let jackpot: DecisaoReforco["jackpot"] = null;
+  if (primeiroDeHoje) {
+    const ultima = await ultimaAtividadeAntesDeHoje(user.id);
+    if (ultima) {
+      const gap = Math.round(
+        (Date.now() - new Date(`${ultima}T00:00:00Z`).getTime()) / 86_400_000,
+      );
+      if (gap >= 3) {
+        jackpot = { xp: 50 + 10 * Math.min(gap, 7), rotulo: "Jackpot de retorno!" };
+      }
+    }
+  }
+
   // 1. Grava o log (timestamp automático no banco).
   const { data: log, error: logErr } = await supabase
     .from("logs")
@@ -71,7 +91,7 @@ export async function POST(request: Request) {
 
   // 3. Aplica à progressão ÚNICA do jogador (atributo + XP → Elo).
   const attr = await garantirAtributos(user.id);
-  const novoXp = attr.xp + ganho.total;
+  const novoXp = attr.xp + ganho.total + (jackpot?.xp ?? 0);
   const tier = tierDeXp(novoXp);
   await supabase
     .from("atributos")
@@ -130,6 +150,7 @@ export async function POST(request: Request) {
     esquema,
     musica,
     modoAudio,
+    jackpot,
     logId: log.id,
   };
   return NextResponse.json(resposta);
