@@ -482,3 +482,48 @@ a {
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+/* ============================================================
+   Polimento visual VHYX (leva D) — fontes display + flair.
+   Aditivo; fallbacks garantem que nada quebra se a fonte não carregar.
+   ============================================================ */
+.title-fight {
+  font-family: "Russo One", ui-sans-serif, system-ui, sans-serif;
+}
+.lbl {
+  font-family: "Russo One", ui-sans-serif, system-ui, sans-serif;
+}
+/* Brilho sutil nos painéis + borda viva no hover (desktop). */
+.panel {
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset;
+}
+.roster-cell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 60%, rgba(0, 0, 0, 0.45));
+  pointer-events: none;
+}
+/* Scanline bem leve no fundo, identidade "operador". */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image: repeating-linear-gradient(
+    0deg,
+    rgba(255, 255, 255, 0.012) 0px,
+    rgba(255, 255, 255, 0.012) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+.app-shell {
+  position: relative;
+  z-index: 1;
+}
+/* Nav inferior: item ativo-ish ganha brilho ao tocar. */
+.nav-link:active {
+  border-color: var(--neon);
+}
