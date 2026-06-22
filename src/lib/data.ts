@@ -494,3 +494,56 @@ export async function diaFinalizado(userId: string): Promise<boolean> {
     .maybeSingle();
   return Boolean(data?.finalizado);
 }
+
+// ── food_db (v4): catálogo consultável ──
+import type { Alimento, CategoriaAlimento } from "@/lib/alimentos";
+
+export async function listarFoodDb(): Promise<Alimento[]> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("food_db")
+    .select("*")
+    .order("nome", { ascending: true });
+  return (data ?? []).map((r) => ({
+    id: r.id as string,
+    nome: r.nome as string,
+    cat: r.categoria as CategoriaAlimento,
+    kcal: Number(r.kcal),
+    p: Number(r.proteina),
+    c: Number(r.carbo),
+    g: Number(r.gordura),
+  }));
+}
+
+export async function categoriasFood(): Promise<Map<string, string>> {
+  const supabase = createClient();
+  const { data } = await supabase.from("food_db").select("id, categoria");
+  return new Map((data ?? []).map((r) => [r.id as string, r.categoria as string]));
+}
+
+// ── Fat Loss Coach (v4): 30 dias de logs ricos + peso atual ──
+export async function logsNutri30(userId: string): Promise<LogRow[]> {
+  const supabase = createClient();
+  const desde = new Date(Date.now() - 30 * 86_400_000).toISOString();
+  const { data } = await supabase
+    .from("logs")
+    .select("*")
+    .eq("user_id", userId)
+    .in("comportamento", NUTRI)
+    .gte("ts", desde)
+    .not("kcal", "is", null);
+  return (data ?? []) as LogRow[];
+}
+
+export async function pesoAtual(userId: string): Promise<number | null> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("corpo_real")
+    .select("peso")
+    .eq("user_id", userId)
+    .not("peso", "is", null)
+    .order("ts", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return data?.peso != null ? Number(data.peso) : null;
+}
