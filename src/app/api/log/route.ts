@@ -53,6 +53,9 @@ export async function POST(request: Request) {
     proteina?: number;
     carbs?: number;
     gordura?: number;
+    livro?: string;
+    paginas?: number;
+    minutos?: number;
   };
   const comportamento = body.comportamento;
   if (!comportamento || !COMPORTAMENTOS_VALIDOS.includes(comportamento)) {
@@ -91,9 +94,18 @@ export async function POST(request: Request) {
           gordura: body.gordura ?? null,
         }
       : {};
+  // Detalhes de leitura (livro / páginas / tempo) — opcionais, só p/ leitura.
+  const detalhesLeitura =
+    comportamento === "leitura"
+      ? {
+          livro: body.livro?.trim() ? body.livro.trim() : null,
+          paginas: body.paginas != null ? Math.round(body.paginas) : null,
+          minutos: body.minutos != null ? Math.round(body.minutos) : null,
+        }
+      : {};
   const { data: log, error: logErr } = await supabase
     .from("logs")
-    .insert({ user_id: user.id, comportamento, ...macros })
+    .insert({ user_id: user.id, comportamento, ...macros, ...detalhesLeitura })
     .select("id, ts")
     .single();
   if (logErr || !log) {

@@ -54,7 +54,9 @@ export default async function BehaviorTab({
   const personagem = await personagemDoDia(user.id);
   const roster = await rosterDesbloqueado();
   const dono = donoDoAtributo(roster, familia);
-  const heroNome = personagem?.nome ?? dono?.nome ?? cfg.label;
+  // O hero da aba lidera pelo DONO do atributo (ver candidatosHero) — o nome
+  // exibido acompanha a imagem para não descasar legenda e retrato.
+  const heroNome = dono?.nome ?? personagem?.nome ?? cfg.label;
   const bonusAtivo = personagem?.comportamento_alvo === familia;
   const historico = await historicoFamilia(user.id, cfg.comportamentos);
 
@@ -72,15 +74,7 @@ export default async function BehaviorTab({
         nome={heroNome}
         altura={180}
       />
-      <div
-        className="panel"
-        style={{
-          marginBottom: 16,
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
-      >
+      <div className="panel tab-header" style={{ marginBottom: 16 }}>
         <div>
           <h1 className="title-fight" style={{ fontSize: "1.8rem", margin: 0 }}>
             {cfg.label}

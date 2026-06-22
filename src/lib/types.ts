@@ -81,6 +81,9 @@ export interface LogRow {
   proteina?: number | null;
   carbs?: number | null;
   gordura?: number | null;
+  livro?: string | null;
+  paginas?: number | null;
+  minutos?: number | null;
 }
 
 export interface SpotifyTrack {

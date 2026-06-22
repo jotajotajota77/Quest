@@ -527,3 +527,74 @@ body::before {
 .nav-link:active {
   border-color: var(--neon);
 }
+
+/* ============================================================
+   Correções de organização / sobreposição (afinamento).
+   ============================================================ */
+
+/* Timer de descanso: flutua ACIMA da nav inferior (bottom:0, ~60px) e abaixo
+   dos modais (z-60) e do hit-confirm (z-50). Recolhido vira uma pílula. */
+.rest-fab {
+  position: fixed;
+  right: 14px;
+  bottom: 84px;
+  z-index: 35;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--panel-border);
+  background: rgba(20, 10, 36, 0.92);
+  color: var(--text-dim);
+  font-weight: 700;
+  font-size: 0.74rem;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(6px);
+}
+.rest-fab:active {
+  transform: scale(0.96);
+  border-color: var(--neon-2);
+}
+.rest-timer {
+  position: fixed;
+  right: 14px;
+  bottom: 84px;
+  z-index: 35;
+  max-width: 220px;
+  background: rgba(20, 10, 36, 0.96);
+  border: 1px solid var(--panel-border);
+  border-radius: 14px;
+  padding: 10px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+}
+
+/* Cabeçalho das abas de comportamento: não espremer/sobrepor o texto da
+   direita no celular — empilha quando falta largura. */
+.tab-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.tab-header > div:last-child {
+  text-align: right;
+}
+@media (max-width: 560px) {
+  .tab-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .tab-header > div:last-child {
+    text-align: left;
+  }
+  /* Hero um pouco mais baixo no celular pra sobrar tela pro conteúdo. */
+  .hero-contexto {
+    max-height: 200px;
+  }
+  /* Pílula do timer recolhida não some atrás da nav que rola. */
+  .rest-fab,
+  .rest-timer {
+    bottom: 88px;
+  }
+}

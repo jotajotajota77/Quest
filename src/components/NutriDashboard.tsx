@@ -21,6 +21,7 @@ import {
   type Alimento,
   type CategoriaAlimento,
 } from "@/lib/alimentos";
+import { MODELOS_DIETA } from "@/lib/dietas";
 import { useHitConfirm } from "@/components/HitConfirm";
 import { tocarUri } from "@/lib/spotify/playback";
 
@@ -37,7 +38,13 @@ export default function NutriDashboard({
   const [busca, setBusca] = useState("");
   const [porcao, setPorcao] = useState("100");
   const [ocupado, setOcupado] = useState(false);
+  const [modeloId, setModeloId] = useState<string | null>(null);
+  const [gramasModelo, setGramasModelo] = useState<Record<string, string>>({});
 
+  const porId = useMemo(
+    () => new Map(alimentos.map((f) => [f.id, f])),
+    [alimentos],
+  );
   const nomePorId = useMemo(
     () => new Map(alimentos.map((f) => [f.id, f.nome])),
     [alimentos],
@@ -106,6 +113,40 @@ export default function NutriDashboard({
     setOcupado(false);
   }
 
+  // Registro em lote a partir de um modelo de dieta. Cada item vira um log de
+  // nutri_refeicao (conta XP/atributo normalmente). A música (camada de reward)
+  // é suprimida no lote pra não disparar N faixas de uma vez — o registro
+  // avulso de alimento (acima) segue entregando a música normalmente.
+  async function registrarItens(itens: { foodId: string; gramas: number }[]) {
+    if (ocupado) return;
+    setOcupado(true);
+    fire("REFEIÇÃO!");
+    for (const it of itens) {
+      const al = porId.get(it.foodId);
+      if (!al) continue;
+      const g = it.gramas || 100;
+      const m = escalar(al, g);
+      try {
+        await fetch("/api/log", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            comportamento: "nutri_refeicao",
+            food_id: al.id,
+            kcal: m.kcal,
+            proteina: m.p,
+            carbs: m.c,
+            gordura: m.g,
+          }),
+        });
+      } catch {
+        /* segue o lote; o que entrou já contou */
+      }
+    }
+    router.refresh();
+    setOcupado(false);
+  }
+
   async function remover(id: string) {
     await fetch(`/api/log?id=${id}`, { method: "DELETE" }).catch(() => {});
     router.refresh();
@@ -125,10 +166,110 @@ export default function NutriDashboard({
         </div>
       </div>
 
+      {/* Modelos de dieta prontos — só ajustar as gramas e registrar. */}
+      <div className="panel" style={{ marginTop: 12 }}>
+        <div className="lbl" style={{ marginBottom: 8 }}>
+          Modelos de dieta · só ajuste as quantidades
+        </div>
+        <div className="chips-row">
+          {MODELOS_DIETA.map((d) => (
+            <button
+              key={d.id}
+              className="chip"
+              style={{
+                borderColor: modeloId === d.id ? "var(--gold)" : "var(--panel-border)",
+                color: modeloId === d.id ? "var(--gold)" : "var(--text-dim)",
+              }}
+              onClick={() => setModeloId(modeloId === d.id ? null : d.id)}
+            >
+              {d.nome}
+            </button>
+          ))}
+        </div>
+
+        {(() => {
+          const modelo = MODELOS_DIETA.find((d) => d.id === modeloId);
+          if (!modelo) return null;
+          // grama resolvida (override do usuário ou padrão do modelo).
+          const gramaDe = (refIdx: number, i: number, padrao: number) => {
+            const k = `${modelo.id}:${refIdx}:${i}`;
+            const v = gramasModelo[k];
+            return { k, g: v != null && v !== "" ? Number(v) || padrao : padrao };
+          };
+          return (
+            <div style={{ marginTop: 10 }}>
+              <p className="subtle" style={{ margin: "0 0 10px" }}>{modelo.descricao}</p>
+              {modelo.refeicoes.map((ref, refIdx) => {
+                const resolvidos = ref.itens.map((it, i) => {
+                  const { g } = gramaDe(refIdx, i, it.gramas);
+                  return { foodId: it.foodId, gramas: g };
+                });
+                return (
+                  <div className="panel" key={ref.nome} style={{ marginBottom: 10, padding: 12 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      <strong>{ref.nome}</strong>
+                      <button
+                        className="btn btn-primary"
+                        style={{ padding: "6px 12px" }}
+                        disabled={ocupado}
+                        onClick={() => registrarItens(resolvidos)}
+                      >
+                        Registrar refeição
+                      </button>
+                    </div>
+                    {ref.itens.map((it, i) => {
+                      const al = porId.get(it.foodId);
+                      if (!al) return null;
+                      const { k, g } = gramaDe(refIdx, i, it.gramas);
+                      const m = escalar(al, g);
+                      return (
+                        <div className="set-row" key={k}>
+                          <span style={{ flex: 1 }}>{al.nome}</span>
+                          <input
+                            type="number"
+                            value={gramasModelo[k] ?? String(it.gramas)}
+                            onChange={(e) =>
+                              setGramasModelo((s) => ({ ...s, [k]: e.target.value }))
+                            }
+                            style={{ ...inputStyle, flex: "0 0 64px", width: 64, padding: 8 }}
+                            aria-label={`gramas de ${al.nome}`}
+                          />
+                          <span className="subtle">g</span>
+                          <span className="subtle" style={{ flex: "0 0 auto", fontSize: "0.7rem" }}>
+                            {m.kcal}kcal
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+              <button
+                className="btn"
+                style={{ width: "100%" }}
+                disabled={ocupado}
+                onClick={() =>
+                  registrarItens(
+                    modelo.refeicoes.flatMap((ref, refIdx) =>
+                      ref.itens.map((it, i) => ({
+                        foodId: it.foodId,
+                        gramas: gramaDe(refIdx, i, it.gramas).g,
+                      })),
+                    ),
+                  )
+                }
+              >
+                Registrar o dia inteiro
+              </button>
+            </div>
+          );
+        })()}
+      </div>
+
       {/* Seletor de alimentos */}
       <div className="panel" style={{ marginTop: 12 }}>
         <div className="lbl" style={{ marginBottom: 8 }}>
-          Adicionar alimento
+          Adicionar alimento avulso
         </div>
         <div className="chips-row">
           {CATEGORIAS.map((c) => (
