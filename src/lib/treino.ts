@@ -18,52 +18,105 @@ export const PRESETS: Record<Preset, { rotulo: string; itens: ExercicioPreset[] 
   ABC: {
     rotulo: "ABC",
     itens: [
+      // A — Peito / Ombro / Tríceps
       { nome: "Supino reto", grupo: "peito", split: "A" },
       { nome: "Supino inclinado", grupo: "peito", split: "A" },
+      { nome: "Crucifixo", grupo: "peito", split: "A" },
+      { nome: "Desenvolvimento", grupo: "ombro", split: "A" },
+      { nome: "Elevação lateral", grupo: "ombro", split: "A" },
       { nome: "Tríceps corda", grupo: "triceps", split: "A" },
       { nome: "Tríceps testa", grupo: "triceps", split: "A" },
+      // B — Costas / Bíceps
       { nome: "Barra fixa", grupo: "costas", split: "B" },
+      { nome: "Puxada", grupo: "costas", split: "B" },
       { nome: "Remada curvada", grupo: "costas", split: "B" },
+      { nome: "Remada baixa", grupo: "costas", split: "B" },
       { nome: "Rosca direta", grupo: "biceps", split: "B" },
       { nome: "Rosca martelo", grupo: "biceps", split: "B" },
+      // C — Pernas
       { nome: "Agachamento", grupo: "pernas", split: "C" },
       { nome: "Leg press", grupo: "pernas", split: "C" },
-      { nome: "Desenvolvimento", grupo: "ombro", split: "C" },
-      { nome: "Elevação lateral", grupo: "ombro", split: "C" },
+      { nome: "Cadeira extensora", grupo: "pernas", split: "C" },
+      { nome: "Stiff", grupo: "posterior", split: "C" },
+      { nome: "Mesa flexora", grupo: "posterior", split: "C" },
+      { nome: "Panturrilha em pé", grupo: "panturrilha", split: "C" },
     ],
   },
   UL: {
     rotulo: "Upper / Lower",
     itens: [
+      // Upper
       { nome: "Supino reto", grupo: "peito", split: "upper" },
+      { nome: "Supino inclinado", grupo: "peito", split: "upper" },
       { nome: "Remada curvada", grupo: "costas", split: "upper" },
+      { nome: "Puxada", grupo: "costas", split: "upper" },
       { nome: "Desenvolvimento", grupo: "ombro", split: "upper" },
+      { nome: "Elevação lateral", grupo: "ombro", split: "upper" },
       { nome: "Rosca direta", grupo: "biceps", split: "upper" },
       { nome: "Tríceps corda", grupo: "triceps", split: "upper" },
+      // Lower
       { nome: "Agachamento", grupo: "pernas", split: "lower" },
-      { nome: "Stiff", grupo: "posterior", split: "lower" },
       { nome: "Leg press", grupo: "pernas", split: "lower" },
       { nome: "Cadeira extensora", grupo: "pernas", split: "lower" },
+      { nome: "Stiff", grupo: "posterior", split: "lower" },
+      { nome: "Mesa flexora", grupo: "posterior", split: "lower" },
       { nome: "Panturrilha em pé", grupo: "panturrilha", split: "lower" },
     ],
   },
   PPL: {
     rotulo: "Push / Pull / Legs",
     itens: [
+      // Push — Peito / Ombro / Tríceps
       { nome: "Supino reto", grupo: "peito", split: "push" },
+      { nome: "Supino inclinado", grupo: "peito", split: "push" },
+      { nome: "Crucifixo", grupo: "peito", split: "push" },
       { nome: "Desenvolvimento", grupo: "ombro", split: "push" },
       { nome: "Elevação lateral", grupo: "ombro", split: "push" },
       { nome: "Tríceps corda", grupo: "triceps", split: "push" },
+      { nome: "Tríceps testa", grupo: "triceps", split: "push" },
+      // Pull — Costas / Bíceps
       { nome: "Barra fixa", grupo: "costas", split: "pull" },
+      { nome: "Puxada", grupo: "costas", split: "pull" },
       { nome: "Remada curvada", grupo: "costas", split: "pull" },
+      { nome: "Remada baixa", grupo: "costas", split: "pull" },
       { nome: "Rosca direta", grupo: "biceps", split: "pull" },
       { nome: "Rosca martelo", grupo: "biceps", split: "pull" },
+      // Legs — Pernas
       { nome: "Agachamento", grupo: "pernas", split: "legs" },
+      { nome: "Leg press", grupo: "pernas", split: "legs" },
+      { nome: "Cadeira extensora", grupo: "pernas", split: "legs" },
       { nome: "Stiff", grupo: "posterior", split: "legs" },
+      { nome: "Mesa flexora", grupo: "posterior", split: "legs" },
       { nome: "Panturrilha em pé", grupo: "panturrilha", split: "legs" },
     ],
   },
 };
+
+/** Rótulo amigável de cada grupo muscular (para mostrar no split). */
+export const GRUPO_LABEL: Record<string, string> = {
+  peito: "Peito",
+  costas: "Costas",
+  ombro: "Ombro",
+  biceps: "Bíceps",
+  triceps: "Tríceps",
+  pernas: "Pernas",
+  posterior: "Posterior",
+  panturrilha: "Panturrilha",
+  core: "Core",
+};
+
+/** Grupos distintos de um split (ex.: "Peito / Ombro / Tríceps"). */
+export function gruposDoSplit(
+  itens: { grupo_muscular?: string | null }[],
+): string {
+  const seen: string[] = [];
+  for (const it of itens) {
+    const g = it.grupo_muscular ?? "";
+    const lbl = GRUPO_LABEL[g] ?? (g || "");
+    if (lbl && !seen.includes(lbl)) seen.push(lbl);
+  }
+  return seen.join(" / ");
+}
 
 /** Pool de alternativas por grupo muscular — base do botão "Variar". */
 export const ALTERNATIVAS: Record<string, string[]> = {

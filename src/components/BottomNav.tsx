@@ -1,30 +1,38 @@
-// Navegação inferior. As 4 abas de comportamento + Home + Hub. A aba-espelho
-// fica como link discreto (opacidade baixa) — nunca convoca (TRAVA).
-import Link from "next/link";
+"use client";
 
-const LINKS: { href: string; label: string; dim?: boolean }[] = [
-  { href: "/home", label: "Home" },
-  { href: "/treino", label: "Treino" },
-  { href: "/nutri", label: "Nutri" },
-  { href: "/leitura", label: "Leitura" },
-  { href: "/danca", label: "Dança" },
-  { href: "/hub", label: "Trocar" },
-  { href: "/espelho", label: "Espelho", dim: true },
+// Barra de abas inferior (fixa). As 4 famílias + Home, mais utilidades (Trocar,
+// Espelho). A aba atual fica MARCADA (cor + fundo). Espelho é discreto — nunca
+// convoca (TRAVA). Vira tab bar de app, não pílulas soltas.
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+
+const LINKS: { href: string; label: string; ico: string; dim?: boolean }[] = [
+  { href: "/home", label: "Home", ico: "🏠" },
+  { href: "/treino", label: "Treino", ico: "🏋️" },
+  { href: "/nutri", label: "Nutri", ico: "🍎" },
+  { href: "/leitura", label: "Leitura", ico: "📖" },
+  { href: "/danca", label: "Dança", ico: "🕺" },
+  { href: "/hub", label: "Trocar", ico: "🔄" },
+  { href: "/espelho", label: "Espelho", ico: "🪞", dim: true },
 ];
 
 export default function BottomNav() {
+  const pathname = usePathname();
   return (
-    <nav className="bottom-nav" style={{ flexWrap: "wrap" }}>
-      {LINKS.map((l) => (
-        <Link
-          key={l.href}
-          className="nav-link"
-          href={l.href}
-          style={l.dim ? { opacity: 0.55 } : undefined}
-        >
-          {l.label}
-        </Link>
-      ))}
+    <nav className="tabbar">
+      {LINKS.map((l) => {
+        const ativo = pathname === l.href || pathname?.startsWith(l.href + "/");
+        return (
+          <Link
+            key={l.href}
+            className={`tab${ativo ? " active" : ""}${l.dim ? " dim" : ""}`}
+            href={l.href}
+          >
+            <span className="tab-ico">{l.ico}</span>
+            <span className="tab-lbl">{l.label}</span>
+          </Link>
+        );
+      })}
     </nav>
   );
 }

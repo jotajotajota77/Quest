@@ -15,6 +15,7 @@ import {
   GLOSSARIO,
   GRUPOS,
   PRESETS,
+  gruposDoSplit,
   type Preset,
 } from "@/lib/treino";
 import { useHitConfirm } from "@/components/HitConfirm";
@@ -47,6 +48,14 @@ export default function TrainingModule({
   const [ocupado, setOcupado] = useState(false);
 
   const splits = useMemo(() => [...new Set(plano.map((e) => e.split ?? "—"))], [plano]);
+  // Rótulo de músculos por split (ex.: A → "Peito / Ombro / Tríceps").
+  const gruposPorSplit = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const s of new Set(plano.map((e) => e.split ?? "—"))) {
+      m.set(s, gruposDoSplit(plano.filter((e) => (e.split ?? "—") === s)));
+    }
+    return m;
+  }, [plano]);
   const histPorNome = useMemo(() => agruparPorNome(series), [series]);
   const hojePorNome = useMemo(() => agruparPorNome(seriesHoje), [seriesHoje]);
 
@@ -160,16 +169,20 @@ export default function TrainingModule({
       </div>
 
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", margin: "10px 0" }}>
-        {splits.map((s) => (
-          <button
-            key={s}
-            className="chip"
-            style={{ borderColor: s === splitAlvo ? "var(--neon)" : "var(--panel-border)", textTransform: "uppercase" }}
-            onClick={() => setSplitAtivo(s)}
-          >
-            {s}
-          </button>
-        ))}
+        {splits.map((s) => {
+          const grupos = gruposPorSplit.get(s);
+          return (
+            <button
+              key={s}
+              className="chip"
+              style={{ borderColor: s === splitAlvo ? "var(--neon)" : "var(--panel-border)" }}
+              onClick={() => setSplitAtivo(s)}
+            >
+              <span style={{ textTransform: "uppercase", fontWeight: 800 }}>{s}</span>
+              {grupos && <span style={{ color: "var(--text-dim)" }}> · {grupos}</span>}
+            </button>
+          );
+        })}
       </div>
 
       {/* Sessão do dia — invólucro com encerramento explícito. */}
@@ -185,7 +198,10 @@ export default function TrainingModule({
         }}
       >
         <div>
-          <div className="lbl">Sessão de hoje · {splitAlvo}</div>
+          <div className="lbl">
+            Sessão de hoje · {splitAlvo}
+            {gruposPorSplit.get(splitAlvo) ? ` · ${gruposPorSplit.get(splitAlvo)}` : ""}
+          </div>
           <div className="subtle" style={{ marginTop: 2 }}>
             {feitosHoje}/{exercicios.length} exercícios com série hoje
           </div>
