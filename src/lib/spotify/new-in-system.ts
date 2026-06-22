@@ -1,11 +1,10 @@
 // ============================================================
-// "Nova-no-sistema" — faixa que o app AINDA NÃO TOCOU para este usuário.
+// Faixa ALEATÓRIA (descoberta) — música nova a cada reforço, NÃO da biblioteca
+// curtida do usuário. Mantém a novidade ("nova-no-sistema"): filtra o que já
+// tocou via `historico_reforco` pra não repetir.
 // ------------------------------------------------------------
-//  * Critério é o HISTÓRICO INTERNO (`historico_reforco`), NÃO a data de
-//    lançamento da faixa.
-//  * Lê a biblioteca do usuário (saved tracks) via Web API, exclui as já
-//    tocadas e devolve a próxima inédita. A marcação como "tocada" acontece
-//    no histórico quando o reforço é registrado (ver /api/spotify/mark-played).
+//  * Fonte: Search da Web API (gênero/mood aleatório + offset aleatório).
+//    (A API de Recommendations foi descontinuada para apps novos.)
 //  * Se o Spotify não responder, retorna null — o loop central segue com o
 //    hit-confirm local (fallback). A música é bônus, não piso.
 // ============================================================
@@ -14,18 +13,27 @@ import type { SpotifyTrack } from "@/lib/types";
 import { createClient } from "@/lib/supabase/server";
 import { getAccessTokenValido, spotifyGet } from "@/lib/spotify/client";
 
-interface SavedTracksResp {
-  items: Array<{
-    track: {
+interface SearchResp {
+  tracks?: {
+    items: Array<{
       id: string;
       uri: string;
       name: string;
       artists: Array<{ name: string }>;
       album: { images: Array<{ url: string }> };
-    } | null;
-  }>;
-  next: string | null;
+    } | null>;
+  };
 }
+
+// Sementes de busca — gosto do usuário: pop, k-pop, rock, indie, folk e afins.
+const SEEDS = [
+  "pop", "k-pop", "rock", "indie pop", "indie", "indie rock", "folk",
+  "indie folk", "folk pop", "alt pop", "art pop", "synth pop", "dream pop",
+  "bedroom pop", "hyperpop", "electropop", "dance pop", "pop rock",
+  "alternative", "alternative rock", "new wave", "britpop", "j-pop",
+  "soft rock", "disco", "synthwave", "singer-songwriter", "chamber pop",
+  "shoegaze", "city pop", "pop punk", "power pop",
+];
 
 /** Ids de faixas já tocadas (faixa_cheia) para este usuário. */
 async function faixasJaTocadas(userId: string): Promise<Set<string>> {
@@ -39,9 +47,9 @@ async function faixasJaTocadas(userId: string): Promise<Set<string>> {
 }
 
 /**
- * Seleciona a próxima faixa nova-no-sistema. Varre a biblioteca salva em
- * páginas até achar uma faixa fora do histórico. Retorna null se Spotify
- * indisponível ou se não houver inédita (→ fallback local cuida do reforço).
+ * Seleciona uma faixa aleatória inédita. Tenta algumas combinações de
+ * gênero+offset até achar uma fora do histórico. Retorna null se o Spotify
+ * estiver indisponível (→ fallback local cuida do reforço).
  */
 export async function proximaFaixaNova(
   userId: string,
@@ -51,29 +59,26 @@ export async function proximaFaixaNova(
 
   const tocadas = await faixasJaTocadas(userId);
 
-  let path: string | null = "/me/tracks?limit=50";
-  let paginas = 0;
-  while (path && paginas < 10) {
-    const page: SavedTracksResp | null = await spotifyGet<SavedTracksResp>(
+  for (let tentativa = 0; tentativa < 6; tentativa++) {
+    const seed = SEEDS[Math.floor(Math.random() * SEEDS.length)];
+    const offset = Math.floor(Math.random() * 900); // search cap: offset+limit ≤ 1000
+    const q = encodeURIComponent(seed);
+    const page = await spotifyGet<SearchResp>(
       token,
-      path,
+      `/search?q=${q}&type=track&limit=20&offset=${offset}&market=BR`,
     );
-    if (!page) return null; // falha de rede/token → fallback
-    for (const item of page.items) {
-      const t = item.track;
-      if (!t || !t.id) continue;
-      if (tocadas.has(t.id)) continue;
-      return {
-        id: t.id,
-        uri: t.uri,
-        nome: t.name,
-        artistas: t.artists.map((a) => a.name).join(", "),
-        capa: t.album.images?.[0]?.url ?? null,
-      };
-    }
-    // próxima página: a API devolve URL absoluta em `next`.
-    path = page.next ? page.next.replace("https://api.spotify.com/v1", "") : null;
-    paginas++;
+    const itens = (page?.tracks?.items ?? []).filter(
+      (t): t is NonNullable<typeof t> => !!t && !!t.id && !tocadas.has(t.id),
+    );
+    if (itens.length === 0) continue;
+    const t = itens[Math.floor(Math.random() * itens.length)];
+    return {
+      id: t.id,
+      uri: t.uri,
+      nome: t.name,
+      artistas: t.artists.map((a) => a.name).join(", "),
+      capa: t.album.images?.[0]?.url ?? null,
+    };
   }
-  return null; // biblioteca esgotada sem inéditas
+  return null; // Spotify não retornou faixa inédita nesta rodada → fallback
 }
