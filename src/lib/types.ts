@@ -36,20 +36,31 @@ export interface BonusPersonagem {
   valor: number; // 0.25 = +25%
 }
 
+/** Imagens de ação/atributo por contexto (urls), todas opcionais. */
+export interface AssetsContexto {
+  treino?: string;
+  nutri?: string;
+  leitura?: string;
+  danca?: string;
+  atributo?: string;
+}
+
 export interface Personagem {
   id: string;
   slug: string;
   nome: string;
   titulo: string | null;
-  atributo_foco: Atributo;
-  comportamento_alvo: Familia;
-  bonus: BonusPersonagem;
+  atributo_foco: Atributo | null;
+  comportamento_alvo: Familia | null;
+  bonus: BonusPersonagem | null;
   asset_rosto: string | null;
   asset_corpo: string | null;
+  assets_contexto: AssetsContexto | null;
   bio: string | null;
   lore: string | null;
   ativo: boolean;
   ordem: number;
+  desbloqueado: boolean;
 }
 
 export interface ScheduleState {

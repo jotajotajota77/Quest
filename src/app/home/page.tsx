@@ -11,20 +11,27 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import {
   diaDeHoje,
+  diaFinalizado,
   diasComLogSet,
   diasNevoaSet,
+  familiasLogadasHoje,
   garantirAtributos,
   personagemDoDia,
   registrosHoje,
   spinDeHoje,
   hojeISO,
   logs7Dias,
+  trackersHoje,
 } from "@/lib/data";
+import ProtocoloCard from "@/components/ProtocoloCard";
+import FinalizarDiaButton from "@/components/FinalizarDiaButton";
 import { analisarSemana } from "@/lib/analise";
 import { calcularStreak } from "@/lib/engine/streak";
 import { mensagemContextual } from "@/lib/voz";
 import Scoreboard from "@/components/Scoreboard";
 import BottomNav from "@/components/BottomNav";
+import ContextualHero from "@/components/ContextualHero";
+import { candidatosHero } from "@/lib/heroi";
 import FogButton from "@/components/FogButton";
 import DailySpin from "@/components/DailySpin";
 import LoreButton from "@/components/LoreButton";
@@ -40,15 +47,19 @@ export default async function HomePage() {
   const personagem = await personagemDoDia(user.id);
   if (!personagem) redirect("/hub");
 
-  const [attr, dia, comLog, nevoa, nHoje, spin, semana] = await Promise.all([
-    garantirAtributos(user.id),
-    diaDeHoje(user.id),
-    diasComLogSet(user.id),
-    diasNevoaSet(user.id),
-    registrosHoje(user.id),
-    spinDeHoje(user.id),
-    logs7Dias(user.id).then(analisarSemana),
-  ]);
+  const [attr, dia, comLog, nevoa, nHoje, spin, semana, nucleo, trackers, finalizado] =
+    await Promise.all([
+      garantirAtributos(user.id),
+      diaDeHoje(user.id),
+      diasComLogSet(user.id),
+      diasNevoaSet(user.id),
+      registrosHoje(user.id),
+      spinDeHoje(user.id),
+      logs7Dias(user.id).then(analisarSemana),
+      familiasLogadasHoje(user.id),
+      trackersHoje(user.id),
+      diaFinalizado(user.id),
+    ]);
 
   const streak = calcularStreak(hojeISO(), comLog, nevoa);
   const voz = mensagemContextual({
@@ -61,6 +72,13 @@ export default async function HomePage() {
 
   return (
     <main className="app-shell">
+      {/* Presença: hero contextual do protagonista do dia. */}
+      <ContextualHero
+        candidatos={candidatosHero("home", personagem, null)}
+        nome={personagem.nome}
+        altura={220}
+      />
+
       {/* Voz contextual / body-doubling — o protagonista fala. */}
       <div
         className="panel"
@@ -115,6 +133,9 @@ export default async function HomePage() {
         <div className="subtle">A âncora do dia. Comece por aqui.</div>
       </Link>
 
+      {/* Protocolo diário — quick-log de tracking (núcleo + trackers leves). */}
+      <ProtocoloCard nucleoInicial={[...nucleo]} trackersInicial={trackers} />
+
       <DailySpin
         recompensaInicial={
           spin ? { tipo: String(spin.tipo), rotulo: String(spin.rotulo) } : null
@@ -134,6 +155,8 @@ export default async function HomePage() {
       <div style={{ marginTop: 16 }}>
         <FogButton jaEhNevoa={dia.fog_mode} />
       </div>
+
+      <FinalizarDiaButton finalizado={finalizado} />
 
       <BottomNav />
     </main>

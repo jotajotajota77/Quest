@@ -20,7 +20,8 @@ export function pctBonus(
   personagem: Personagem | null,
   comportamento: Comportamento,
 ): number {
-  if (!personagem || !personagem.ativo) return 0;
+  if (!personagem || !personagem.ativo || !personagem.desbloqueado) return 0;
+  if (!personagem.bonus) return 0; // slot bloqueado / sem bônus definido
   // Personagem de outra família não soma — mas também não subtrai a base.
   if (personagem.comportamento_alvo !== familiaDe(comportamento)) return 0;
   if (personagem.bonus.tipo !== "pct") return 0;

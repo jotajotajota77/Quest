@@ -15,9 +15,17 @@ import {
   LABEL_ATRIBUTO,
   LABEL_COMPORTAMENTO,
 } from "@/lib/comportamentos";
-import { garantirAtributos, historicoFamilia, personagemDoDia } from "@/lib/data";
+import {
+  donoDoAtributo,
+  garantirAtributos,
+  historicoFamilia,
+  personagemDoDia,
+  rosterDesbloqueado,
+} from "@/lib/data";
 import LogButtons, { type AcaoLog } from "@/components/LogButtons";
 import BottomNav from "@/components/BottomNav";
+import ContextualHero from "@/components/ContextualHero";
+import { candidatosHero } from "@/lib/heroi";
 import { ABA_PORQUE, HIT_TEMATICO } from "@/lib/aba";
 
 const CORES_BOTAO: Partial<Record<string, string>> = {
@@ -44,6 +52,9 @@ export default async function BehaviorTab({
   const cfg = FAMILIAS[familia];
   const attr = await garantirAtributos(user.id);
   const personagem = await personagemDoDia(user.id);
+  const roster = await rosterDesbloqueado();
+  const dono = donoDoAtributo(roster, familia);
+  const heroNome = personagem?.nome ?? dono?.nome ?? cfg.label;
   const bonusAtivo = personagem?.comportamento_alvo === familia;
   const historico = await historicoFamilia(user.id, cfg.comportamentos);
 
@@ -56,6 +67,11 @@ export default async function BehaviorTab({
 
   return (
     <main className="app-shell">
+      <ContextualHero
+        candidatos={candidatosHero(familia, personagem, dono)}
+        nome={heroNome}
+        altura={180}
+      />
       <div
         className="panel"
         style={{
