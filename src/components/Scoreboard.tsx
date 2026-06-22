@@ -2,7 +2,7 @@
 // protagonista. Apresentacional — recebe a progressão ÚNICA já resolvida.
 import Link from "next/link";
 import type { Atributos, Personagem } from "@/lib/types";
-import { tierDeXp } from "@/lib/engine/tier";
+import { tierDeXp, TOTAL_RANKS } from "@/lib/engine/tier";
 import { FAMILIAS, FAMILIAS_ORDEM, LABEL_ATRIBUTO } from "@/lib/comportamentos";
 
 const COR_ATRIBUTO: Record<string, string> = {
@@ -28,20 +28,22 @@ export default function Scoreboard({
           display: "flex",
           justifyContent: "space-between",
           alignItems: "baseline",
+          gap: 8,
+          flexWrap: "wrap",
         }}
       >
         <h2 style={{ margin: 0 }} className="title-fight">
-          {tier.sigla}
+          {tier.nomeDivisao}
         </h2>
-        <span className="subtle">{tier.base.nome}</span>
+        <span className="subtle">nível {tier.rank + 1} de {TOTAL_RANKS}</span>
       </div>
 
       <div className="xp-bar" style={{ margin: "12px 0 4px" }}>
         <div className="xp-fill" style={{ width: `${tier.pctParaProximo}%` }} />
       </div>
       <div className="subtle" style={{ fontSize: "0.72rem" }}>
-        {tier.proximoRotulo
-          ? `${tier.xpNoRank}/${tier.xpDoRank} XP → ${tier.proximoRotulo}`
+        {tier.proximoNomeDivisao
+          ? `${tier.xpNoRank}/${tier.xpDoRank} XP → ${tier.proximoNomeDivisao}`
           : "rank máximo"}
       </div>
 

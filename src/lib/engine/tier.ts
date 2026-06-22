@@ -39,10 +39,12 @@ export interface Tier {
   divisao: string; // 'IV'|'III'|'II'|'I'
   sigla: string; // ex.: 'C-III'
   rotulo: string; // ex.: 'C-III · Operador'
+  nomeDivisao: string; // ex.: 'Operador III' (nome por extenso, reforçador)
   xpNoRank: number; // xp acima do piso do rank atual
   xpDoRank: number; // tamanho do rank atual (piso→próximo)
   pctParaProximo: number; // 0..100
-  proximoRotulo: string | null;
+  proximoRotulo: string | null; // sigla do próximo (ex.: 'C-II')
+  proximoNomeDivisao: string | null; // ex.: 'Operador II'
 }
 
 export function tierDeXp(xp: number): Tier {
@@ -62,10 +64,12 @@ export function tierDeXp(xp: number): Tier {
   const noMax = r + 1 >= TOTAL_RANKS;
 
   let proximoRotulo: string | null = null;
+  let proximoNomeDivisao: string | null = null;
   if (!noMax) {
     const nbIdx = Math.floor((r + 1) / DIVISOES.length);
     const ndIdx = (r + 1) % DIVISOES.length;
     proximoRotulo = `${BASES[nbIdx].sigla}-${DIVISOES[ndIdx]}`;
+    proximoNomeDivisao = `${BASES[nbIdx].nome} ${DIVISOES[ndIdx]}`;
   }
 
   return {
@@ -74,9 +78,11 @@ export function tierDeXp(xp: number): Tier {
     divisao,
     sigla,
     rotulo: `${sigla} · ${base.nome}`,
+    nomeDivisao: `${base.nome} ${divisao}`,
     xpNoRank,
     xpDoRank,
     pctParaProximo: noMax ? 100 : Math.min(100, (xpNoRank / xpDoRank) * 100),
     proximoRotulo,
+    proximoNomeDivisao,
   };
 }

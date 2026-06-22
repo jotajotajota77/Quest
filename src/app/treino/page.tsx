@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import {
+  perfilDe,
   planoTreino,
   seriesDeHoje,
   seriesRecentes,
@@ -10,6 +11,7 @@ import {
 } from "@/lib/data";
 import BehaviorTab from "@/components/BehaviorTab";
 import TrainingModule from "@/components/TrainingModule";
+import PerfilTreino from "@/components/PerfilTreino";
 
 export default async function TreinoPage() {
   const supabase = createClient();
@@ -18,15 +20,17 @@ export default async function TreinoPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [plano, series, hoje, sessoes] = await Promise.all([
+  const [plano, series, hoje, sessoes, perfil] = await Promise.all([
     planoTreino(user.id),
     seriesRecentes(user.id),
     seriesDeHoje(user.id),
     sessoesDeHoje(user.id),
+    perfilDe(user.id),
   ]);
 
   return (
     <BehaviorTab familia="treino" ocultarHistorico>
+      <PerfilTreino descricaoInicial={perfil ?? ""} />
       <TrainingModule
         plano={plano}
         series={series}
