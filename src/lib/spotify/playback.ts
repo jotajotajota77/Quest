@@ -108,31 +108,35 @@ async function tocarViaConnect(uri: string): Promise<boolean> {
 }
 
 export async function tocarUri(uri: string): Promise<boolean> {
-  // Mobile: SDK não toca no navegador → controla o app do Spotify direto.
-  if (ehMobile()) return tocarViaConnect(uri);
+  // 1. Caminho confiável (desktop e celular): toca no DEVICE ATIVO do app
+  //    Spotify do usuário (Connect API). Se o app estiver aberto, funciona.
+  if (await tocarViaConnect(uri)) return true;
 
-  // Desktop: tenta o Web Playback SDK; se falhar, ainda tenta o Connect API.
-  try {
-    const ok = await init();
-    if (ok && deviceId) {
-      const token = await fetchToken();
-      if (token) {
-        const res = await fetch(
-          `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`,
-          {
-            method: "PUT",
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
+  // 2. Reserva no DESKTOP: cria um player dentro do navegador (Web Playback SDK,
+  //    que é desktop-only) e toca nele. No mobile o SDK não funciona.
+  if (!ehMobile()) {
+    try {
+      const ok = await init();
+      if (ok && deviceId) {
+        const token = await fetchToken();
+        if (token) {
+          const res = await fetch(
+            `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`,
+            {
+              method: "PUT",
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ uris: [uri] }),
             },
-            body: JSON.stringify({ uris: [uri] }),
-          },
-        );
-        if (res.status === 204 || res.ok) return true;
+          );
+          if (res.status === 204 || res.ok) return true;
+        }
       }
+    } catch {
+      /* sem SDK: o hit-confirm local já cobriu */
     }
-  } catch {
-    /* cai pro Connect API */
   }
-  return tocarViaConnect(uri);
+  return false;
 }
