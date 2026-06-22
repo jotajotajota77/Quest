@@ -1,36 +1,28 @@
 // ============================================================
-// Engine de bônus de personagem — genérica, só Stamina ativa no V1. (TRAVA)
+// Bônus de personagem — percentual ADITIVO, todos os 4 vivos. (TRAVA 3)
 // ------------------------------------------------------------
-//  * O bônus é ESTRITAMENTE ADITIVO sobre a base protegida, jamais redirect.
-//  * Um personagem só soma se o registro for do SEU comportamento-alvo.
-//    Caso contrário soma 0 — NUNCA subtrai nem desliga a base.
-//  * No V2 basta marcar `ativo` os personagens dos outros comportamentos; a
-//    engine já os trata sem refac. No V1 só o de Stamina/dieta está ativo.
+//  * +25% no atributo do comportamento do protagonista, só no dia dele.
+//  * ESTRITAMENTE ADITIVO sobre a base protegida, jamais redirecionamento.
+//  * Um personagem só soma se o registro for da SUA família. Caso contrário
+//    soma 0 — NUNCA subtrai nem reduz a base de nenhum comportamento.
+//  * Magnitude igual (+25%) para os quatro, de propósito: seleção por
+//    identidade/lore, não por min-max.
 // ============================================================
 
 import type { Comportamento, Personagem } from "@/lib/types";
-
-/** Comportamentos cujo bônus está ARMADO no V1. */
-const COMPORTAMENTOS_ATIVOS: ReadonlySet<Comportamento> = new Set<Comportamento>([
-  "dieta",
-]);
+import { familiaDe } from "@/lib/comportamentos";
 
 /**
- * Bônus aditivo do personagem para um comportamento.
- * Retorna sempre >= 0 (nunca penaliza).
+ * Multiplicador aditivo do personagem para um comportamento (ex.: 0.25).
+ * Retorna 0 quando não se aplica — nunca penaliza.
  */
-export function bonusPersonagem(
+export function pctBonus(
   personagem: Personagem | null,
   comportamento: Comportamento,
 ): number {
-  if (!personagem) return 0;
-  if (!personagem.ativo) return 0;
-  // Comportamento inerte no V1 (treino/leitura/dança) → bônus desarmado.
-  if (!COMPORTAMENTOS_ATIVOS.has(comportamento)) return 0;
-  // Personagem de outro alvo não soma — mas também não subtrai a base.
-  if (personagem.comportamento_alvo !== comportamento) return 0;
-
-  const { tipo, magnitude } = personagem.bonus;
-  if (tipo !== "aditivo") return 0; // defesa: só aceitamos camada aditiva
-  return Math.max(0, Math.floor(magnitude));
+  if (!personagem || !personagem.ativo) return 0;
+  // Personagem de outra família não soma — mas também não subtrai a base.
+  if (personagem.comportamento_alvo !== familiaDe(comportamento)) return 0;
+  if (personagem.bonus.tipo !== "pct") return 0;
+  return Math.max(0, personagem.bonus.valor);
 }

@@ -1,40 +1,52 @@
-// Tipos compartilhados do domínio Quest.
-//
-// V1 só tem o comportamento 'dieta'. Os demais ficam previstos no tipo para o
-// código já nascer extensível, mas estão INERTES (sem motor ligado) no V1.
+// Tipos compartilhados do domínio Quest (app completo: 4 comportamentos).
 
-export type Comportamento = "dieta"; // V2: | "treino" | "leitura" | "danca"
+/** Comportamentos registráveis (1-toque). Nutri tem dois sub-logs. */
+export type Comportamento =
+  | "treino"
+  | "nutri_refeicao"
+  | "nutri_agua"
+  | "leitura"
+  | "danca";
 
-export type TipoLogDieta = "refeicao" | "hidratacao";
+/** Família = a aba/atributo. Nutri agrega refeição + água. */
+export type Familia = "treino" | "nutri" | "leitura" | "danca";
+
+/** Os quatro atributos do jogador. Alimentam um Elo ÚNICO. */
+export type Atributo = "forca" | "stamina" | "sabedoria" | "destreza";
 
 export type TipoReforco = "faixa_cheia" | "fallback_local";
 
-/** Ladder de esquemas de reforço, do mais denso (CRF) ao mais magro. */
+/** Ladder de esquemas (só a Nutri usa o motor de fading). */
 export type Esquema = "CRF" | "FR2" | "FR3" | "FR5" | "FR8";
 
 export interface Atributos {
   user_id: string;
+  forca: number;
   stamina: number;
+  sabedoria: number;
+  destreza: number;
   elo: number;
   xp: number;
-  estado_personagem: Record<string, unknown>;
   atualizado_em: string;
 }
 
-/** Bônus de personagem: SEMPRE aditivo. Nunca redireciona/subtrai a base. */
+/** Bônus de personagem: percentual ADITIVO sobre a base. Nunca redireciona. */
 export interface BonusPersonagem {
-  tipo: "aditivo";
-  magnitude: number;
+  tipo: "pct";
+  valor: number; // 0.25 = +25%
 }
 
 export interface Personagem {
   id: string;
+  slug: string;
   nome: string;
-  atributo_foco: string; // 'stamina'
-  comportamento_alvo: Comportamento;
+  titulo: string | null;
+  atributo_foco: Atributo;
+  comportamento_alvo: Familia;
   bonus: BonusPersonagem;
   asset_rosto: string | null;
   asset_corpo: string | null;
+  bio: string | null;
   lore: string | null;
   ativo: boolean;
   ordem: number;
@@ -42,18 +54,17 @@ export interface Personagem {
 
 export interface ScheduleState {
   user_id: string;
-  comportamento: Comportamento;
+  comportamento: Familia;
   esquema_atual: Esquema;
   nivel_afinamento: number;
   ultima_transicao: string;
 }
 
-export interface LogDietaLatencia {
+export interface LogRow {
   id: string;
   user_id: string;
   ts: string;
-  tipo: TipoLogDieta;
-  latencia_seg: number;
+  comportamento: Comportamento;
 }
 
 export interface SpotifyTrack {
@@ -64,20 +75,25 @@ export interface SpotifyTrack {
   capa: string | null;
 }
 
-/** Decisão de reforço devolvida pelo loop central ao cliente. */
-export interface DecisaoReforco {
-  /** Hit-confirm local SEMPRE dispara — independe de rede. O cliente já tocou. */
-  hitConfirm: true;
-  /** Ganho aplicado ao placar (base protegida + bônus aditivo). */
-  ganho: GainResult;
-  /** Se o esquema atual manda tocar música agora, a faixa nova-no-sistema vem aqui. */
-  musica: SpotifyTrack | null;
-  /** Esquema vigente após a reavaliação do fading. */
-  esquema: Esquema;
+export interface GainResult {
+  base: number; // base protegida do comportamento (independe do personagem)
+  bonus: number; // camada aditiva (+25%) do protagonista do dia, se favorece
+  total: number;
 }
 
-export interface GainResult {
-  base: number; // base protegida do comportamento (nunca depende do personagem)
-  bonus: number; // camada aditiva do personagem do dia (>= 0)
-  total: number; // base + bonus
+/** Como o áudio entra para este comportamento (assimetria de reforço). */
+export type ModoAudio = "reward" | "trilha";
+
+/** Decisão de reforço devolvida pelo loop central ao cliente. */
+export interface DecisaoReforco {
+  hitConfirm: true;
+  ganho: GainResult;
+  atributo: Atributo;
+  /** Esquema vigente — só para Nutri (motor de instalação). */
+  esquema: Esquema | null;
+  /** Faixa a tocar, se houver. */
+  musica: SpotifyTrack | null;
+  /** 'reward' (Nutri, esmaecível) | 'trilha' (Dança, não esmaece) | null. */
+  modoAudio: ModoAudio | null;
+  logId?: string;
 }
