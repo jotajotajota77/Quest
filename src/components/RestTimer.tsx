@@ -1,10 +1,22 @@
 "use client";
 
-// Timer de descanso FLUTUANTE. 60/90/120/180s. Toca um bip leve ao zerar.
-// É ferramenta de treino — não é reforço. Recolhível: parado vira uma pílula
-// pequena (não cobre conteúdo nem a nav); só expande ao tocar ou ao contar.
-import { useEffect, useRef, useState } from "react";
+// Timer de descanso FLUTUANTE, baseado em RELÓGIO (não em contador): guarda o
+// horário de término, então não perde tempo ao minimizar — ao voltar mostra o
+// restante real ou "acabou". Persiste em localStorage (sobrevive a reload).
+// Ao zerar: bip + notificação do sistema (avisa fora do app, se permitido).
+// É ferramenta de treino — não é reforço.
+import { useCallback, useEffect, useRef, useState } from "react";
 import { TEMPOS_DESCANSO } from "@/lib/treino";
+import {
+  agendarDescanso,
+  cancelarDescanso,
+  notifPermitida,
+  notifSuportada,
+  notificarDescanso,
+  pedirPermissaoNotif,
+} from "@/lib/notificacao";
+
+const KEY = "quest_rest_fim";
 
 function bip() {
   try {
@@ -29,31 +41,78 @@ function bip() {
 }
 
 export default function RestTimer() {
+  const [fimEm, setFimEm] = useState<number | null>(null);
   const [restante, setRestante] = useState(0);
   const [aberto, setAberto] = useState(false);
-  const ref = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [notifBloqueada, setNotifBloqueada] = useState(false);
+  const disparou = useRef(false);
+  const usouTrigger = useRef(false);
 
+  // Restaura um descanso em andamento ao montar (continua de onde parou).
   useEffect(() => {
-    if (restante <= 0) {
-      if (ref.current) clearInterval(ref.current);
+    const raw = localStorage.getItem(KEY);
+    if (raw) {
+      const f = Number(raw);
+      if (Number.isFinite(f) && f > Date.now()) setFimEm(f);
+      else localStorage.removeItem(KEY);
+    }
+    if (notifSuportada() && Notification.permission === "denied") {
+      setNotifBloqueada(true);
+    }
+  }, []);
+
+  // Loop de relógio: recalcula o restante a partir do horário de término.
+  useEffect(() => {
+    if (!fimEm) {
+      setRestante(0);
       return;
     }
-    ref.current = setInterval(() => {
-      setRestante((r) => {
-        if (r <= 1) {
-          if (ref.current) clearInterval(ref.current);
-          bip();
-          return 0;
-        }
-        return r - 1;
-      });
-    }, 1000);
-    return () => {
-      if (ref.current) clearInterval(ref.current);
+    disparou.current = false;
+    const tick = () => {
+      const r = Math.max(0, Math.ceil((fimEm - Date.now()) / 1000));
+      setRestante(r);
+      if (r <= 0 && !disparou.current) {
+        disparou.current = true;
+        bip();
+        // Se a notificação foi AGENDADA (trigger), ela mesma dispara — não
+        // duplica aqui. Senão, mostra agora (app vivo/ao voltar).
+        if (!usouTrigger.current) void notificarDescanso();
+        localStorage.removeItem(KEY);
+        setFimEm(null);
+      }
     };
-  }, [restante > 0]); // reinicia o intervalo só quando liga/desliga
+    tick();
+    const id = setInterval(tick, 250);
+    // Ao voltar pro app, recalcula na hora (não espera o próximo tick).
+    const onVis = () => {
+      if (document.visibilityState === "visible") tick();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [fimEm]);
 
-  const contando = restante > 0;
+  const iniciar = useCallback(async (seg: number) => {
+    const fim = Date.now() + seg * 1000;
+    localStorage.setItem(KEY, String(fim));
+    setFimEm(fim); // começa a contar já
+
+    // Notificação (best-effort): pede permissão e tenta AGENDAR pro horário.
+    const ok = await pedirPermissaoNotif();
+    setNotifBloqueada(notifSuportada() && Notification.permission === "denied");
+    usouTrigger.current = ok ? await agendarDescanso(fim) : false;
+  }, []);
+
+  const cancelar = useCallback(() => {
+    void cancelarDescanso();
+    localStorage.removeItem(KEY);
+    setFimEm(null);
+    setAberto(false);
+  }, []);
+
+  const contando = restante > 0 && fimEm != null;
 
   // Parado e recolhido: só a pílula compacta (sem cobrir conteúdo/nav).
   if (!contando && !aberto) {
@@ -77,7 +136,7 @@ export default function RestTimer() {
             key={t}
             className="nav-link"
             style={{ padding: "6px 8px", fontSize: "0.72rem" }}
-            onClick={() => setRestante(t)}
+            onClick={() => iniciar(t)}
           >
             {t}
           </button>
@@ -85,15 +144,22 @@ export default function RestTimer() {
         <button
           className="nav-link"
           style={{ padding: "6px 8px", fontSize: "0.72rem", color: "var(--neon)" }}
-          onClick={() => {
-            setRestante(0);
-            setAberto(false);
-          }}
+          onClick={cancelar}
           aria-label={contando ? "Cancelar" : "Fechar"}
         >
           ✕
         </button>
       </div>
+      {notifBloqueada && (
+        <p className="subtle" style={{ fontSize: "0.6rem", textAlign: "center", margin: "6px 0 0" }}>
+          Ative as notificações p/ avisar fora do app
+        </p>
+      )}
+      {!notifBloqueada && !notifPermitida() && contando && (
+        <p className="subtle" style={{ fontSize: "0.6rem", textAlign: "center", margin: "6px 0 0" }}>
+          Permita a notificação p/ avisar minimizado
+        </p>
+      )}
     </div>
   );
 }

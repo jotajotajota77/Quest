@@ -19,6 +19,21 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
+// Tocar na notificação do timer: foca uma aba aberta ou abre o treino.
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil(
+    self.clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((clientes) => {
+        for (const c of clientes) {
+          if ("focus" in c) return c.focus();
+        }
+        if (self.clients.openWindow) return self.clients.openWindow("/treino");
+      }),
+  );
+});
+
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   if (request.method !== "GET") return;

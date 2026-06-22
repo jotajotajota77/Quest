@@ -20,6 +20,7 @@ import {
 } from "@/lib/treino";
 import { useHitConfirm } from "@/components/HitConfirm";
 import RestTimer from "@/components/RestTimer";
+import { somPr, somSerie } from "@/lib/som";
 
 export default function TrainingModule({
   plano,
@@ -67,7 +68,10 @@ export default function TrainingModule({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      const json = (await res.json().catch(() => ({}))) as { is_pr?: boolean };
+      const json = (await res.json().catch(() => ({}))) as {
+        is_pr?: boolean;
+        recorde?: boolean;
+      };
       router.refresh();
       return json;
     } finally {
@@ -84,7 +88,12 @@ export default function TrainingModule({
       peso: e.peso ? Number(e.peso) : null,
       reps: e.reps ? Number(e.reps) : null,
     });
-    if (r.is_pr) fire("PR!");
+    if (r.is_pr) {
+      somPr();
+      fire(r.recorde ? "PR!" : "TOP!"); // recorde novo vs. recorde igualado
+    } else {
+      somSerie(); // tom curto de confirmação em toda série
+    }
     setEntradas((s) => ({ ...s, [ex.id]: { peso: "", reps: "" } }));
   }
 
