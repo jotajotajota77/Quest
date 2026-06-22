@@ -401,3 +401,30 @@ export async function logs7Dias(userId: string): Promise<LogRow[]> {
     .gte("ts", desde);
   return (data ?? []) as LogRow[];
 }
+
+// ── Tela Nutri (design replicado): refeições de hoje com macros ──
+export async function nutriHoje(userId: string): Promise<LogRow[]> {
+  const supabase = createClient();
+  const inicio = `${hojeISO()}T00:00:00.000Z`;
+  const { data } = await supabase
+    .from("logs")
+    .select("*")
+    .eq("user_id", userId)
+    .in("comportamento", NUTRI)
+    .gte("ts", inicio)
+    .order("ts", { ascending: false });
+  return (data ?? []) as LogRow[];
+}
+
+// ── Tela Treino (design replicado): séries de hoje (linhas por exercício) ──
+export async function seriesDeHoje(userId: string): Promise<TreinoSerie[]> {
+  const supabase = createClient();
+  const inicio = `${hojeISO()}T00:00:00.000Z`;
+  const { data } = await supabase
+    .from("treino_series")
+    .select("*")
+    .eq("user_id", userId)
+    .gte("ts", inicio)
+    .order("ts", { ascending: true });
+  return (data ?? []) as TreinoSerie[];
+}

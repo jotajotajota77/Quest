@@ -133,6 +133,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true, is_pr: isPr });
     }
 
+    case "remover_serie": {
+      const id = String(body.id ?? "");
+      await supabase
+        .from("treino_series")
+        .delete()
+        .eq("id", id)
+        .eq("user_id", user.id);
+      return NextResponse.json({ ok: true });
+    }
+
     default:
       return NextResponse.json({ error: "ação inválida" }, { status: 400 });
   }

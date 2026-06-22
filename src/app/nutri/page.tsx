@@ -1,9 +1,11 @@
-// Aba Nutri — camada universal + motor de instalação (no /api/log) + COACH
-// gated (afinamento). O coach só aparece quando o operante da Nutri fortalece.
+// Aba Nutri — 1-toque (piso) + motor de instalação + tela rica (design
+// replicado) + coach gated. O 1-toque fica no topo (BehaviorTab); a tela de
+// alimentos/macros é o caminho detalhado OPCIONAL.
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { coachNutriAtivo, resumoMacrosNutri } from "@/lib/data";
+import { coachNutriAtivo, nutriHoje, resumoMacrosNutri } from "@/lib/data";
 import BehaviorTab from "@/components/BehaviorTab";
+import NutriDashboard from "@/components/NutriDashboard";
 
 export default async function NutriPage() {
   const supabase = createClient();
@@ -12,31 +14,24 @@ export default async function NutriPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const ativo = await coachNutriAtivo(user.id);
+  const [ativo, refeicoes] = await Promise.all([
+    coachNutriAtivo(user.id),
+    nutriHoje(user.id),
+  ]);
   const resumo = ativo ? await resumoMacrosNutri(user.id) : null;
 
   return (
-    <BehaviorTab familia="nutri" coachAtivo={ativo}>
-      {ativo && (
+    <BehaviorTab familia="nutri" coachAtivo={ativo} ocultarHistorico>
+      {ativo && resumo && resumo.nComMacros > 0 && (
         <div className="panel" style={{ marginTop: 18, borderColor: "var(--gold)" }}>
-          <div className="lbl">Coach da Nutri (ativo)</div>
-          <p className="subtle" style={{ margin: "4px 0 8px" }}>
-            O operante fortaleceu — agora dá pra anexar macros (opcional) ao
-            registrar. O 1-toque continua sendo o piso.
-          </p>
-          {resumo && resumo.nComMacros > 0 ? (
-            <div className="subtle">
-              Últimos 7 dias: {resumo.nComMacros} registro(s) com macro · média{" "}
-              <strong>{resumo.mediaKcal} kcal</strong> ·{" "}
-              <strong>{resumo.mediaProteina} g</strong> proteína.
-            </div>
-          ) : (
-            <div className="subtle">
-              Ainda sem macros anexados — quando quiser, registre e preencha.
-            </div>
-          )}
+          <div className="lbl">Coach da Nutri</div>
+          <div className="subtle" style={{ marginTop: 4 }}>
+            Últimos 7 dias: média <strong>{resumo.mediaKcal} kcal</strong> ·{" "}
+            <strong>{resumo.mediaProteina} g</strong> proteína.
+          </div>
         </div>
       )}
+      <NutriDashboard refeicoes={refeicoes} />
     </BehaviorTab>
   );
 }
