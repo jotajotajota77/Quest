@@ -81,6 +81,27 @@ export interface GainResult {
   total: number;
 }
 
+export interface TreinoExercicio {
+  id: string;
+  user_id: string;
+  nome: string;
+  grupo_muscular: string | null;
+  split: string | null;
+  ordem: number;
+  custom: boolean;
+}
+
+export interface TreinoSerie {
+  id: string;
+  user_id: string;
+  exercicio_id: string | null;
+  nome: string;
+  peso: number | null;
+  reps: number | null;
+  ts: string;
+  is_pr: boolean;
+}
+
 /** Como o áudio entra para este comportamento (assimetria de reforço). */
 export type ModoAudio = "reward" | "trilha";
 

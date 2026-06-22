@@ -7,6 +7,8 @@ import type {
   LogRow,
   Personagem,
   ScheduleState,
+  TreinoExercicio,
+  TreinoSerie,
 } from "@/lib/types";
 import { createClient } from "@/lib/supabase/server";
 import { familiaDe } from "@/lib/comportamentos";
@@ -277,4 +279,35 @@ export async function spinDeHoje(
     .eq("data", hojeISO())
     .maybeSingle();
   return (data?.recompensa as Record<string, unknown>) ?? null;
+}
+
+// ============================================================
+// Módulo de treino rico (TRAVA 6): plano + séries (PR/histórico).
+// ============================================================
+
+/** O plano do usuário (exercícios por split). */
+export async function planoTreino(userId: string): Promise<TreinoExercicio[]> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("treino_exercicios")
+    .select("*")
+    .eq("user_id", userId)
+    .order("split", { ascending: true })
+    .order("ordem", { ascending: true });
+  return (data ?? []) as TreinoExercicio[];
+}
+
+/** Séries recentes (histórico por exercício + detecção de PR no cliente). */
+export async function seriesRecentes(
+  userId: string,
+  limit = 60,
+): Promise<TreinoSerie[]> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("treino_series")
+    .select("*")
+    .eq("user_id", userId)
+    .order("ts", { ascending: false })
+    .limit(limit);
+  return (data ?? []) as TreinoSerie[];
 }
