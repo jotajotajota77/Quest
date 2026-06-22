@@ -29,6 +29,6 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: dummy-anon-key
-          NEXT_PUBLIC_SPOTIFY_CLIENT_ID: dummy-client-id
+          SPOTIFY_CLIENT_ID: dummy-client-id
           SPOTIFY_REDIRECT_URI: http://localhost:3000/api/spotify/callback
         run: npm run build
