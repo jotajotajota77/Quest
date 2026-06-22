@@ -24,14 +24,19 @@ export default function TrainingModule({
   plano,
   series,
   seriesHoje,
+  sessoesHoje = [],
 }: {
   plano: TreinoExercicio[];
   series: TreinoSerie[];
   seriesHoje: TreinoSerie[];
+  sessoesHoje?: { split: string; finalizada: boolean }[];
 }) {
   const router = useRouter();
   const { fire, overlay } = useHitConfirm();
   const [splitAtivo, setSplitAtivo] = useState<string | null>(plano[0]?.split ?? null);
+  const [fechadas, setFechadas] = useState<Set<string>>(
+    new Set(sessoesHoje.filter((s) => s.finalizada).map((s) => s.split)),
+  );
   const [entradas, setEntradas] = useState<Record<string, { peso: string; reps: string }>>({});
   const [glossarioAberto, setGlossario] = useState(false);
   const [catalogoAberto, setCatalogo] = useState(false);
@@ -99,6 +104,28 @@ export default function TrainingModule({
   const exercicios = plano.filter((e) => (e.split ?? "—") === splitAlvo);
   const catalogoFiltrado = CATALOGO.filter((c) => c.grupo === grupoFiltro);
 
+  // Sessão do dia: exercícios com pelo menos uma série hoje / total no split.
+  const feitosHoje = exercicios.filter(
+    (e) => (hojePorNome.get(e.nome)?.length ?? 0) > 0,
+  ).length;
+  const sessaoFechada = fechadas.has(splitAlvo);
+
+  async function concluirSessao() {
+    fire("SESSÃO!"); // reforço local imediato
+    try {
+      // Camada universal: concluir a sessão registra treino → Força + hit-confirm.
+      await fetch("/api/log", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ comportamento: "treino" }),
+      });
+    } catch {
+      /* reforço local já ocorreu */
+    }
+    await api({ action: "fechar_sessao", split: splitAlvo });
+    setFechadas((s) => new Set(s).add(splitAlvo));
+  }
+
   return (
     <div style={{ marginTop: 18 }}>
       {overlay}
@@ -143,6 +170,38 @@ export default function TrainingModule({
             {s}
           </button>
         ))}
+      </div>
+
+      {/* Sessão do dia — invólucro com encerramento explícito. */}
+      <div
+        className="panel"
+        style={{
+          marginBottom: 10,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: 8,
+          borderColor: sessaoFechada ? "var(--good)" : "var(--panel-border)",
+        }}
+      >
+        <div>
+          <div className="lbl">Sessão de hoje · {splitAlvo}</div>
+          <div className="subtle" style={{ marginTop: 2 }}>
+            {feitosHoje}/{exercicios.length} exercícios com série hoje
+          </div>
+        </div>
+        {sessaoFechada ? (
+          <span className="pr-badge" style={{ color: "var(--good)" }}>✓ concluída</span>
+        ) : (
+          <button
+            className="btn btn-primary"
+            style={{ padding: "10px 16px" }}
+            disabled={ocupado}
+            onClick={concluirSessao}
+          >
+            Concluir sessão
+          </button>
+        )}
       </div>
 
       {exercicios.map((ex) => {

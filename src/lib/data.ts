@@ -623,3 +623,19 @@ export async function avaliarQuests(
 
   return view;
 }
+
+// ── Sessões de treino do dia (v4) ──
+export async function sessoesDeHoje(
+  userId: string,
+): Promise<{ split: string; finalizada: boolean }[]> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("treino_sessoes")
+    .select("split, finalizada")
+    .eq("user_id", userId)
+    .eq("data", hojeISO());
+  return (data ?? []).map((r) => ({
+    split: r.split as string,
+    finalizada: Boolean(r.finalizada),
+  }));
+}
