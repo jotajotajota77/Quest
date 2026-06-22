@@ -59,13 +59,16 @@ export async function proximaFaixaNova(
 
   const tocadas = await faixasJaTocadas(userId);
 
-  for (let tentativa = 0; tentativa < 6; tentativa++) {
+  for (let tentativa = 0; tentativa < 8; tentativa++) {
     const seed = SEEDS[Math.floor(Math.random() * SEEDS.length)];
-    const offset = Math.floor(Math.random() * 900); // search cap: offset+limit ≤ 1000
+    // Offset BAIXO: a busca do Spotify devolve vazio em offsets altos (além do
+    // total real do termo). 0–45 fica sempre populado; a variedade vem do
+    // gênero sorteado + escolha aleatória dentro da página.
+    const offset = Math.floor(Math.random() * 45);
     const q = encodeURIComponent(seed);
     const page = await spotifyGet<SearchResp>(
       token,
-      `/search?q=${q}&type=track&limit=20&offset=${offset}&market=BR`,
+      `/search?q=${q}&type=track&limit=50&offset=${offset}&market=BR`,
     );
     const itens = (page?.tracks?.items ?? []).filter(
       (t): t is NonNullable<typeof t> => !!t && !!t.id && !tocadas.has(t.id),
