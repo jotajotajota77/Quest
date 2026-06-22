@@ -302,3 +302,46 @@ a {
   font-weight: 700;
   font-size: 0.85rem;
 }
+
+/* ============================================================
+   Refinos APENAS para telas pequenas (a "versão app").
+   Tudo aqui é max-width → o layout de PC (desktop) fica intocado.
+   ============================================================ */
+@media (max-width: 560px) {
+  .app-shell {
+    padding: 14px 12px 110px;
+  }
+  /* Placar: 4 atributos em 2×2 no celular (em vez de 4 apertados). */
+  .stat-row {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  .stat .num {
+    font-size: 1.5rem;
+  }
+  /* Botão de registro: fonte um tom menor pra não estourar. */
+  .log-tap {
+    padding: 28px;
+    font-size: 1.25rem;
+  }
+  .title-fight {
+    word-break: break-word;
+  }
+  /* Nav inferior: rola horizontalmente em vez de empilhar feio. */
+  .bottom-nav {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    justify-content: flex-start;
+    -webkit-overflow-scrolling: touch;
+  }
+  .nav-link {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+}
+
+/* Telas largas (desktop): centraliza com folga; o app-shell já limita a 1100px. */
+@media (min-width: 1101px) {
+  .app-shell {
+    padding-top: 28px;
+  }
+}

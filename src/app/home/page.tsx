@@ -26,6 +26,7 @@ import BottomNav from "@/components/BottomNav";
 import FogButton from "@/components/FogButton";
 import DailySpin from "@/components/DailySpin";
 import LoreButton from "@/components/LoreButton";
+import WorldLoreButton from "@/components/WorldLoreButton";
 
 export default async function HomePage() {
   const supabase = createClient();
@@ -77,9 +78,20 @@ export default async function HomePage() {
 
       <Scoreboard attr={attr} personagem={personagem} />
 
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: 8,
+          flexWrap: "wrap",
+        }}
+      >
         <span className="subtle">🔥 Streak: {streak.streak} dia(s)</span>
-        <LoreButton personagem={personagem} />
+        <div style={{ display: "flex", gap: 8 }}>
+          <LoreButton personagem={personagem} />
+          <WorldLoreButton />
+        </div>
       </div>
 
       {/* Foco do dia — UMA coisa (anti-paralisia). O operante frágil (Nutri). */}
