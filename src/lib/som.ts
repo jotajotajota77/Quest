@@ -33,3 +33,6 @@ export const somSerie = () => tocarTom([620], 80);
 
 /** Arpejo ascendente de PR / top set (recorde igualado ou superado). */
 export const somPr = () => tocarTom([660, 880, 1175], 120);
+
+/** Tom positivo ao registrar comida SAUDÁVEL (reforço imediato). */
+export const somComida = () => tocarTom([700, 1050], 110);

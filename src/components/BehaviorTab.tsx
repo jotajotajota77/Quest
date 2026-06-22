@@ -26,6 +26,8 @@ import LogButtons, { type AcaoLog } from "@/components/LogButtons";
 import BottomNav from "@/components/BottomNav";
 import ContextualHero from "@/components/ContextualHero";
 import { candidatosHero } from "@/lib/heroi";
+import { dicaDoDia } from "@/lib/dicas";
+import { hojeISO } from "@/lib/data";
 import { ABA_PORQUE, HIT_TEMATICO } from "@/lib/aba";
 
 const CORES_BOTAO: Partial<Record<string, string>> = {
@@ -72,6 +74,8 @@ export default async function BehaviorTab({
       <ContextualHero
         candidatos={candidatosHero(familia, personagem, dono)}
         nome={heroNome}
+        titulo={dono?.titulo ?? personagem?.titulo}
+        dica={dicaDoDia(familia, hojeISO())}
         altura={180}
       />
       <div className="panel tab-header" style={{ marginBottom: 16 }}>

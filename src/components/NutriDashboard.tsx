@@ -24,6 +24,7 @@ import {
 import { MODELOS_DIETA } from "@/lib/dietas";
 import { useHitConfirm } from "@/components/HitConfirm";
 import { tocarUri } from "@/lib/spotify/playback";
+import { somComida } from "@/lib/som";
 
 export default function NutriDashboard({
   refeicoes,
@@ -72,10 +73,17 @@ export default function NutriDashboard({
   async function adicionar(foodId: string) {
     const alimento = alimentos.find((f) => f.id === foodId);
     if (!alimento) return;
+    // Reforço DIFERENCIAL: comida saudável → reforço imediato (HIT + som +
+    // música). Junk (categoria "doce") → NULIDADE: registra honestamente pro
+    // coach, mas sem nenhum reforço sensorial (sem pop, sem som, sem música).
+    const junk = alimento.cat === "doce";
     const gramas = Number(porcao) || 100;
     const m = escalar(alimento, gramas);
     setOcupado(true);
-    fire("HIT!");
+    if (!junk) {
+      fire("HIT!");
+      somComida();
+    }
     let dec: DecisaoReforco | null = null;
     try {
       const res = await fetch("/api/log", {
@@ -94,8 +102,9 @@ export default function NutriDashboard({
     } catch {
       dec = null;
     }
-    if (dec?.jackpot) fire("JACKPOT!");
-    if (dec?.musica && dec.modoAudio) {
+    // Junk não dispara reforço de áudio/jackpot — fica neutro.
+    if (!junk && dec?.jackpot) fire("JACKPOT!");
+    if (!junk && dec?.musica && dec.modoAudio) {
       const ok = await tocarUri(dec.musica.uri);
       if (dec.modoAudio === "reward") {
         fetch("/api/spotify/mark-played", {
