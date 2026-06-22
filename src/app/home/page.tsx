@@ -22,10 +22,13 @@ import {
   hojeISO,
   logs7Dias,
   trackersHoje,
+  avaliarQuests,
 } from "@/lib/data";
 import ProtocoloCard from "@/components/ProtocoloCard";
 import FinalizarDiaButton from "@/components/FinalizarDiaButton";
+import QuestsCard from "@/components/QuestsCard";
 import { analisarSemana } from "@/lib/analise";
+import { trackersFeitos } from "@/lib/protocolo";
 import { calcularStreak } from "@/lib/engine/streak";
 import { mensagemContextual } from "@/lib/voz";
 import Scoreboard from "@/components/Scoreboard";
@@ -60,6 +63,13 @@ export default async function HomePage() {
       trackersHoje(user.id),
       diaFinalizado(user.id),
     ]);
+
+  const quests = await avaliarQuests(user.id, {
+    nucleo,
+    trackersFeitos: trackersFeitos(trackers),
+    aguaCount: trackers.agua_count,
+    registrosHoje: nHoje,
+  });
 
   const streak = calcularStreak(hojeISO(), comLog, nevoa);
   const voz = mensagemContextual({
@@ -135,6 +145,9 @@ export default async function HomePage() {
 
       {/* Protocolo diário — quick-log de tracking (núcleo + trackers leves). */}
       <ProtocoloCard nucleoInicial={[...nucleo]} trackersInicial={trackers} />
+
+      {/* Quests / sidequests — camada VR secundária. */}
+      <QuestsCard quests={quests} />
 
       <DailySpin
         recompensaInicial={
