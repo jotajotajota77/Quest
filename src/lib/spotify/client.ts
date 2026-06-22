@@ -23,7 +23,7 @@ export const SPOTIFY_SCOPES = [
 ].join(" ");
 
 function basicAuthHeader(): string {
-  const id = process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID!;
+  const id = process.env.SPOTIFY_CLIENT_ID!;
   const secret = process.env.SPOTIFY_CLIENT_SECRET!;
   return "Basic " + Buffer.from(`${id}:${secret}`).toString("base64");
 }
