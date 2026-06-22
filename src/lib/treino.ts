@@ -96,3 +96,26 @@ export const GLOSSARIO: { termo: string; def: string }[] = [
 ];
 
 export const TEMPOS_DESCANSO = [60, 90, 120, 180];
+
+// Catálogo plano de exercícios disponíveis (montado do zero) — base do
+// seletor de "adicionar exercício". Derivado das ALTERNATIVAS + extras.
+export interface ExercicioCatalogo {
+  nome: string;
+  grupo: string;
+}
+
+export const CATALOGO: ExercicioCatalogo[] = Object.entries(ALTERNATIVAS)
+  .flatMap(([grupo, nomes]) => nomes.map((nome) => ({ nome, grupo })))
+  .concat([
+    { nome: "Levantamento terra", grupo: "costas" },
+    { nome: "Encolhimento (trapézio)", grupo: "costas" },
+    { nome: "Abdominal", grupo: "core" },
+    { nome: "Prancha", grupo: "core" },
+    { nome: "Elevação de pernas", grupo: "core" },
+    { nome: "Face pull", grupo: "ombro" },
+  ]);
+
+export const GRUPOS = [
+  "peito", "costas", "ombro", "biceps", "triceps",
+  "pernas", "posterior", "panturrilha", "core",
+];

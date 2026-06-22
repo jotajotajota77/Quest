@@ -65,6 +65,11 @@ export interface LogRow {
   user_id: string;
   ts: string;
   comportamento: Comportamento;
+  food_id?: string | null;
+  kcal?: number | null;
+  proteina?: number | null;
+  carbs?: number | null;
+  gordura?: number | null;
 }
 
 export interface SpotifyTrack {

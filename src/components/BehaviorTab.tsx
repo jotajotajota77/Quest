@@ -28,10 +28,12 @@ export default async function BehaviorTab({
   familia,
   children,
   coachAtivo = false,
+  ocultarHistorico = false,
 }: {
   familia: Familia;
   children?: React.ReactNode;
   coachAtivo?: boolean;
+  ocultarHistorico?: boolean;
 }) {
   const supabase = createClient();
   const {
@@ -98,6 +100,7 @@ export default async function BehaviorTab({
       {/* Tooling específico da família (ex.: módulo de treino rico). */}
       {children}
 
+      {!ocultarHistorico && (
       <div style={{ marginTop: 22 }}>
         <h3 style={{ marginBottom: 8 }}>Histórico</h3>
         {historico.length === 0 && (
@@ -118,6 +121,7 @@ export default async function BehaviorTab({
           </div>
         ))}
       </div>
+      )}
 
       <BottomNav />
     </main>

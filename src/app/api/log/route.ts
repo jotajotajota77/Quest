@@ -48,6 +48,11 @@ export async function POST(request: Request) {
 
   const body = (await request.json().catch(() => ({}))) as {
     comportamento?: Comportamento;
+    food_id?: string;
+    kcal?: number;
+    proteina?: number;
+    carbs?: number;
+    gordura?: number;
   };
   const comportamento = body.comportamento;
   if (!comportamento || !COMPORTAMENTOS_VALIDOS.includes(comportamento)) {
@@ -75,9 +80,20 @@ export async function POST(request: Request) {
   }
 
   // 1. Grava o log (timestamp automático no banco).
+  // Macros OPCIONAIS (vindas do seletor de alimentos). O 1-toque ignora isto.
+  const macros =
+    cfg.motorInstalacao && body.kcal != null
+      ? {
+          food_id: body.food_id ?? null,
+          kcal: body.kcal ?? null,
+          proteina: body.proteina ?? null,
+          carbs: body.carbs ?? null,
+          gordura: body.gordura ?? null,
+        }
+      : {};
   const { data: log, error: logErr } = await supabase
     .from("logs")
-    .insert({ user_id: user.id, comportamento })
+    .insert({ user_id: user.id, comportamento, ...macros })
     .select("id, ts")
     .single();
   if (logErr || !log) {
@@ -154,4 +170,21 @@ export async function POST(request: Request) {
     logId: log.id,
   };
   return NextResponse.json(resposta);
+}
+
+// Apagar um registro (ex.: card de refeição). Não estorna XP — é placar, não
+// contabilidade; manter simples e sem fricção.
+export async function DELETE(request: Request) {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: "não autenticado" }, { status: 401 });
+  }
+  const { searchParams } = new URL(request.url);
+  const id = searchParams.get("id");
+  if (!id) return NextResponse.json({ error: "id faltando" }, { status: 400 });
+  await supabase.from("logs").delete().eq("id", id).eq("user_id", user.id);
+  return NextResponse.json({ ok: true });
 }
