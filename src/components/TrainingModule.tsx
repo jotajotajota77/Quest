@@ -35,6 +35,9 @@ export default function TrainingModule({
   const [entradas, setEntradas] = useState<Record<string, { peso: string; reps: string }>>({});
   const [glossarioAberto, setGlossario] = useState(false);
   const [catalogoAberto, setCatalogo] = useState(false);
+  const [iaAberta, setIa] = useState(false);
+  const [iaTexto, setIaTexto] = useState<string | null>(null);
+  const [iaCarregando, setIaCarregando] = useState(false);
   const [grupoFiltro, setGrupoFiltro] = useState<string>("peito");
   const [ocupado, setOcupado] = useState(false);
 
@@ -103,9 +106,30 @@ export default function TrainingModule({
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h3 style={{ margin: 0 }}>Treino</h3>
-        <button className="nav-link" onClick={() => setGlossario(true)}>
-          Glossário
-        </button>
+        <div style={{ display: "flex", gap: 6 }}>
+          <button
+            className="nav-link"
+            onClick={async () => {
+              setIa(true);
+              setIaCarregando(true);
+              setIaTexto(null);
+              try {
+                const res = await fetch("/api/treino/analise", { method: "POST" });
+                const j = await res.json();
+                setIaTexto(j.disponivel ? j.analise : j.msg);
+              } catch {
+                setIaTexto("Sem análise nesta sessão.");
+              } finally {
+                setIaCarregando(false);
+              }
+            }}
+          >
+            Análise IA
+          </button>
+          <button className="nav-link" onClick={() => setGlossario(true)}>
+            Glossário
+          </button>
+        </div>
       </div>
 
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", margin: "10px 0" }}>
@@ -228,6 +252,18 @@ export default function TrainingModule({
               </div>
             ))}
           </div>
+        </ModalBase>
+      )}
+
+      {iaAberta && (
+        <ModalBase onClose={() => setIa(false)} titulo="Análise de treino (IA)">
+          {iaCarregando ? (
+            <p className="subtle">Analisando…</p>
+          ) : (
+            <p className="subtle" style={{ whiteSpace: "pre-wrap" }}>
+              {iaTexto}
+            </p>
+          )}
         </ModalBase>
       )}
 
