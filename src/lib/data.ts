@@ -624,6 +624,17 @@ export async function avaliarQuests(
   return view;
 }
 
+// ── Perfil (descrição usada nas dicas de treino / Análise IA) ──
+export async function perfilDe(userId: string): Promise<string | null> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("perfil")
+    .select("descricao")
+    .eq("user_id", userId)
+    .maybeSingle();
+  return (data?.descricao as string) ?? null;
+}
+
 // ── Leitura (v4 afinamento): sessões recentes com livro/páginas/tempo ──
 export async function leiturasRecentes(
   userId: string,

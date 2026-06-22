@@ -10,7 +10,7 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@/lib/supabase/server";
-import { seriesRecentes } from "@/lib/data";
+import { perfilDe, seriesRecentes } from "@/lib/data";
 
 export async function POST() {
   const supabase = createClient();
@@ -29,7 +29,10 @@ export async function POST() {
     });
   }
 
-  const series = await seriesRecentes(user.id, 80);
+  const [series, perfil] = await Promise.all([
+    seriesRecentes(user.id, 80),
+    perfilDe(user.id),
+  ]);
   if (series.length === 0) {
     return NextResponse.json({
       disponivel: false,
@@ -62,14 +65,20 @@ export async function POST() {
       system:
         "Você é um treinador de força conciso e prático. Analise execução, " +
         "progressão e dê 2–4 sugestões acionáveis em português do Brasil. " +
-        "Seja direto, sem floreio, sem disclaimers médicos longos. Use bullets curtos.",
+        "Personalize as sugestões ao PERFIL do aluno (objetivo, nível, " +
+        "limitações, contexto), quando informado. Seja direto, sem floreio, " +
+        "sem disclaimers médicos longos. Use bullets curtos.",
       messages: [
         {
           role: "user",
           content:
+            (perfil?.trim()
+              ? `Meu perfil: ${perfil.trim()}\n\n`
+              : "") +
             "Minhas séries recentes (peso x reps, mais recentes primeiro):\n" +
             resumo +
-            "\n\nAvalie progressão por exercício e sugira ajustes de carga/volume/variação.",
+            "\n\nAvalie progressão por exercício e sugira ajustes de carga/volume/variação, " +
+            "alinhados ao meu perfil.",
         },
       ],
     });
