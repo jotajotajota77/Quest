@@ -27,6 +27,7 @@ import {
 import ProtocoloCard from "@/components/ProtocoloCard";
 import FinalizarDiaButton from "@/components/FinalizarDiaButton";
 import QuestsCard from "@/components/QuestsCard";
+import ResetHistoricoButton from "@/components/ResetHistoricoButton";
 import { analisarSemana } from "@/lib/analise";
 import { trackersFeitos } from "@/lib/protocolo";
 import { calcularStreak } from "@/lib/engine/streak";
@@ -170,6 +171,8 @@ export default async function HomePage() {
       </div>
 
       <FinalizarDiaButton finalizado={finalizado} />
+
+      <ResetHistoricoButton />
 
       <BottomNav />
     </main>
