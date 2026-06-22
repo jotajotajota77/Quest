@@ -311,3 +311,93 @@ export async function seriesRecentes(
     .limit(limit);
   return (data ?? []) as TreinoSerie[];
 }
+
+// ============================================================
+// Afinamento (todo derivado — sem migration).
+// ============================================================
+
+/**
+ * Coach da Nutri está ATIVO? (TRAVA 1: esmaece pra dentro só quando o operante
+ * fortalece). Critério: o esquema da Nutri já afinou além de CRF
+ * (nivel_afinamento >= 1) — prova de que o comportamento estabilizou.
+ */
+export async function coachNutriAtivo(userId: string): Promise<boolean> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("schedule_state")
+    .select("nivel_afinamento")
+    .eq("user_id", userId)
+    .eq("comportamento", "nutri")
+    .maybeSingle();
+  return (data?.nivel_afinamento ?? 0) >= 1;
+}
+
+/** Resumo passivo de macros dos últimos 7 dias (só logs que têm macro). */
+export async function resumoMacrosNutri(userId: string): Promise<{
+  nComMacros: number;
+  mediaKcal: number | null;
+  mediaProteina: number | null;
+}> {
+  const supabase = createClient();
+  const desde = new Date(Date.now() - 7 * 86_400_000).toISOString();
+  const { data } = await supabase
+    .from("logs")
+    .select("kcal, proteina")
+    .eq("user_id", userId)
+    .in("comportamento", NUTRI)
+    .gte("ts", desde)
+    .not("kcal", "is", null);
+  const linhas = data ?? [];
+  if (linhas.length === 0)
+    return { nComMacros: 0, mediaKcal: null, mediaProteina: null };
+  const somaK = linhas.reduce((a, r) => a + (Number(r.kcal) || 0), 0);
+  const somaP = linhas.reduce((a, r) => a + (Number(r.proteina) || 0), 0);
+  return {
+    nComMacros: linhas.length,
+    mediaKcal: Math.round(somaK / linhas.length),
+    mediaProteina: Math.round(somaP / linhas.length),
+  };
+}
+
+/** Data (YYYY-MM-DD) da última atividade ANTES de hoje (p/ jackpot de comeback). */
+export async function ultimaAtividadeAntesDeHoje(
+  userId: string,
+): Promise<string | null> {
+  const supabase = createClient();
+  const inicioHoje = `${hojeISO()}T00:00:00.000Z`;
+  const { data } = await supabase
+    .from("logs")
+    .select("ts")
+    .eq("user_id", userId)
+    .lt("ts", inicioHoje)
+    .order("ts", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return data?.ts ? (data.ts as string).slice(0, 10) : null;
+}
+
+/** Quantos logs de uma família o usuário tem no total (p/ unlock de leitura). */
+export async function contarFamilia(
+  userId: string,
+  comportamentos: Comportamento[],
+): Promise<number> {
+  const supabase = createClient();
+  const { count } = await supabase
+    .from("logs")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .in("comportamento", comportamentos);
+  return count ?? 0;
+}
+
+/** Logs dos últimos 7 dias (para o analisador semanal). */
+export async function logs7Dias(userId: string): Promise<LogRow[]> {
+  const supabase = createClient();
+  const desde = new Date(Date.now() - 7 * 86_400_000).toISOString();
+  const { data } = await supabase
+    .from("logs")
+    .select("*")
+    .eq("user_id", userId)
+    .gte("ts", desde);
+  return (data ?? []) as LogRow[];
+}
