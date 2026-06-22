@@ -105,8 +105,11 @@ export async function POST(request: Request) {
       const exercicioId = body.exercicio_id ? String(body.exercicio_id) : null;
       if (!nome) return NextResponse.json({ error: "nome vazio" }, { status: 400 });
 
-      // Detecção de PR: top set (maior peso) anterior para o mesmo exercício.
+      // Top set: maior peso anterior para o mesmo exercício.
+      // is_pr = igualou OU superou o recorde (>=) → estrela + som.
+      // recorde = superou de fato (>) → muda o flavor pra "PR!".
       let isPr = false;
+      let recorde = false;
       if (peso != null) {
         const { data: prev } = await supabase
           .from("treino_series")
@@ -118,7 +121,8 @@ export async function POST(request: Request) {
           .limit(1)
           .maybeSingle();
         const melhor = prev?.peso != null ? Number(prev.peso) : -Infinity;
-        isPr = peso > melhor;
+        isPr = peso >= melhor;
+        recorde = peso > melhor;
       }
 
       const { error } = await supabase.from("treino_series").insert({
@@ -130,7 +134,7 @@ export async function POST(request: Request) {
         is_pr: isPr,
       });
       if (error) return NextResponse.json({ error: "falha série" }, { status: 500 });
-      return NextResponse.json({ ok: true, is_pr: isPr });
+      return NextResponse.json({ ok: true, is_pr: isPr, recorde });
     }
 
     case "remover_serie": {
