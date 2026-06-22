@@ -25,13 +25,14 @@ interface SearchResp {
   };
 }
 
-// Sementes de busca — gêneros/moods variados para sortear o catálogo.
+// Sementes de busca — gosto do usuário: pop, k-pop, rock, indie, folk e afins.
 const SEEDS = [
-  "pop", "rock", "hip hop", "rap", "trap", "indie", "eletronica", "dance",
-  "house", "edm", "funk", "sertanejo", "mpb", "samba", "pagode", "forro",
-  "gospel", "reggae", "jazz", "soul", "r&b", "blues", "metal", "punk",
-  "lofi", "k-pop", "latin", "love songs", "summer hits", "party", "workout",
-  "classic rock", "pop rock", "rock nacional", "trap brasileiro", "piseiro",
+  "pop", "k-pop", "rock", "indie pop", "indie", "indie rock", "folk",
+  "indie folk", "folk pop", "alt pop", "art pop", "synth pop", "dream pop",
+  "bedroom pop", "hyperpop", "electropop", "dance pop", "pop rock",
+  "alternative", "alternative rock", "new wave", "britpop", "j-pop",
+  "soft rock", "disco", "synthwave", "singer-songwriter", "chamber pop",
+  "shoegaze", "city pop", "pop punk", "power pop",
 ];
 
 /** Ids de faixas já tocadas (faixa_cheia) para este usuário. */
