@@ -18,6 +18,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "personagemId faltando" }, { status: 400 });
   }
 
+  // Só personagens DESBLOQUEADOS podem ser protagonista (slots bloqueados não).
+  const { data: alvo } = await supabase
+    .from("personagens")
+    .select("desbloqueado")
+    .eq("id", body.personagemId)
+    .maybeSingle();
+  if (!alvo?.desbloqueado) {
+    return NextResponse.json({ error: "personagem bloqueado" }, { status: 400 });
+  }
+
   const hoje = new Date().toISOString().slice(0, 10);
   const { error } = await supabase.from("selecao_diaria").upsert({
     user_id: user.id,

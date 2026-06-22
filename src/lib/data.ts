@@ -428,3 +428,22 @@ export async function seriesDeHoje(userId: string): Promise<TreinoSerie[]> {
     .order("ts", { ascending: true });
   return (data ?? []) as TreinoSerie[];
 }
+
+// ── Roster (v4): desbloqueados + dono do atributo (p/ imagens contextuais) ──
+export async function rosterDesbloqueado(): Promise<Personagem[]> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("personagens")
+    .select("*")
+    .eq("desbloqueado", true)
+    .order("ordem", { ascending: true });
+  return (data ?? []) as Personagem[];
+}
+
+/** Personagem desbloqueado dono de um atributo/família (p/ fallback de hero). */
+export function donoDoAtributo(
+  roster: Personagem[],
+  familia: Familia,
+): Personagem | null {
+  return roster.find((p) => p.comportamento_alvo === familia) ?? null;
+}

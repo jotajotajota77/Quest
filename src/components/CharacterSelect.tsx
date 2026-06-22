@@ -17,10 +17,12 @@ import CharacterImage from "@/components/CharacterImage";
 
 export default function CharacterSelect({ roster }: { roster: Personagem[] }) {
   const router = useRouter();
-  const [selId, setSelId] = useState<string | null>(roster[0]?.id ?? null);
+  const [selId, setSelId] = useState<string | null>(
+    roster.find((p) => p.desbloqueado)?.id ?? null,
+  );
   const [confirmando, setConfirmando] = useState(false);
 
-  const sel = roster.find((p) => p.id === selId) ?? null;
+  const sel = roster.find((p) => p.id === selId && p.desbloqueado) ?? null;
 
   async function confirmar() {
     if (!sel) return;
@@ -59,13 +61,17 @@ export default function CharacterSelect({ roster }: { roster: Personagem[] }) {
                 {sel.titulo}
               </div>
             )}
-            <p style={{ margin: "10px 0 6px" }}>
-              Atributo: <strong>{LABEL_ATRIBUTO[sel.atributo_foco]}</strong>
-            </p>
-            <p style={{ margin: "0 0 8px", color: "var(--gold)" }}>
-              Bônus: +{Math.round(sel.bonus.valor * 100)}%{" "}
-              {LABEL_ATRIBUTO[sel.atributo_foco]} no dia em que é protagonista.
-            </p>
+            {sel.atributo_foco && (
+              <p style={{ margin: "10px 0 6px" }}>
+                Atributo: <strong>{LABEL_ATRIBUTO[sel.atributo_foco]}</strong>
+              </p>
+            )}
+            {sel.atributo_foco && sel.bonus && (
+              <p style={{ margin: "0 0 8px", color: "var(--gold)" }}>
+                Bônus: +{Math.round(sel.bonus.valor * 100)}%{" "}
+                {LABEL_ATRIBUTO[sel.atributo_foco]} no dia em que é protagonista.
+              </p>
+            )}
             {sel.bio && <p className="subtle" style={{ margin: "8px 0" }}>{sel.bio}</p>}
             {sel.lore && (
               <p className="subtle" style={{ margin: "8px 0", fontStyle: "italic" }}>
@@ -85,17 +91,29 @@ export default function CharacterSelect({ roster }: { roster: Personagem[] }) {
       )}
 
       <div className="roster-grid">
-        {roster.map((p) => (
-          <button
-            key={p.id}
-            className={`roster-cell ${p.id === selId ? "selected" : ""}`}
-            onClick={() => setSelId(p.id)}
-            title={p.nome}
-          >
-            <CharacterImage src={p.asset_rosto} nome={p.nome} className="roster-face" />
-          </button>
-        ))}
+        {roster.map((p) =>
+          p.desbloqueado ? (
+            <button
+              key={p.id}
+              className={`roster-cell ${p.id === selId ? "selected" : ""}`}
+              onClick={() => setSelId(p.id)}
+              title={p.nome}
+            >
+              <CharacterImage src={p.asset_rosto} nome={p.nome} className="roster-face" />
+            </button>
+          ) : (
+            <div key={p.id} className="roster-cell locked" title="Em breve">
+              <div className="lock-badge">
+                <span className="lock-ico">🔒</span>
+                <span>EM BREVE</span>
+              </div>
+            </div>
+          ),
+        )}
       </div>
+      <p className="subtle" style={{ marginTop: 10 }}>
+        🔒 5 slots a desbloquear — novos operadores a caminho.
+      </p>
     </div>
   );
 }

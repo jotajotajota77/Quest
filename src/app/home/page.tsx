@@ -25,6 +25,8 @@ import { calcularStreak } from "@/lib/engine/streak";
 import { mensagemContextual } from "@/lib/voz";
 import Scoreboard from "@/components/Scoreboard";
 import BottomNav from "@/components/BottomNav";
+import ContextualHero from "@/components/ContextualHero";
+import { candidatosHero } from "@/lib/heroi";
 import FogButton from "@/components/FogButton";
 import DailySpin from "@/components/DailySpin";
 import LoreButton from "@/components/LoreButton";
@@ -61,6 +63,13 @@ export default async function HomePage() {
 
   return (
     <main className="app-shell">
+      {/* Presença: hero contextual do protagonista do dia. */}
+      <ContextualHero
+        candidatos={candidatosHero("home", personagem, null)}
+        nome={personagem.nome}
+        altura={220}
+      />
+
       {/* Voz contextual / body-doubling — o protagonista fala. */}
       <div
         className="panel"
