@@ -13,6 +13,7 @@ export default function MirrorForm() {
     cintura: "",
     gordura_pct: "",
     descricao: "",
+    estado_corporal: "",
   });
 
   async function salvar(e: React.FormEvent) {
@@ -29,14 +30,24 @@ export default function MirrorForm() {
             ? Number(campos.gordura_pct)
             : undefined,
           descricao: campos.descricao || undefined,
+          estado_corporal: campos.estado_corporal || undefined,
         }),
       });
-      setCampos({ peso: "", cintura: "", gordura_pct: "", descricao: "" });
+      setCampos({
+        peso: "",
+        cintura: "",
+        gordura_pct: "",
+        descricao: "",
+        estado_corporal: "",
+      });
       router.refresh();
     } finally {
       setSalvando(false);
     }
   }
+
+  // Labels de estado corporal ANTI-AVERSIVOS — nunca termos julgadores.
+  const ESTADOS = ["Recarga", "Lean", "Atlético", "Construção", "Manutenção"];
 
   const input = (
     name: keyof typeof campos,
@@ -66,6 +77,30 @@ export default function MirrorForm() {
       {input("peso", "Peso (kg)")}
       {input("cintura", "Cintura (cm)")}
       {input("gordura_pct", "Gordura corporal (%)")}
+      <div className="lbl" style={{ marginBottom: 6 }}>
+        Estado (sem julgamento)
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
+        {ESTADOS.map((e) => (
+          <button
+            key={e}
+            type="button"
+            className="nav-link"
+            style={{
+              borderColor:
+                campos.estado_corporal === e ? "var(--neon)" : "var(--panel-border)",
+            }}
+            onClick={() =>
+              setCampos((c) => ({
+                ...c,
+                estado_corporal: c.estado_corporal === e ? "" : e,
+              }))
+            }
+          >
+            {e}
+          </button>
+        ))}
+      </div>
       <textarea
         placeholder="Descrição livre do corpo real…"
         value={campos.descricao}
