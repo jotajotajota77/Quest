@@ -6,15 +6,25 @@ import { createClient } from "@/lib/supabase/server";
 import {
   categoriasFood,
   coachNutriAtivo,
-  listarFoodDb,
+  foodsPorIds,
   logsNutri30,
   nutriHoje,
   pesoAtual,
 } from "@/lib/data";
+import { MODELOS_DIETA } from "@/lib/dietas";
 import { gerarTips } from "@/lib/coach_tips";
 import BehaviorTab from "@/components/BehaviorTab";
 import NutriDashboard from "@/components/NutriDashboard";
 import CoachTips from "@/components/CoachTips";
+
+// ids referenciados pelos modelos de dieta (carregados p/ exibir/registrar).
+const IDS_MODELO = [
+  ...new Set(
+    MODELOS_DIETA.flatMap((m) =>
+      m.refeicoes.flatMap((r) => r.itens.map((i) => i.foodId)),
+    ),
+  ),
+];
 
 export default async function NutriPage() {
   const supabase = createClient();
@@ -23,11 +33,23 @@ export default async function NutriPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [ativo, refeicoes, alimentos] = await Promise.all([
+  const [ativo, refeicoes] = await Promise.all([
     coachNutriAtivo(user.id),
     nutriHoje(user.id),
-    listarFoodDb(),
   ]);
+
+  // Catálogo grande é por busca server-side: aqui só os foods dos modelos +
+  // os nomes dos alimentos registrados hoje.
+  const idsHoje = refeicoes
+    .map((r) => r.food_id)
+    .filter((x): x is string => !!x);
+  const [alimentosModelo, alimentosHoje] = await Promise.all([
+    foodsPorIds(IDS_MODELO),
+    foodsPorIds(idsHoje),
+  ]);
+  const nomesHoje = Object.fromEntries(
+    alimentosHoje.map((a) => [a.id, a.nome]),
+  );
 
   let tips = null;
   if (ativo) {
@@ -42,7 +64,11 @@ export default async function NutriPage() {
   return (
     <BehaviorTab familia="nutri" coachAtivo={ativo} ocultarHistorico>
       {tips && <CoachTips tips={tips} />}
-      <NutriDashboard refeicoes={refeicoes} alimentos={alimentos} />
+      <NutriDashboard
+        refeicoes={refeicoes}
+        alimentosModelo={alimentosModelo}
+        nomesHoje={nomesHoje}
+      />
     </BehaviorTab>
   );
 }
