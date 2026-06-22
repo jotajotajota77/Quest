@@ -281,17 +281,57 @@ a {
   }
 }
 
-/* ── Navegação inferior ─────────────────────────────────── */
-.bottom-nav {
+/* ── Barra de abas inferior (tab bar fixa) ──────────────── */
+.tabbar {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
+  z-index: 30;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  padding: 6px 6px calc(6px + env(safe-area-inset-bottom, 0px));
+  background: rgba(10, 6, 18, 0.94);
+  border-top: 1px solid var(--panel-border);
+  backdrop-filter: blur(12px);
+}
+.tab {
   display: flex;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 12px;
-  background: linear-gradient(to top, rgba(10, 6, 18, 0.95), transparent);
+  gap: 3px;
+  padding: 7px 2px;
+  border-radius: 12px;
+  text-decoration: none;
+  color: var(--text-dim);
+  border: 1px solid transparent;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+.tab .tab-ico {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+.tab .tab-lbl {
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.tab.active {
+  color: var(--neon);
+  background: rgba(255, 46, 136, 0.14);
+  border-color: rgba(255, 46, 136, 0.35);
+}
+.tab.active .tab-ico {
+  filter: drop-shadow(0 0 6px rgba(255, 46, 136, 0.8));
+}
+.tab.dim {
+  opacity: 0.5;
+}
+.tab:active {
+  transform: scale(0.95);
 }
 .nav-link {
   text-decoration: none;
@@ -326,16 +366,12 @@ a {
   .title-fight {
     word-break: break-word;
   }
-  /* Nav inferior: rola horizontalmente em vez de empilhar feio. */
-  .bottom-nav {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    justify-content: flex-start;
-    -webkit-overflow-scrolling: touch;
+  /* Tab bar: ícones um tom menores no celular para os 7 itens caberem. */
+  .tab .tab-ico {
+    font-size: 1.05rem;
   }
-  .nav-link {
-    flex: 0 0 auto;
-    white-space: nowrap;
+  .tab .tab-lbl {
+    font-size: 0.54rem;
   }
 }
 
