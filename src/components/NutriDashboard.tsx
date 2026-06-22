@@ -13,26 +13,35 @@ import { useRouter } from "next/navigation";
 import type { DecisaoReforco, LogRow } from "@/lib/types";
 import {
   CATEGORIAS,
-  FOOD_DB,
   META_CARBO,
   META_GORDURA,
   META_KCAL,
   META_PROTEINA,
   escalar,
+  type Alimento,
   type CategoriaAlimento,
 } from "@/lib/alimentos";
 import { useHitConfirm } from "@/components/HitConfirm";
 import { tocarUri } from "@/lib/spotify/playback";
 
-const NOME_POR_ID = new Map(FOOD_DB.map((f) => [f.id, f.nome]));
-
-export default function NutriDashboard({ refeicoes }: { refeicoes: LogRow[] }) {
+export default function NutriDashboard({
+  refeicoes,
+  alimentos,
+}: {
+  refeicoes: LogRow[];
+  alimentos: Alimento[];
+}) {
   const router = useRouter();
   const { fire, overlay } = useHitConfirm();
   const [cat, setCat] = useState<CategoriaAlimento>("proteina");
   const [busca, setBusca] = useState("");
   const [porcao, setPorcao] = useState("100");
   const [ocupado, setOcupado] = useState(false);
+
+  const nomePorId = useMemo(
+    () => new Map(alimentos.map((f) => [f.id, f.nome])),
+    [alimentos],
+  );
 
   const totais = useMemo(() => {
     return refeicoes.reduce(
@@ -48,13 +57,13 @@ export default function NutriDashboard({ refeicoes }: { refeicoes: LogRow[] }) {
 
   const lista = useMemo(() => {
     const q = busca.trim().toLowerCase();
-    return FOOD_DB.filter(
+    return alimentos.filter(
       (f) => f.cat === cat && (q === "" || f.nome.toLowerCase().includes(q)),
     );
-  }, [cat, busca]);
+  }, [cat, busca, alimentos]);
 
   async function adicionar(foodId: string) {
-    const alimento = FOOD_DB.find((f) => f.id === foodId);
+    const alimento = alimentos.find((f) => f.id === foodId);
     if (!alimento) return;
     const gramas = Number(porcao) || 100;
     const m = escalar(alimento, gramas);
@@ -190,7 +199,7 @@ export default function NutriDashboard({ refeicoes }: { refeicoes: LogRow[] }) {
               <div style={{ fontWeight: 700 }}>
                 {r.comportamento === "nutri_agua"
                   ? "Água"
-                  : (r.food_id && NOME_POR_ID.get(r.food_id)) || "Refeição"}
+                  : (r.food_id && nomePorId.get(r.food_id)) || "Refeição"}
               </div>
               <div className="subtle" style={{ fontSize: "0.72rem" }}>
                 {r.kcal != null

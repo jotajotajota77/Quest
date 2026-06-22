@@ -494,3 +494,148 @@ export async function diaFinalizado(userId: string): Promise<boolean> {
     .maybeSingle();
   return Boolean(data?.finalizado);
 }
+
+// ── food_db (v4): catálogo consultável ──
+import type { Alimento, CategoriaAlimento } from "@/lib/alimentos";
+
+export async function listarFoodDb(): Promise<Alimento[]> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("food_db")
+    .select("*")
+    .order("nome", { ascending: true });
+  return (data ?? []).map((r) => ({
+    id: r.id as string,
+    nome: r.nome as string,
+    cat: r.categoria as CategoriaAlimento,
+    kcal: Number(r.kcal),
+    p: Number(r.proteina),
+    c: Number(r.carbo),
+    g: Number(r.gordura),
+  }));
+}
+
+export async function categoriasFood(): Promise<Map<string, string>> {
+  const supabase = createClient();
+  const { data } = await supabase.from("food_db").select("id, categoria");
+  return new Map((data ?? []).map((r) => [r.id as string, r.categoria as string]));
+}
+
+// ── Fat Loss Coach (v4): 30 dias de logs ricos + peso atual ──
+export async function logsNutri30(userId: string): Promise<LogRow[]> {
+  const supabase = createClient();
+  const desde = new Date(Date.now() - 30 * 86_400_000).toISOString();
+  const { data } = await supabase
+    .from("logs")
+    .select("*")
+    .eq("user_id", userId)
+    .in("comportamento", NUTRI)
+    .gte("ts", desde)
+    .not("kcal", "is", null);
+  return (data ?? []) as LogRow[];
+}
+
+export async function pesoAtual(userId: string): Promise<number | null> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("corpo_real")
+    .select("peso")
+    .eq("user_id", userId)
+    .not("peso", "is", null)
+    .order("ts", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return data?.peso != null ? Number(data.peso) : null;
+}
+
+// ── Quests (v4): avalia contra o dia, credita XP uma vez por quest ──
+import { questsDeHoje, type QuestCtx } from "@/lib/quests";
+import { tierDeXp } from "@/lib/engine/tier";
+
+export interface QuestView {
+  quest_id: string;
+  tipo: string;
+  descricao: string;
+  xp: number;
+  completa: boolean;
+}
+
+export async function avaliarQuests(
+  userId: string,
+  ctx: QuestCtx,
+): Promise<QuestView[]> {
+  const supabase = createClient();
+  const data = hojeISO();
+  const templates = questsDeHoje(data);
+
+  const { data: existentes } = await supabase
+    .from("quests")
+    .select("quest_id, estado")
+    .eq("user_id", userId)
+    .eq("data", data);
+  const estadoPorId = new Map(
+    (existentes ?? []).map((r) => [r.quest_id as string, r.estado as string]),
+  );
+
+  let xpGanho = 0;
+  const view: QuestView[] = [];
+
+  for (const t of templates) {
+    const jaCompleta = estadoPorId.get(t.id) === "completa";
+    const completaAgora = t.concluida(ctx);
+    const novaCompleta = completaAgora && !jaCompleta;
+    if (novaCompleta) xpGanho += t.xp;
+
+    // upsert do estado (cria a linha se não existir; marca completa quando for).
+    await supabase.from("quests").upsert({
+      user_id: userId,
+      data,
+      quest_id: t.id,
+      tipo: t.tipo,
+      descricao: t.descricao,
+      xp: t.xp,
+      estado: completaAgora || jaCompleta ? "completa" : "aberta",
+    });
+
+    view.push({
+      quest_id: t.id,
+      tipo: t.tipo,
+      descricao: t.descricao,
+      xp: t.xp,
+      completa: completaAgora || jaCompleta,
+    });
+  }
+
+  if (xpGanho > 0) {
+    const attr = await garantirAtributos(userId);
+    const novoXp = attr.xp + xpGanho;
+    const tier = tierDeXp(novoXp);
+    await supabase
+      .from("atributos")
+      .update({
+        xp: novoXp,
+        tier_base: tier.base.sigla,
+        tier_divisao: tier.rank % 4,
+        atualizado_em: new Date().toISOString(),
+      })
+      .eq("user_id", userId);
+  }
+
+  return view;
+}
+
+// ── Sessões de treino do dia (v4) ──
+export async function sessoesDeHoje(
+  userId: string,
+): Promise<{ split: string; finalizada: boolean }[]> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("treino_sessoes")
+    .select("split, finalizada")
+    .eq("user_id", userId)
+    .eq("data", hojeISO());
+  return (data ?? []).map((r) => ({
+    split: r.split as string,
+    finalizada: Boolean(r.finalizada),
+  }));
+}

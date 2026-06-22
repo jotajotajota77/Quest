@@ -143,6 +143,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true });
     }
 
+    case "fechar_sessao": {
+      // Marca a sessão do dia (split) como finalizada. O reforço (log de treino
+      // → Força + hit-confirm) é disparado pelo cliente via /api/log à parte.
+      const split = String(body.split ?? "").trim();
+      if (!split) return NextResponse.json({ error: "split" }, { status: 400 });
+      const hoje = new Date().toISOString().slice(0, 10);
+      await supabase.from("treino_sessoes").upsert({
+        user_id: user.id,
+        data: hoje,
+        split,
+        finalizada: true,
+        atualizado_em: new Date().toISOString(),
+      });
+      return NextResponse.json({ ok: true });
+    }
+
     default:
       return NextResponse.json({ error: "ação inválida" }, { status: 400 });
   }
