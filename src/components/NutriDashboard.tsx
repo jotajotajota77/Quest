@@ -8,7 +8,7 @@
 // + música), porque continua sendo um registro de Nutri.
 // ============================================================
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { DecisaoReforco, LogRow } from "@/lib/types";
 import {
@@ -28,10 +28,15 @@ import { somComida } from "@/lib/som";
 
 export default function NutriDashboard({
   refeicoes,
-  alimentos,
+  alimentosModelo,
+  nomesHoje,
 }: {
   refeicoes: LogRow[];
-  alimentos: Alimento[];
+  // Só os alimentos referenciados pelos modelos de dieta (catálogo cheio é
+  // consultado por busca server-side em /api/food).
+  alimentosModelo: Alimento[];
+  // food_id → nome dos registros de hoje (p/ a lista "Hoje").
+  nomesHoje: Record<string, string>;
 }) {
   const router = useRouter();
   const { fire, overlay } = useHitConfirm();
@@ -42,14 +47,12 @@ export default function NutriDashboard({
   const [modeloId, setModeloId] = useState<string | null>(null);
   const [gramasModelo, setGramasModelo] = useState<Record<string, string>>({});
   const [musicaMsg, setMusicaMsg] = useState<string | null>(null);
+  const [resultados, setResultados] = useState<Alimento[]>([]);
+  const [buscando, setBuscando] = useState(false);
 
   const porId = useMemo(
-    () => new Map(alimentos.map((f) => [f.id, f])),
-    [alimentos],
-  );
-  const nomePorId = useMemo(
-    () => new Map(alimentos.map((f) => [f.id, f.nome])),
-    [alimentos],
+    () => new Map(alimentosModelo.map((f) => [f.id, f])),
+    [alimentosModelo],
   );
 
   const totais = useMemo(() => {
@@ -64,16 +67,30 @@ export default function NutriDashboard({
     );
   }, [refeicoes]);
 
-  const lista = useMemo(() => {
-    const q = busca.trim().toLowerCase();
-    return alimentos.filter(
-      (f) => f.cat === cat && (q === "" || f.nome.toLowerCase().includes(q)),
-    );
-  }, [cat, busca, alimentos]);
+  // Busca server-side no catálogo grande (debounced) por categoria + termo.
+  useEffect(() => {
+    let cancel = false;
+    setBuscando(true);
+    const t = setTimeout(async () => {
+      try {
+        const params = new URLSearchParams({ cat });
+        if (busca.trim()) params.set("q", busca.trim());
+        const res = await fetch(`/api/food?${params.toString()}`);
+        const j = res.ok ? await res.json() : { alimentos: [] };
+        if (!cancel) setResultados((j.alimentos as Alimento[]) ?? []);
+      } catch {
+        if (!cancel) setResultados([]);
+      } finally {
+        if (!cancel) setBuscando(false);
+      }
+    }, 250);
+    return () => {
+      cancel = true;
+      clearTimeout(t);
+    };
+  }, [cat, busca]);
 
-  async function adicionar(foodId: string) {
-    const alimento = alimentos.find((f) => f.id === foodId);
-    if (!alimento) return;
+  async function adicionar(alimento: Alimento) {
     // Reforço DIFERENCIAL: comida saudável → reforço imediato (HIT + som +
     // música). Junk (categoria "doce") → NULIDADE: registra honestamente pro
     // coach, mas sem nenhum reforço sensorial (sem pop, sem som, sem música).
@@ -92,7 +109,7 @@ export default function NutriDashboard({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           comportamento: "nutri_refeicao",
-          food_id: foodId,
+          food_id: alimento.id,
           kcal: m.kcal,
           proteina: m.p,
           carbs: m.c,
@@ -335,7 +352,7 @@ export default function NutriDashboard({
         </div>
 
         <div style={{ maxHeight: 240, overflowY: "auto" }}>
-          {lista.map((f) => {
+          {resultados.map((f) => {
             const m = escalar(f, Number(porcao) || 100);
             return (
               <div key={f.id} className="food-row">
@@ -349,14 +366,24 @@ export default function NutriDashboard({
                   className="btn btn-primary"
                   style={{ padding: "6px 12px" }}
                   disabled={ocupado}
-                  onClick={() => adicionar(f.id)}
+                  onClick={() => adicionar(f)}
                 >
                   +
                 </button>
               </div>
             );
           })}
-          {lista.length === 0 && <p className="subtle">Nada encontrado.</p>}
+          {!buscando && resultados.length === 0 && (
+            <p className="subtle">Nada encontrado.</p>
+          )}
+          {buscando && resultados.length === 0 && (
+            <p className="subtle">Buscando…</p>
+          )}
+          {resultados.length >= 60 && (
+            <p className="subtle" style={{ fontSize: "0.7rem", textAlign: "center" }}>
+              Mostrando os primeiros 60 — refine a busca pra achar mais.
+            </p>
+          )}
         </div>
       </div>
 
@@ -370,7 +397,7 @@ export default function NutriDashboard({
               <div style={{ fontWeight: 700 }}>
                 {r.comportamento === "nutri_agua"
                   ? "Água"
-                  : (r.food_id && nomePorId.get(r.food_id)) || "Refeição"}
+                  : (r.food_id && nomesHoje[r.food_id]) || "Refeição"}
               </div>
               <div className="subtle" style={{ fontSize: "0.72rem" }}>
                 {r.kcal != null

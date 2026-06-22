@@ -521,6 +521,26 @@ export async function categoriasFood(): Promise<Map<string, string>> {
   return new Map((data ?? []).map((r) => [r.id as string, r.categoria as string]));
 }
 
+/** Busca alimentos específicos por id (modelos de dieta + nomes do dia). */
+export async function foodsPorIds(ids: string[]): Promise<Alimento[]> {
+  const unicos = [...new Set(ids.filter(Boolean))];
+  if (unicos.length === 0) return [];
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("food_db")
+    .select("*")
+    .in("id", unicos);
+  return (data ?? []).map((r) => ({
+    id: r.id as string,
+    nome: r.nome as string,
+    cat: r.categoria as CategoriaAlimento,
+    kcal: Number(r.kcal),
+    p: Number(r.proteina),
+    c: Number(r.carbo),
+    g: Number(r.gordura),
+  }));
+}
+
 // ── Fat Loss Coach (v4): 30 dias de logs ricos + peso atual ──
 export async function logsNutri30(userId: string): Promise<LogRow[]> {
   const supabase = createClient();
