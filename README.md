@@ -27,6 +27,24 @@ motor único — a assimetria vive em `src/lib/comportamentos.ts` (`FAMILIAS`).
   pareia música com leitura).
 - **Dança:** universal + Spotify como **trilha** da atividade (não esmaecível).
 
+## Espinha do loop diário (v2)
+
+A versão anterior tinha muita feature e pouco loop. A v2 prioriza a **espinha**:
+
+- **Tier ladder** (`engine/tier.ts`) — 10 bases × 4 divisões (E-IV → SSR+-I),
+  XP total → rank com progresso na home (substitui o "elo" vago).
+- **Voz contextual** (`lib/voz.ts`) — o protagonista do dia fala na home;
+  muda por streak / tempo fora / hora; **retorno sem julgamento** após ausência.
+- **Modo névoa** (`components/FogButton`, `api/fog`, tabela `dias`) — "⊘ Não
+  consigo hoje": preserva o streak, muda a voz, e é **neutro ao fading**
+  (dias de névoa saem da janela de latência e da prova de robustez).
+- **Streak emocional** (`engine/streak.ts`) — névoa não quebra.
+- **Daily spin** (`components/DailySpin`, `api/spin`, tabela `daily_spin`) —
+  reforço de razão variável autocontido, 1×/dia.
+- **Foco do dia** — uma coisa (anti-paralisia): a âncora é a Nutri.
+- **Schema forward-compat** — `logs` com macros nullable (coach futuro);
+  tabelas `treino_*` prontas para o módulo de treino rico (próxima leva).
+
 ## TRAVAs e onde vivem
 
 | TRAVA | Onde |

@@ -13,6 +13,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { Comportamento, DecisaoReforco, ModoAudio } from "@/lib/types";
 import { atributoDe, familiaDe, FAMILIAS } from "@/lib/comportamentos";
 import { calcularGanho, eloDeXp } from "@/lib/engine/reinforcement";
+import { tierDeXp } from "@/lib/engine/tier";
 import { decidirFading, deveTocarMusica } from "@/lib/engine/fading";
 import { sinalEstabilidade } from "@/lib/engine/latency";
 import { porteiroPermiteAfinar } from "@/lib/engine/gates";
@@ -71,12 +72,15 @@ export async function POST(request: Request) {
   // 3. Aplica à progressão ÚNICA do jogador (atributo + XP → Elo).
   const attr = await garantirAtributos(user.id);
   const novoXp = attr.xp + ganho.total;
+  const tier = tierDeXp(novoXp);
   await supabase
     .from("atributos")
     .update({
       [atributo]: (attr[atributo] as number) + ganho.total,
       xp: novoXp,
-      elo: eloDeXp(novoXp),
+      elo: eloDeXp(novoXp), // legado; o ladder de tier é a leitura concreta
+      tier_base: tier.base.sigla,
+      tier_divisao: tier.rank % 4, // 0..3 (IV..I)
       atualizado_em: new Date().toISOString(),
     })
     .eq("user_id", user.id);

@@ -78,20 +78,30 @@ export async function personagemDoDia(
   return (p as Personagem) ?? null;
 }
 
-/** Janela móvel das últimas N latências (min) da NUTRI, para o fading. */
+/**
+ * Janela móvel das últimas N latências (min) da NUTRI, para o fading.
+ * Dias de NÉVOA são NEUTROS ao motor (TRAVA 5): excluídos da janela.
+ */
 export async function ultimasLatenciasNutri(
   userId: string,
   n = 12,
 ): Promise<number[]> {
   const supabase = createClient();
+  const fog = await diasNevoaSet(userId);
   const { data } = await supabase
     .from("vw_logs_latencia")
-    .select("latencia_seg")
+    .select("ts, latencia_seg")
     .eq("user_id", userId)
     .in("comportamento", NUTRI)
     .order("ts", { ascending: false })
-    .limit(n);
-  return (data ?? []).map((r) => (r.latencia_seg as number) / 60);
+    .limit(n * 3);
+  const out: number[] = [];
+  for (const r of data ?? []) {
+    if (fog.has((r.ts as string).slice(0, 10))) continue; // névoa = neutro
+    out.push((r.latencia_seg as number) / 60);
+    if (out.length >= n) break;
+  }
+  return out;
 }
 
 /** Quantos registros de NUTRI houve desde a última música (faixa_cheia). */
@@ -180,10 +190,14 @@ export async function sinalRobustez(userId: string): Promise<SinalRobustez> {
     `${datasComOutros[datasComOutros.length - 1]}T00:00:00Z`,
   ).getTime();
 
+  // Dias de névoa são NEUTROS (TRAVA 5): nem perturbação, nem prova de robustez.
+  const fog = await diasNevoaSet(userId);
+
   let houvePerturbacao = false;
   let dietaSobreviveu = false;
   for (let t = inicio; t <= fim; t += 86_400_000) {
     const dia = new Date(t).toISOString().slice(0, 10);
+    if (fog.has(dia)) continue; // recolhimento declarado ≠ dia ruim natural
     const d = dias.get(dia) ?? { nutri: 0, outros: 0 };
     if (d.outros === 0) {
       houvePerturbacao = true; // rotina de outra aba furou nesse dia
@@ -192,4 +206,75 @@ export async function sinalRobustez(userId: string): Promise<SinalRobustez> {
   }
 
   return { houvePerturbacao, dietaSobreviveu };
+}
+
+// ============================================================
+// Espinha v2: streak, modo névoa, daily spin, foco do dia.
+// ============================================================
+
+export function hojeISO(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+/** Conjunto de dias (YYYY-MM-DD) declarados como névoa. */
+export async function diasNevoaSet(userId: string): Promise<Set<string>> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("dias")
+    .select("data")
+    .eq("user_id", userId)
+    .eq("fog_mode", true);
+  return new Set((data ?? []).map((r) => r.data as string));
+}
+
+/** Conjunto de dias com pelo menos um log (últimos ~120 dias). */
+export async function diasComLogSet(userId: string): Promise<Set<string>> {
+  const supabase = createClient();
+  const desde = new Date(Date.now() - 120 * 86_400_000).toISOString();
+  const { data } = await supabase
+    .from("logs")
+    .select("ts")
+    .eq("user_id", userId)
+    .gte("ts", desde);
+  return new Set((data ?? []).map((r) => (r.ts as string).slice(0, 10)));
+}
+
+/** Quantos registros o usuário fez hoje. */
+export async function registrosHoje(userId: string): Promise<number> {
+  const supabase = createClient();
+  const inicio = `${hojeISO()}T00:00:00.000Z`;
+  const { count } = await supabase
+    .from("logs")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .gte("ts", inicio);
+  return count ?? 0;
+}
+
+/** A linha de hoje em `dias` (fog/foco), criando se preciso. */
+export async function diaDeHoje(
+  userId: string,
+): Promise<{ fog_mode: boolean; foco_do_dia: string | null }> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("dias")
+    .select("fog_mode, foco_do_dia")
+    .eq("user_id", userId)
+    .eq("data", hojeISO())
+    .maybeSingle();
+  return data ?? { fog_mode: false, foco_do_dia: null };
+}
+
+/** Recompensa do daily spin de hoje, se já girou. */
+export async function spinDeHoje(
+  userId: string,
+): Promise<Record<string, unknown> | null> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("daily_spin")
+    .select("recompensa")
+    .eq("user_id", userId)
+    .eq("data", hojeISO())
+    .maybeSingle();
+  return (data?.recompensa as Record<string, unknown>) ?? null;
 }

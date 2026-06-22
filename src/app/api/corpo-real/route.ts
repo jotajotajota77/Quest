@@ -17,6 +17,7 @@ export async function POST(request: Request) {
     cintura?: number;
     gordura_pct?: number;
     descricao?: string;
+    estado_corporal?: string;
   };
 
   const { error } = await supabase.from("corpo_real").insert({
@@ -25,6 +26,7 @@ export async function POST(request: Request) {
     medidas: body.cintura != null ? { cintura: body.cintura } : null,
     composicao: body.gordura_pct != null ? { gordura_pct: body.gordura_pct } : null,
     descricao: body.descricao ?? null,
+    estado_corporal: body.estado_corporal ?? null,
   });
   if (error) {
     return NextResponse.json({ error: "falha ao salvar" }, { status: 500 });
