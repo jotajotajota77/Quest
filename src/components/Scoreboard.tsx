@@ -1,13 +1,22 @@
-// Placar de alta frequência: elo, XP, Stamina + personagem do dia.
-// Apresentacional — recebe a progressão ÚNICA do usuário já resolvida.
+// Placar de alta frequência: os 4 atributos + Elo + progresso + protagonista.
+// Apresentacional — recebe a progressão ÚNICA do jogador já resolvida.
+import Link from "next/link";
 import type { Atributos, Personagem } from "@/lib/types";
 import { xpParaElo } from "@/lib/engine/reinforcement";
+import { FAMILIAS, FAMILIAS_ORDEM, LABEL_ATRIBUTO } from "@/lib/comportamentos";
+
+const COR_ATRIBUTO: Record<string, string> = {
+  forca: "var(--neon)",
+  stamina: "var(--gold)",
+  sabedoria: "var(--neon-2)",
+  destreza: "#b16cff",
+};
 
 export default function Scoreboard({
   attr,
   personagem,
 }: {
-  attr: Pick<Atributos, "stamina" | "elo" | "xp">;
+  attr: Atributos;
   personagem: Personagem | null;
 }) {
   const baseElo = xpParaElo(attr.elo);
@@ -30,7 +39,7 @@ export default function Scoreboard({
           Elo {attr.elo}
         </h2>
         <span className="subtle">
-          Protagonista de hoje: {personagem ? personagem.nome : "—"}
+          Protagonista: {personagem ? personagem.nome : "—"}
         </span>
       </div>
 
@@ -38,25 +47,38 @@ export default function Scoreboard({
         <div className="xp-fill" style={{ width: `${pct}%` }} />
       </div>
 
-      <div className="stat-row">
-        <div className="stat">
-          <div className="num" style={{ color: "var(--gold)" }}>
-            {attr.stamina}
-          </div>
-          <div className="lbl">Stamina</div>
-        </div>
-        <div className="stat">
-          <div className="num" style={{ color: "var(--neon-2)" }}>
-            {attr.xp}
-          </div>
-          <div className="lbl">XP total</div>
-        </div>
-        <div className="stat">
-          <div className="num" style={{ color: "var(--neon)" }}>
-            {attr.elo}
-          </div>
-          <div className="lbl">Elo</div>
-        </div>
+      <div className="stat-row" style={{ gridTemplateColumns: "repeat(4,1fr)" }}>
+        {FAMILIAS_ORDEM.map((fam) => {
+          const a = FAMILIAS[fam].atributo;
+          const favorecido = personagem?.comportamento_alvo === fam;
+          return (
+            <Link
+              key={fam}
+              href={`/${fam}`}
+              className="stat"
+              style={{ textDecoration: "none", position: "relative" }}
+            >
+              <div className="num" style={{ color: COR_ATRIBUTO[a] }}>
+                {attr[a]}
+              </div>
+              <div className="lbl">{LABEL_ATRIBUTO[a]}</div>
+              {favorecido && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: 6,
+                    right: 8,
+                    fontSize: "0.6rem",
+                    color: "var(--gold)",
+                    fontWeight: 800,
+                  }}
+                >
+                  +25%
+                </div>
+              )}
+            </Link>
+          );
+        })}
       </div>
     </div>
   );

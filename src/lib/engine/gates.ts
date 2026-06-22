@@ -1,24 +1,46 @@
 // ============================================================
-// Ganchos DESARMADOS no V1 — estrutura presente, ativação ≈ 1 flag no V2.
+// Ganchos de controle do sistema.
 // ------------------------------------------------------------
-// NÃO ligue nada disto no V1. Ambos os ganchos existem só para que o V2 seja
-// uma troca de flag, sem redesenho. Os corpos "V2" estão escritos como
-// referência, mas guardados atrás das flags abaixo (ambas false).
+//  * Porteiro de robustez do fading: AGORA ARMADO (os outros comportamentos
+//    existem, há sinal a ler).
+//  * Convocação da aba-espelho: ainda DESARMADO (ativação ≈ 1 flag no futuro).
 // ============================================================
 
-import type { Comportamento } from "@/lib/types";
+import type { Familia } from "@/lib/types";
 
-// ─── Gancho 1: Convocação da aba-espelho ────────────────────
-// V2: puxaria o usuário para a aba-espelho quando COMPORTAMENTO e RESULTADO
-// divergem (ex.: dieta consistente há ~3 semanas + cintura parada).
-// V1: DESARMADO. A aba-espelho é 100% passiva — nada convoca o usuário.
+// ─── Porteiro de robustez do fading (ARMADO) — TRAVA 5 ──────
+// Antes de RAREAR (down-shift) o esquema da dieta, exige prova de que a dieta
+// sobreviveu a um "dia ruim" NATURAL — lido das perturbações de OUTROS
+// comportamentos (rotina de outra aba furada). Sem evidência de robustez,
+// segura o afinamento (o reforço continua denso).
+export const PORTEIRO_ROBUSTEZ_ATIVO = true;
+
+export interface SinalRobustez {
+  /** Houve um dia ruim natural (rotina de outra aba furou) na janela? */
+  houvePerturbacao: boolean;
+  /** Nesse(s) dia(s) ruim(ns), a dieta ainda foi registrada? */
+  dietaSobreviveu: boolean;
+}
+
+/**
+ * @returns true se o afinamento (rarear o reforço da dieta) está liberado.
+ * Com o porteiro armado: só libera se a dieta provou robustez a um dia ruim.
+ */
+export function porteiroPermiteAfinar(sinal: SinalRobustez): boolean {
+  if (!PORTEIRO_ROBUSTEZ_ATIVO) return true;
+  return sinal.houvePerturbacao && sinal.dietaSobreviveu;
+}
+
+// ─── Convocação da aba-espelho (DESARMADO) ──────────────────
+// No futuro: puxaria o usuário para a aba-espelho quando COMPORTAMENTO e
+// RESULTADO divergem (ex.: dieta consistente há ~3 semanas + cintura parada).
+// Hoje DESARMADO: a aba-espelho é 100% passiva — nada convoca o usuário.
 export const CONVOCACAO_MIRROR_ATIVA = false;
 
 export interface SinalDivergencia {
-  /** dias de adesão consistente ao comportamento. */
   diasConsistentes: number;
-  /** o resultado corporal relevante (ex.: cintura) está estagnado? */
   resultadoEstagnado: boolean;
+  familia: Familia;
 }
 
 export interface ConvocacaoDecision {
@@ -30,36 +52,10 @@ export function avaliarConvocacaoEspelho(
   _sinal: SinalDivergencia,
 ): ConvocacaoDecision {
   if (!CONVOCACAO_MIRROR_ATIVA) {
-    return { convocar: false, motivo: "desarmado_v1" };
+    return { convocar: false, motivo: "desarmado" };
   }
-  // --- Lógica V2 (inerte enquanto a flag estiver false) ---
+  // --- Lógica futura (inerte enquanto a flag estiver false) ---
   // const convocar = _sinal.diasConsistentes >= 21 && _sinal.resultadoEstagnado;
-  // return { convocar, motivo: convocar ? "divergencia_comportamento_resultado" : "alinhado" };
-  return { convocar: false, motivo: "desarmado_v1" };
-}
-
-// ─── Gancho 2: Porteiro de robustez do fading ───────────────
-// V2: o fading só RAREARIA depois de provar que a dieta sobreviveu a um
-// "dia ruim" natural — lido de perturbações de OUTROS comportamentos (que não
-// existem no V1). A estrutura de leitura fica prevista aqui.
-// V1: DESARMADO → sempre libera o afinamento (não bloqueia nada).
-export const PORTEIRO_ROBUSTEZ_ATIVO = false;
-
-export interface ContextoPorteiro {
-  user_id: string;
-  comportamento: Comportamento;
-}
-
-/**
- * @returns true se o afinamento (rarear o reforço) está liberado.
- * No V1 sempre true: não há outros comportamentos para ler perturbações.
- */
-export function porteiroPermiteAfinar(_ctx: ContextoPorteiro): boolean {
-  if (!PORTEIRO_ROBUSTEZ_ATIVO) {
-    return true; // inerte: nunca bloqueia no V1
-  }
-  // --- Lógica V2 (inerte enquanto a flag estiver false) ---
-  // const sobreviveuDiaRuim = leuPerturbacaoDeOutrosComportamentos(_ctx);
-  // return sobreviveuDiaRuim;
-  return true;
+  // return { convocar, motivo: convocar ? "divergencia" : "alinhado" };
+  return { convocar: false, motivo: "desarmado" };
 }
