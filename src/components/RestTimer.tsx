@@ -1,7 +1,8 @@
 "use client";
 
-// Timer de descanso FLUTUANTE global. 60/90/120/180s. Toca um bip leve (local)
-// ao zerar. É ferramenta de treino — não é reforço.
+// Timer de descanso FLUTUANTE. 60/90/120/180s. Toca um bip leve ao zerar.
+// É ferramenta de treino — não é reforço. Recolhível: parado vira uma pílula
+// pequena (não cobre conteúdo nem a nav); só expande ao tocar ou ao contar.
 import { useEffect, useRef, useState } from "react";
 import { TEMPOS_DESCANSO } from "@/lib/treino";
 
@@ -29,6 +30,7 @@ function bip() {
 
 export default function RestTimer() {
   const [restante, setRestante] = useState(0);
+  const [aberto, setAberto] = useState(false);
   const ref = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -51,29 +53,25 @@ export default function RestTimer() {
     };
   }, [restante > 0]); // reinicia o intervalo só quando liga/desliga
 
+  const contando = restante > 0;
+
+  // Parado e recolhido: só a pílula compacta (sem cobrir conteúdo/nav).
+  if (!contando && !aberto) {
+    return (
+      <button className="rest-fab" onClick={() => setAberto(true)} aria-label="Timer de descanso">
+        ⏱ descanso
+      </button>
+    );
+  }
+
   return (
-    <div
-      style={{
-        position: "fixed",
-        right: 14,
-        bottom: 70,
-        zIndex: 40,
-        background: "rgba(20,10,36,0.95)",
-        border: "1px solid var(--panel-border)",
-        borderRadius: 14,
-        padding: 10,
-        boxShadow: "0 8px 30px rgba(0,0,0,0.5)",
-      }}
-    >
+    <div className="rest-timer">
       <div style={{ textAlign: "center", marginBottom: 6 }}>
-        <span
-          className="title-fight"
-          style={{ fontSize: restante > 0 ? "1.4rem" : "0.8rem" }}
-        >
-          {restante > 0 ? `${restante}s` : "descanso"}
+        <span className="title-fight" style={{ fontSize: contando ? "1.5rem" : "0.78rem" }}>
+          {contando ? `${restante}s` : "descanso"}
         </span>
       </div>
-      <div style={{ display: "flex", gap: 4 }}>
+      <div style={{ display: "flex", gap: 4, flexWrap: "wrap", justifyContent: "center" }}>
         {TEMPOS_DESCANSO.map((t) => (
           <button
             key={t}
@@ -84,15 +82,17 @@ export default function RestTimer() {
             {t}
           </button>
         ))}
-        {restante > 0 && (
-          <button
-            className="nav-link"
-            style={{ padding: "6px 8px", fontSize: "0.72rem", color: "var(--neon)" }}
-            onClick={() => setRestante(0)}
-          >
-            ✕
-          </button>
-        )}
+        <button
+          className="nav-link"
+          style={{ padding: "6px 8px", fontSize: "0.72rem", color: "var(--neon)" }}
+          onClick={() => {
+            setRestante(0);
+            setAberto(false);
+          }}
+          aria-label={contando ? "Cancelar" : "Fechar"}
+        >
+          ✕
+        </button>
       </div>
     </div>
   );

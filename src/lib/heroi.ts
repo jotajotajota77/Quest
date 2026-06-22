@@ -34,9 +34,18 @@ export function candidatosHero(
   protagonista: Personagem | null,
   dono: Personagem | null,
 ): string[] {
+  // HOME: o protagonista do dia (presença única do dia).
+  if (ctx === "home") {
+    return [...new Set(dePersonagem(protagonista, ctx, false))];
+  }
+  // ABAS: o DONO do atributo lidera (cada aba mostra um personagem diferente,
+  // no contexto da família) — evita repetir a mesma foto em todas as telas.
+  // O protagonista do dia entra como fallback se o dono não tiver imagem.
   const out = [
-    ...dePersonagem(protagonista, ctx, true), // 1 + 2
-    ...(dono && dono.id !== protagonista?.id ? dePersonagem(dono, ctx, true) : []), // 3 + 4
+    ...dePersonagem(dono, ctx, true),
+    ...(protagonista && protagonista.id !== dono?.id
+      ? dePersonagem(protagonista, ctx, true)
+      : []),
   ];
   return [...new Set(out)];
 }

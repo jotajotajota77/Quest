@@ -624,6 +624,41 @@ export async function avaliarQuests(
   return view;
 }
 
+// ── Leitura (v4 afinamento): sessões recentes com livro/páginas/tempo ──
+export async function leiturasRecentes(
+  userId: string,
+  limit = 20,
+): Promise<LogRow[]> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("logs")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("comportamento", "leitura")
+    .order("ts", { ascending: false })
+    .limit(limit);
+  return (data ?? []) as LogRow[];
+}
+
+/** Totais acumulados de leitura (páginas e minutos) — placar de identidade. */
+export async function totaisLeitura(
+  userId: string,
+): Promise<{ paginas: number; minutos: number }> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("logs")
+    .select("paginas, minutos")
+    .eq("user_id", userId)
+    .eq("comportamento", "leitura");
+  let paginas = 0;
+  let minutos = 0;
+  for (const r of data ?? []) {
+    paginas += Number(r.paginas ?? 0) || 0;
+    minutos += Number(r.minutos ?? 0) || 0;
+  }
+  return { paginas, minutos };
+}
+
 // ── Sessões de treino do dia (v4) ──
 export async function sessoesDeHoje(
   userId: string,

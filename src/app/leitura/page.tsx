@@ -3,8 +3,9 @@
 // sem música (que competiria com ler). Passivo: derivado da contagem de logs.
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { contarFamilia } from "@/lib/data";
+import { contarFamilia, leiturasRecentes, totaisLeitura } from "@/lib/data";
 import BehaviorTab from "@/components/BehaviorTab";
+import LeituraForm from "@/components/LeituraForm";
 
 // Fragmentos desbloqueáveis pela leitura (identidade, não engine diária).
 const FRAGMENTOS = [
@@ -23,7 +24,11 @@ export default async function LeituraPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const total = await contarFamilia(user.id, ["leitura"]);
+  const [total, recentes, totais] = await Promise.all([
+    contarFamilia(user.id, ["leitura"]),
+    leiturasRecentes(user.id),
+    totaisLeitura(user.id),
+  ]);
   const desbloqueados = Math.min(
     FRAGMENTOS.length,
     Math.floor(total / LEITURAS_POR_FRAGMENTO),
@@ -31,7 +36,12 @@ export default async function LeituraPage() {
   const faltam = LEITURAS_POR_FRAGMENTO - (total % LEITURAS_POR_FRAGMENTO);
 
   return (
-    <BehaviorTab familia="leitura">
+    <BehaviorTab familia="leitura" ocultarHistorico>
+      <LeituraForm
+        recentes={recentes}
+        totalPaginas={totais.paginas}
+        totalMinutos={totais.minutos}
+      />
       <div className="panel" style={{ marginTop: 18, borderColor: "var(--neon-2)" }}>
         <div className="lbl">
           Fragmentos do mundo · {desbloqueados}/{FRAGMENTOS.length}
