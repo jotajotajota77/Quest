@@ -81,26 +81,62 @@ function init(): Promise<boolean> {
 /**
  * Toca a faixa cheia. @returns true se começou, false em qualquer falha.
  * O chamador trata false como fallback (a música vira bônus pendente).
+ *
+ * Estratégia por plataforma:
+ *  - DESKTOP: Web Playback SDK (player dentro do navegador).
+ *  - MOBILE: SDK é desktop-only → toca no device ATIVO do app Spotify do
+ *    usuário via Connect API (/api/spotify/play). Requer o app aberto/recente.
  */
-export async function tocarUri(uri: string): Promise<boolean> {
+function ehMobile(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+}
+
+async function tocarViaConnect(uri: string): Promise<boolean> {
   try {
-    const ok = await init();
-    if (!ok || !deviceId) return false;
-    const token = await fetchToken();
-    if (!token) return false;
-    const res = await fetch(
-      `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`,
-      {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ uris: [uri] }),
-      },
-    );
-    return res.status === 204 || res.ok;
+    const res = await fetch("/api/spotify/play", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ uri }),
+    });
+    if (!res.ok) return false;
+    const j = (await res.json()) as { ok?: boolean };
+    return j.ok === true;
   } catch {
     return false;
   }
+}
+
+export async function tocarUri(uri: string): Promise<boolean> {
+  // 1. Caminho confiável (desktop e celular): toca no DEVICE ATIVO do app
+  //    Spotify do usuário (Connect API). Se o app estiver aberto, funciona.
+  if (await tocarViaConnect(uri)) return true;
+
+  // 2. Reserva no DESKTOP: cria um player dentro do navegador (Web Playback SDK,
+  //    que é desktop-only) e toca nele. No mobile o SDK não funciona.
+  if (!ehMobile()) {
+    try {
+      const ok = await init();
+      if (ok && deviceId) {
+        const token = await fetchToken();
+        if (token) {
+          const res = await fetch(
+            `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`,
+            {
+              method: "PUT",
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ uris: [uri] }),
+            },
+          );
+          if (res.status === 204 || res.ok) return true;
+        }
+      }
+    } catch {
+      /* sem SDK: o hit-confirm local já cobriu */
+    }
+  }
+  return false;
 }

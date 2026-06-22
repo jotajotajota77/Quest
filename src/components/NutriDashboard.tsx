@@ -41,6 +41,7 @@ export default function NutriDashboard({
   const [ocupado, setOcupado] = useState(false);
   const [modeloId, setModeloId] = useState<string | null>(null);
   const [gramasModelo, setGramasModelo] = useState<Record<string, string>>({});
+  const [musicaMsg, setMusicaMsg] = useState<string | null>(null);
 
   const porId = useMemo(
     () => new Map(alimentos.map((f) => [f.id, f])),
@@ -104,18 +105,28 @@ export default function NutriDashboard({
     }
     // Junk não dispara reforço de áudio/jackpot — fica neutro.
     if (!junk && dec?.jackpot) fire("JACKPOT!");
-    if (!junk && dec?.musica && dec.modoAudio) {
-      const ok = await tocarUri(dec.musica.uri);
-      if (dec.modoAudio === "reward") {
-        fetch("/api/spotify/mark-played", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            logId: dec.logId,
-            faixaId: dec.musica.id,
-            tipo: ok ? "faixa_cheia" : "fallback_local",
-          }),
-        }).catch(() => {});
+    if (!junk) {
+      if (!dec?.musica) {
+        // Sem faixa: Spotify não conectado ou sem músicas curtidas (Liked Songs).
+        setMusicaMsg("🎵 sem faixa nova — conecte o Spotify e curta algumas músicas (Liked Songs).");
+      } else if (dec.modoAudio) {
+        const ok = await tocarUri(dec.musica.uri);
+        setMusicaMsg(
+          ok
+            ? `🎵 tocando: ${dec.musica.nome} — ${dec.musica.artistas}`
+            : "🎵 não tocou — abra o app do Spotify e dê play em algo (vira o device ativo), depois registre de novo.",
+        );
+        if (dec.modoAudio === "reward") {
+          fetch("/api/spotify/mark-played", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              logId: dec.logId,
+              faixaId: dec.musica.id,
+              tipo: ok ? "faixa_cheia" : "fallback_local",
+            }),
+          }).catch(() => {});
+        }
       }
     }
     router.refresh();
@@ -164,6 +175,16 @@ export default function NutriDashboard({
   return (
     <div style={{ marginTop: 18 }}>
       {overlay}
+
+      {musicaMsg && (
+        <div
+          className="panel"
+          style={{ marginBottom: 10, borderColor: "var(--neon-2)", display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}
+        >
+          <span className="subtle">{musicaMsg}</span>
+          <button className="nav-link" style={{ padding: "4px 8px", fontSize: "0.72rem" }} onClick={() => setMusicaMsg(null)}>✕</button>
+        </div>
+      )}
 
       {/* Topo: anel de kcal + barras de macro */}
       <div className="panel" style={{ display: "flex", gap: 16, alignItems: "center" }}>
