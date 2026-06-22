@@ -447,3 +447,50 @@ export function donoDoAtributo(
 ): Personagem | null {
   return roster.find((p) => p.comportamento_alvo === familia) ?? null;
 }
+
+// ── Protocolo diário (v4) ──
+export async function familiasLogadasHoje(userId: string): Promise<Set<Familia>> {
+  const supabase = createClient();
+  const inicio = `${hojeISO()}T00:00:00.000Z`;
+  const { data } = await supabase
+    .from("logs")
+    .select("comportamento")
+    .eq("user_id", userId)
+    .gte("ts", inicio);
+  const set = new Set<Familia>();
+  for (const r of data ?? []) set.add(familiaDe(r.comportamento as Comportamento));
+  return set;
+}
+
+export async function trackersHoje(userId: string): Promise<{
+  agua_count: number;
+  sono_ok: boolean;
+  passos_ok: boolean;
+  sem_alcool: boolean;
+}> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("protocolo_diario")
+    .select("trackers_leves")
+    .eq("user_id", userId)
+    .eq("data", hojeISO())
+    .maybeSingle();
+  const t = (data?.trackers_leves as Record<string, unknown>) ?? {};
+  return {
+    agua_count: Number(t.agua_count ?? 0),
+    sono_ok: Boolean(t.sono_ok),
+    passos_ok: Boolean(t.passos_ok),
+    sem_alcool: Boolean(t.sem_alcool),
+  };
+}
+
+export async function diaFinalizado(userId: string): Promise<boolean> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("dias")
+    .select("finalizado")
+    .eq("user_id", userId)
+    .eq("data", hojeISO())
+    .maybeSingle();
+  return Boolean(data?.finalizado);
+}

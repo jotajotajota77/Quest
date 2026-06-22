@@ -454,3 +454,31 @@ a {
 .roster-cell.locked .lock-badge .lock-ico {
   font-size: 1.6rem;
 }
+
+/* ── Protocolo diário (quick-log grid) ──────────────────── */
+.protocolo-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+.proto-btn {
+  padding: 12px 6px;
+  border-radius: 12px;
+  border: 1px solid var(--panel-border);
+  background: var(--panel);
+  color: var(--text);
+  font-weight: 700;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.proto-btn.feito {
+  border-color: var(--good);
+  background: rgba(74, 222, 128, 0.12);
+  color: var(--good);
+}
+@media (max-width: 560px) {
+  .protocolo-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
