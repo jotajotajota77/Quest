@@ -36,6 +36,7 @@ import Scoreboard from "@/components/Scoreboard";
 import BottomNav from "@/components/BottomNav";
 import ContextualHero from "@/components/ContextualHero";
 import { candidatosHero } from "@/lib/heroi";
+import { dicaDoDia } from "@/lib/dicas";
 import FogButton from "@/components/FogButton";
 import DailySpin from "@/components/DailySpin";
 import LoreButton from "@/components/LoreButton";
@@ -87,6 +88,8 @@ export default async function HomePage() {
       <ContextualHero
         candidatos={candidatosHero("home", personagem, null)}
         nome={personagem.nome}
+        titulo={personagem.titulo}
+        dica={dicaDoDia("home", hojeISO())}
         altura={220}
       />
 
