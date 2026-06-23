@@ -1,39 +1,36 @@
 // ============================================================
-// Faixa ALEATÓRIA (descoberta) — música nova a cada reforço, NÃO da biblioteca
-// curtida do usuário. Mantém a novidade ("nova-no-sistema"): filtra o que já
-// tocou via `historico_reforco` pra não repetir.
+// Faixa NOVA-NO-SISTEMA (modo NORTEAR) — música emergente, NÃO da biblioteca do
+// usuário. Parte de uma semente curada (gêneros + artistas de referência) e
+// EXPANDE via Spotify Search, recortando o "emergente" pelo campo `popularity`
+// (20–65: corta megahit e faixa morta). Sorteio sem reposição (filtra o que já
+// tocou via historico_reforco).
 // ------------------------------------------------------------
-//  * Fonte: Search da Web API (gênero/mood aleatório + offset aleatório).
-//    (A API de Recommendations foi descontinuada para apps novos.)
-//  * Se o Spotify não responder, retorna null — o loop central segue com o
-//    hit-confirm local (fallback). A música é bônus, não piso.
+// RESTRIÇÃO de API (apps pós-27/11/2024): sem Recommendations/Related/Audio
+// Features/Featured Playlists. Só Search (genre/year/popularity) + Artist Top
+// Tracks. Se o Spotify não responder, retorna null → fallback (hit-confirm).
 // ============================================================
 
 import type { SpotifyTrack } from "@/lib/types";
 import { createClient } from "@/lib/supabase/server";
 import { getAccessTokenValido, spotifyGet } from "@/lib/spotify/client";
+import {
+  ARTISTAS_SEMENTE,
+  GENEROS_SEMENTE,
+  POP_MAX,
+  POP_MIN,
+} from "@/lib/spotify/semente";
 
-interface SearchResp {
-  tracks?: {
-    items: Array<{
-      id: string;
-      uri: string;
-      name: string;
-      artists: Array<{ name: string }>;
-      album: { images: Array<{ url: string }> };
-    } | null>;
-  };
+interface TrackObj {
+  id: string;
+  uri: string;
+  name: string;
+  popularity?: number;
+  artists: Array<{ name: string }>;
+  album: { images: Array<{ url: string }> };
 }
-
-// Sementes de busca — gosto do usuário: pop, k-pop, rock, indie, folk e afins.
-const SEEDS = [
-  "pop", "k-pop", "rock", "indie pop", "indie", "indie rock", "folk",
-  "indie folk", "folk pop", "alt pop", "art pop", "synth pop", "dream pop",
-  "bedroom pop", "hyperpop", "electropop", "dance pop", "pop rock",
-  "alternative", "alternative rock", "new wave", "britpop", "j-pop",
-  "soft rock", "disco", "synthwave", "singer-songwriter", "chamber pop",
-  "shoegaze", "city pop", "pop punk", "power pop",
-];
+interface SearchResp {
+  tracks?: { items: Array<TrackObj | null> };
+}
 
 /** Ids de faixas já tocadas (faixa_cheia) para este usuário. */
 async function faixasJaTocadas(userId: string): Promise<Set<string>> {
@@ -46,42 +43,58 @@ async function faixasJaTocadas(userId: string): Promise<Set<string>> {
   return new Set((data ?? []).map((r) => r.faixa_id as string));
 }
 
+function aleatorio<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function mapear(t: TrackObj): SpotifyTrack {
+  return {
+    id: t.id,
+    uri: t.uri,
+    nome: t.name,
+    artistas: t.artists.map((a) => a.name).join(", "),
+    capa: t.album.images?.[0]?.url ?? null,
+  };
+}
+
 /**
- * Seleciona uma faixa aleatória inédita. Tenta algumas combinações de
- * gênero+offset até achar uma fora do histórico. Retorna null se o Spotify
- * estiver indisponível (→ fallback local cuida do reforço).
+ * Seleciona uma faixa emergente inédita norteada pela semente. Em cada tentativa
+ * sorteia entre buscar por GÊNERO (+ year recente) ou por ARTISTA de referência;
+ * recorta por popularidade e exclui o que já tocou. Relaxa o recorte se preciso
+ * pra não voltar vazio à toa. null só se o Spotify não responder de jeito nenhum.
  */
 export async function proximaFaixaNova(
   userId: string,
 ): Promise<SpotifyTrack | null> {
   const token = await getAccessTokenValido(userId);
-  if (!token) return null; // Spotify não conectado → fallback
+  if (!token) return null;
 
   const tocadas = await faixasJaTocadas(userId);
+  let reserva: SpotifyTrack | null = null; // inédita fora da banda de pop (fallback)
 
-  for (let tentativa = 0; tentativa < 8; tentativa++) {
-    const seed = SEEDS[Math.floor(Math.random() * SEEDS.length)];
-    // Offset BAIXO: a busca do Spotify devolve vazio em offsets altos (além do
-    // total real do termo). 0–45 fica sempre populado; a variedade vem do
-    // gênero sorteado + escolha aleatória dentro da página.
-    const offset = Math.floor(Math.random() * 45);
-    const q = encodeURIComponent(seed);
+  for (let tentativa = 0; tentativa < 10; tentativa++) {
+    const porArtista = Math.random() < 0.5;
+    const q = porArtista
+      ? `artist:"${aleatorio(ARTISTAS_SEMENTE)}"`
+      : `${aleatorio(GENEROS_SEMENTE)} year:2019-2026`;
+    const offset = Math.floor(Math.random() * 25); // baixo → página sempre cheia
     const page = await spotifyGet<SearchResp>(
       token,
-      `/search?q=${q}&type=track&limit=50&offset=${offset}&market=BR`,
+      `/search?q=${encodeURIComponent(q)}&type=track&limit=50&offset=${offset}&market=BR`,
     );
     const itens = (page?.tracks?.items ?? []).filter(
-      (t): t is NonNullable<typeof t> => !!t && !!t.id && !tocadas.has(t.id),
+      (t): t is TrackObj => !!t && !!t.id && !tocadas.has(t.id),
     );
     if (itens.length === 0) continue;
-    const t = itens[Math.floor(Math.random() * itens.length)];
-    return {
-      id: t.id,
-      uri: t.uri,
-      nome: t.name,
-      artistas: t.artists.map((a) => a.name).join(", "),
-      capa: t.album.images?.[0]?.url ?? null,
-    };
+
+    // Preferência: dentro da banda de popularidade (emergente).
+    const naBanda = itens.filter((t) => {
+      const p = t.popularity ?? 50;
+      return p >= POP_MIN && p <= POP_MAX;
+    });
+    if (naBanda.length > 0) return mapear(aleatorio(naBanda));
+    if (!reserva) reserva = mapear(aleatorio(itens)); // guarda p/ não voltar vazio
   }
-  return null; // Spotify não retornou faixa inédita nesta rodada → fallback
+
+  return reserva; // inédita (mesmo fora da banda) ou null → fallback local
 }
