@@ -64,7 +64,7 @@ export async function personagemDoDia(
   userId: string,
 ): Promise<Personagem | null> {
   const supabase = createClient();
-  const hoje = new Date().toISOString().slice(0, 10);
+  const hoje = hojeISO();
   const { data: sel } = await supabase
     .from("selecao_diaria")
     .select("personagem_id")
@@ -214,8 +214,27 @@ export async function sinalRobustez(userId: string): Promise<SinalRobustez> {
 // Espinha v2: streak, modo névoa, daily spin, foco do dia.
 // ============================================================
 
+// Fuso de referência (Brasil, UTC-3). "Hoje" segue o dia LOCAL — senão os
+// registros da noite somem às 21h (meia-noite UTC) das telas "Hoje", mesmo
+// continuando salvos. Isto só define a fronteira do dia; nada é apagado.
+const TZ_OFFSET_MIN = -180; // America/São_Paulo
+
+/** Data local (YYYY-MM-DD) de um timestamp, no fuso de referência. */
+export function dataLocalDe(ts: string | number | Date): string {
+  return new Date(new Date(ts).getTime() + TZ_OFFSET_MIN * 60_000)
+    .toISOString()
+    .slice(0, 10);
+}
+
 export function hojeISO(): string {
-  return new Date().toISOString().slice(0, 10);
+  return dataLocalDe(Date.now());
+}
+
+/** Instante (UTC ISO) do início do dia LOCAL de hoje (ex.: 00:00 BRT = 03:00Z). */
+export function inicioHojeISO(): string {
+  return new Date(
+    new Date(`${hojeISO()}T00:00:00.000Z`).getTime() - TZ_OFFSET_MIN * 60_000,
+  ).toISOString();
 }
 
 /** Conjunto de dias (YYYY-MM-DD) declarados como névoa. */
@@ -238,13 +257,13 @@ export async function diasComLogSet(userId: string): Promise<Set<string>> {
     .select("ts")
     .eq("user_id", userId)
     .gte("ts", desde);
-  return new Set((data ?? []).map((r) => (r.ts as string).slice(0, 10)));
+  return new Set((data ?? []).map((r) => dataLocalDe(r.ts as string)));
 }
 
 /** Quantos registros o usuário fez hoje. */
 export async function registrosHoje(userId: string): Promise<number> {
   const supabase = createClient();
-  const inicio = `${hojeISO()}T00:00:00.000Z`;
+  const inicio = inicioHojeISO();
   const { count } = await supabase
     .from("logs")
     .select("id", { count: "exact", head: true })
@@ -364,7 +383,7 @@ export async function ultimaAtividadeAntesDeHoje(
   userId: string,
 ): Promise<string | null> {
   const supabase = createClient();
-  const inicioHoje = `${hojeISO()}T00:00:00.000Z`;
+  const inicioHoje = inicioHojeISO();
   const { data } = await supabase
     .from("logs")
     .select("ts")
@@ -405,7 +424,7 @@ export async function logs7Dias(userId: string): Promise<LogRow[]> {
 // ── Tela Nutri (design replicado): refeições de hoje com macros ──
 export async function nutriHoje(userId: string): Promise<LogRow[]> {
   const supabase = createClient();
-  const inicio = `${hojeISO()}T00:00:00.000Z`;
+  const inicio = inicioHojeISO();
   const { data } = await supabase
     .from("logs")
     .select("*")
@@ -419,7 +438,7 @@ export async function nutriHoje(userId: string): Promise<LogRow[]> {
 // ── Tela Treino (design replicado): séries de hoje (linhas por exercício) ──
 export async function seriesDeHoje(userId: string): Promise<TreinoSerie[]> {
   const supabase = createClient();
-  const inicio = `${hojeISO()}T00:00:00.000Z`;
+  const inicio = inicioHojeISO();
   const { data } = await supabase
     .from("treino_series")
     .select("*")
@@ -451,7 +470,7 @@ export function donoDoAtributo(
 // ── Protocolo diário (v4) ──
 export async function familiasLogadasHoje(userId: string): Promise<Set<Familia>> {
   const supabase = createClient();
-  const inicio = `${hojeISO()}T00:00:00.000Z`;
+  const inicio = inicioHojeISO();
   const { data } = await supabase
     .from("logs")
     .select("comportamento")

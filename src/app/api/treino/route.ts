@@ -6,6 +6,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { PRESETS, variarExercicio, type Preset } from "@/lib/treino";
+import { hojeISO } from "@/lib/data";
 
 export async function POST(request: Request) {
   const supabase = createClient();
@@ -152,7 +153,7 @@ export async function POST(request: Request) {
       // → Força + hit-confirm) é disparado pelo cliente via /api/log à parte.
       const split = String(body.split ?? "").trim();
       if (!split) return NextResponse.json({ error: "split" }, { status: 400 });
-      const hoje = new Date().toISOString().slice(0, 10);
+      const hoje = hojeISO();
       await supabase.from("treino_sessoes").upsert({
         user_id: user.id,
         data: hoje,
