@@ -47,6 +47,15 @@ export default function NutriDashboard({
   const [modeloId, setModeloId] = useState<string | null>(null);
   const [gramasModelo, setGramasModelo] = useState<Record<string, string>>({});
   const [musicaMsg, setMusicaMsg] = useState<string | null>(null);
+  const [faixaPendente, setFaixaPendente] = useState<{
+    id: string;
+    uri: string;
+    nome: string;
+    artistas: string;
+    capa: string | null;
+    logId?: string;
+    modoAudio: "reward" | "trilha";
+  } | null>(null);
   const [resultados, setResultados] = useState<Alimento[]>([]);
   const [buscando, setBuscando] = useState(false);
 
@@ -124,30 +133,48 @@ export default function NutriDashboard({
     if (!junk && dec?.jackpot) fire("JACKPOT!");
     if (!junk) {
       if (!dec?.musica) {
-        // Sem faixa: Spotify não conectado ou sem músicas curtidas (Liked Songs).
-        setMusicaMsg("🎵 sem faixa nova — conecte o Spotify e curta algumas músicas (Liked Songs).");
+        setMusicaMsg("🎵 sem faixa nova — conecte o Spotify (botão acima).");
+        setFaixaPendente(null);
       } else if (dec.modoAudio) {
-        const ok = await tocarUri(dec.musica.uri);
-        setMusicaMsg(
-          ok
-            ? `🎵 tocando: ${dec.musica.nome} — ${dec.musica.artistas}`
-            : "🎵 não tocou — abra o app do Spotify e dê play em algo (vira o device ativo), depois registre de novo.",
-        );
-        if (dec.modoAudio === "reward") {
-          fetch("/api/spotify/mark-played", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              logId: dec.logId,
-              faixaId: dec.musica.id,
-              tipo: ok ? "faixa_cheia" : "fallback_local",
-            }),
-          }).catch(() => {});
-        }
+        // NÃO toca sozinho: libera o player pra você tocar com um toque (mais
+        // confiável no celular — play precisa de gesto do usuário).
+        setMusicaMsg(null);
+        setFaixaPendente({
+          id: dec.musica.id,
+          uri: dec.musica.uri,
+          nome: dec.musica.nome,
+          artistas: dec.musica.artistas,
+          capa: dec.musica.capa,
+          logId: dec.logId,
+          modoAudio: dec.modoAudio,
+        });
       }
     }
     router.refresh();
     setOcupado(false);
+  }
+
+  // Toca a faixa liberada (clique do usuário). Marca como tocada só agora.
+  async function tocarPendente() {
+    if (!faixaPendente) return;
+    const ok = await tocarUri(faixaPendente.uri);
+    setMusicaMsg(
+      ok
+        ? `🎵 tocando: ${faixaPendente.nome} — ${faixaPendente.artistas}`
+        : "🎵 não tocou — abra o app do Spotify e dê play em algo (vira o device ativo), depois toque aqui de novo.",
+    );
+    if (faixaPendente.modoAudio === "reward") {
+      fetch("/api/spotify/mark-played", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          logId: faixaPendente.logId,
+          faixaId: faixaPendente.id,
+          tipo: ok ? "faixa_cheia" : "fallback_local",
+        }),
+      }).catch(() => {});
+    }
+    if (ok) setFaixaPendente(null);
   }
 
   // Registro em lote a partir de um modelo de dieta. Cada item vira um log de
@@ -192,6 +219,55 @@ export default function NutriDashboard({
   return (
     <div style={{ marginTop: 18 }}>
       {overlay}
+
+      {/* Player liberado ao registrar — você toca com um clique (não autoplay). */}
+      {faixaPendente && (
+        <div
+          className="panel"
+          style={{
+            marginBottom: 10,
+            borderColor: "var(--neon)",
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+          }}
+        >
+          {faixaPendente.capa && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={faixaPendente.capa}
+              alt=""
+              style={{ width: 52, height: 52, borderRadius: 8, objectFit: "cover", flexShrink: 0 }}
+            />
+          )}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="lbl" style={{ fontSize: "0.66rem" }}>
+              Recompensa liberada
+            </div>
+            <div style={{ fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {faixaPendente.nome}
+            </div>
+            <div className="subtle" style={{ fontSize: "0.72rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {faixaPendente.artistas}
+            </div>
+          </div>
+          <button
+            className="btn btn-primary"
+            style={{ padding: "10px 16px", flexShrink: 0 }}
+            onClick={tocarPendente}
+          >
+            ▶ Tocar
+          </button>
+          <button
+            className="nav-link"
+            style={{ padding: "6px 8px", fontSize: "0.72rem", flexShrink: 0 }}
+            onClick={() => setFaixaPendente(null)}
+            aria-label="Dispensar"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {musicaMsg && (
         <div
