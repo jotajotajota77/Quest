@@ -1,6 +1,7 @@
 // Define o protagonista do dia (hub de seleção). Seleção 100% livre.
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { hojeISO } from "@/lib/data";
 
 export async function POST(request: Request) {
   const supabase = createClient();
@@ -28,7 +29,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "personagem bloqueado" }, { status: 400 });
   }
 
-  const hoje = new Date().toISOString().slice(0, 10);
+  const hoje = hojeISO();
   const { error } = await supabase.from("selecao_diaria").upsert({
     user_id: user.id,
     data: hoje,
