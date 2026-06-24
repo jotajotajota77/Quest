@@ -12,14 +12,12 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { DecisaoReforco, LogRow } from "@/lib/types";
 import {
-  CATEGORIAS,
   META_CARBO,
   META_GORDURA,
   META_KCAL,
   META_PROTEINA,
   escalar,
   type Alimento,
-  type CategoriaAlimento,
 } from "@/lib/alimentos";
 import { MODELOS_DIETA } from "@/lib/dietas";
 import { useHitConfirm } from "@/components/HitConfirm";
@@ -40,7 +38,6 @@ export default function NutriDashboard({
 }) {
   const router = useRouter();
   const { fire, overlay } = useHitConfirm();
-  const [cat, setCat] = useState<CategoriaAlimento>("proteina");
   const [busca, setBusca] = useState("");
   const [porcao, setPorcao] = useState("100");
   const [ocupado, setOcupado] = useState(false);
@@ -76,13 +73,13 @@ export default function NutriDashboard({
     );
   }, [refeicoes]);
 
-  // Busca server-side no catálogo grande (debounced) por categoria + termo.
+  // Busca server-side no catálogo grande (debounced), GERAL (sem categoria).
   useEffect(() => {
     let cancel = false;
     setBuscando(true);
     const t = setTimeout(async () => {
       try {
-        const params = new URLSearchParams({ cat });
+        const params = new URLSearchParams();
         if (busca.trim()) params.set("q", busca.trim());
         const res = await fetch(`/api/food?${params.toString()}`);
         const j = res.ok ? await res.json() : { alimentos: [] };
@@ -97,7 +94,7 @@ export default function NutriDashboard({
       cancel = true;
       clearTimeout(t);
     };
-  }, [cat, busca]);
+  }, [busca]);
 
   async function adicionar(alimento: Alimento) {
     // Reforço DIFERENCIAL: comida saudável → reforço imediato (HIT + som +
@@ -389,28 +386,13 @@ export default function NutriDashboard({
         })()}
       </div>
 
-      {/* Seletor de alimentos */}
+      {/* Seletor de alimentos — busca GERAL (todas as categorias juntas) */}
       <div className="panel" style={{ marginTop: 12 }}>
         <div className="lbl" style={{ marginBottom: 8 }}>
           Adicionar alimento avulso
         </div>
-        <div className="chips-row">
-          {CATEGORIAS.map((c) => (
-            <button
-              key={c.key}
-              className="chip"
-              style={{
-                borderColor: cat === c.key ? c.cor : "var(--panel-border)",
-                color: cat === c.key ? c.cor : "var(--text-dim)",
-              }}
-              onClick={() => setCat(c.key)}
-            >
-              {c.label}
-            </button>
-          ))}
-        </div>
 
-        <div style={{ display: "flex", gap: 8, margin: "10px 0" }}>
+        <div style={{ display: "flex", gap: 8, margin: "0 0 10px" }}>
           <input
             placeholder="Buscar…"
             value={busca}
