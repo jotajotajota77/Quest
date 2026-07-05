@@ -10,16 +10,11 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { TreinoExercicio, TreinoSerie } from "@/lib/types";
-import {
-  CATALOGO,
-  GLOSSARIO,
-  GRUPOS,
-  PRESETS,
-  gruposDoSplit,
-  type Preset,
-} from "@/lib/treino";
+import type { ExercicioBib } from "@/lib/data";
+import { GLOSSARIO, PRESETS, gruposDoSplit, type Preset } from "@/lib/treino";
 import { useHitConfirm } from "@/components/HitConfirm";
 import RestTimer from "@/components/RestTimer";
+import BibliotecaExercicios from "@/components/BibliotecaExercicios";
 import { somPr, somSerie } from "@/lib/som";
 
 export default function TrainingModule({
@@ -27,11 +22,13 @@ export default function TrainingModule({
   series,
   seriesHoje,
   sessoesHoje = [],
+  biblioteca = [],
 }: {
   plano: TreinoExercicio[];
   series: TreinoSerie[];
   seriesHoje: TreinoSerie[];
   sessoesHoje?: { split: string; finalizada: boolean }[];
+  biblioteca?: ExercicioBib[];
 }) {
   const router = useRouter();
   const { fire, overlay } = useHitConfirm();
@@ -45,7 +42,6 @@ export default function TrainingModule({
   const [iaAberta, setIa] = useState(false);
   const [iaTexto, setIaTexto] = useState<string | null>(null);
   const [iaCarregando, setIaCarregando] = useState(false);
-  const [grupoFiltro, setGrupoFiltro] = useState<string>("peito");
   const [ocupado, setOcupado] = useState(false);
 
   const splits = useMemo(() => [...new Set(plano.map((e) => e.split ?? "—"))], [plano]);
@@ -120,7 +116,6 @@ export default function TrainingModule({
 
   const splitAlvo = splitAtivo ?? splits[0];
   const exercicios = plano.filter((e) => (e.split ?? "—") === splitAlvo);
-  const catalogoFiltrado = CATALOGO.filter((c) => c.grupo === grupoFiltro);
 
   // Sessão do dia: exercícios com pelo menos uma série hoje / total no split.
   const feitosHoje = exercicios.filter(
@@ -299,7 +294,7 @@ export default function TrainingModule({
 
       <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
         <button className="nav-link" disabled={ocupado} onClick={() => setCatalogo(true)}>
-          + Adicionar exercício
+          📚 Biblioteca de exercícios
         </button>
       </div>
 
@@ -313,30 +308,16 @@ export default function TrainingModule({
         ))}
       </div>
 
-      {/* Catálogo de exercícios (lista montada do zero) */}
+      {/* Biblioteca viva de exercícios (fichas + descoberta) */}
       {catalogoAberto && (
-        <ModalBase onClose={() => setCatalogo(false)} titulo="Adicionar exercício">
-          <div className="chips-row" style={{ marginBottom: 10 }}>
-            {GRUPOS.map((g) => (
-              <button key={g} className="chip"
-                style={{ borderColor: g === grupoFiltro ? "var(--neon)" : "var(--panel-border)" }}
-                onClick={() => setGrupoFiltro(g)}>
-                {g}
-              </button>
-            ))}
-          </div>
-          <div style={{ maxHeight: 300, overflowY: "auto" }}>
-            {catalogoFiltrado.map((c) => (
-              <div key={c.nome} className="food-row">
-                <span>{c.nome}</span>
-                <button className="btn btn-primary" style={{ padding: "6px 12px" }} disabled={ocupado}
-                  onClick={async () => { await api({ action: "add", nome: c.nome, grupo: c.grupo, split: splitAlvo }); setCatalogo(false); }}>
-                  +
-                </button>
-              </div>
-            ))}
-          </div>
-        </ModalBase>
+        <BibliotecaExercicios
+          exercicios={biblioteca}
+          onAdd={async (nome, grupo) => {
+            await api({ action: "add", nome, grupo, split: splitAlvo });
+            setCatalogo(false);
+          }}
+          onClose={() => setCatalogo(false)}
+        />
       )}
 
       {iaAberta && (

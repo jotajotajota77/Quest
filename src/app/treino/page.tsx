@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import {
+  listarExercicios,
   perfilDe,
   planoTreino,
   seriesDeHoje,
@@ -21,12 +22,13 @@ export default async function TreinoPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [plano, series, hoje, sessoes, perfil] = await Promise.all([
+  const [plano, series, hoje, sessoes, perfil, biblioteca] = await Promise.all([
     planoTreino(user.id),
     seriesRecentes(user.id),
     seriesDeHoje(user.id),
     sessoesDeHoje(user.id),
     perfilDe(user.id),
+    listarExercicios(),
   ]);
 
   return (
@@ -38,6 +40,7 @@ export default async function TreinoPage() {
         series={series}
         seriesHoje={hoje}
         sessoesHoje={sessoes}
+        biblioteca={biblioteca}
       />
     </BehaviorTab>
   );

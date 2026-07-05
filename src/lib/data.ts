@@ -540,6 +540,45 @@ export async function categoriasFood(): Promise<Map<string, string>> {
   return new Map((data ?? []).map((r) => [r.id as string, r.categoria as string]));
 }
 
+// ── Biblioteca viva de exercícios (v8) ──
+export interface ExercicioBib {
+  id: string;
+  nome: string;
+  grupo_muscular: string;
+  padrao_movimento: string | null;
+  equipamento: string | null;
+  musculos: string[];
+  execucao: string | null;
+  cue: string | null;
+  erro_comum: string | null;
+  variacoes: string[];
+  peso_esforco_base: number;
+  casa_ok: boolean;
+}
+
+export async function listarExercicios(): Promise<ExercicioBib[]> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("exercicios")
+    .select("*")
+    .order("grupo_muscular", { ascending: true })
+    .order("nome", { ascending: true });
+  return (data ?? []).map((r) => ({
+    id: r.id as string,
+    nome: r.nome as string,
+    grupo_muscular: r.grupo_muscular as string,
+    padrao_movimento: (r.padrao_movimento as string) ?? null,
+    equipamento: (r.equipamento as string) ?? null,
+    musculos: (r.musculos as string[]) ?? [],
+    execucao: (r.execucao as string) ?? null,
+    cue: (r.cue as string) ?? null,
+    erro_comum: (r.erro_comum as string) ?? null,
+    variacoes: (r.variacoes as string[]) ?? [],
+    peso_esforco_base: Number(r.peso_esforco_base ?? 1),
+    casa_ok: Boolean(r.casa_ok),
+  }));
+}
+
 /** Busca alimentos específicos por id (modelos de dieta + nomes do dia). */
 export async function foodsPorIds(ids: string[]): Promise<Alimento[]> {
   const unicos = [...new Set(ids.filter(Boolean))];
