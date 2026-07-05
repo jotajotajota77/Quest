@@ -22,4 +22,7 @@ export const HIT_TEMATICO: Record<Comportamento, string> = {
   nutri_agua: "GULP!",
   leitura: "INSIGHT!",
   danca: "FLOW!",
+  cardio: "PUMP!",
+  volei: "SET!",
+  resistencia: "GRIND!",
 };

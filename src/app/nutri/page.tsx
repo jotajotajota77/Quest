@@ -16,6 +16,7 @@ import { gerarTips } from "@/lib/coach_tips";
 import BehaviorTab from "@/components/BehaviorTab";
 import NutriDashboard from "@/components/NutriDashboard";
 import CoachTips from "@/components/CoachTips";
+import AtividadesStamina from "@/components/AtividadesStamina";
 
 // ids referenciados pelos modelos de dieta (carregados p/ exibir/registrar).
 const IDS_MODELO = [
@@ -64,6 +65,7 @@ export default async function NutriPage() {
   return (
     <BehaviorTab familia="nutri" coachAtivo={ativo} ocultarHistorico>
       {tips && <CoachTips tips={tips} />}
+      <AtividadesStamina />
       <NutriDashboard
         refeicoes={refeicoes}
         alimentosModelo={alimentosModelo}
