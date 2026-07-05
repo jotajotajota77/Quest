@@ -11,6 +11,7 @@ import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@/lib/supabase/server";
 import { perfilDe, seriesRecentes } from "@/lib/data";
+import { ENFASE_IA } from "@/lib/objetivos";
 
 export async function POST() {
   const supabase = createClient();
@@ -63,22 +64,25 @@ export async function POST() {
       model: "claude-opus-4-8",
       max_tokens: 900,
       system:
-        "Você é um treinador de força conciso e prático. Analise execução, " +
-        "progressão e dê 2–4 sugestões acionáveis em português do Brasil. " +
-        "Personalize as sugestões ao PERFIL do aluno (objetivo, nível, " +
-        "limitações, contexto), quando informado. Seja direto, sem floreio, " +
-        "sem disclaimers médicos longos. Use bullets curtos.",
+        "Você é um treinador de força conciso, prático e BASEADO EM DADOS. A " +
+        "partir do histórico, diga o que está CERTO e o que está ERRADO pra " +
+        "evoluir: sobrecarga progressiva aplicada?, volume por grupo muscular, " +
+        "equilíbrio empurrar/puxar, grupos atrasados, tendência de PR, " +
+        "frequência, sinais de sub/supertreino e timing de deload. Você NÃO vê " +
+        "execução (sem vídeo) — dê cues/erros comuns como genéricos, sem " +
+        "prometer análise de forma. Personalize ao PERFIL e às ÊNFASES do aluno. " +
+        "Português do Brasil, direto, bullets curtos, sem disclaimers longos.",
       messages: [
         {
           role: "user",
           content:
-            (perfil?.trim()
-              ? `Meu perfil: ${perfil.trim()}\n\n`
-              : "") +
+            (perfil?.trim() ? `Meu perfil: ${perfil.trim()}\n` : "") +
+            `Ênfases: ${ENFASE_IA}\n\n` +
             "Minhas séries recentes (peso x reps, mais recentes primeiro):\n" +
             resumo +
-            "\n\nAvalie progressão por exercício e sugira ajustes de carga/volume/variação, " +
-            "alinhados ao meu perfil.",
+            "\n\nAvalie progressão, volume e equilíbrio por grupo; aponte o que " +
+            "está certo e errado e sugira ajustes de carga/volume/variação " +
+            "alinhados ao perfil e às ênfases.",
         },
       ],
     });

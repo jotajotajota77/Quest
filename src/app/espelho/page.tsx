@@ -10,6 +10,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import MirrorForm from "@/components/MirrorForm";
 import BottomNav from "@/components/BottomNav";
+import { ESPELHO_FRAMING } from "@/lib/objetivos";
 
 export default async function EspelhoPage() {
   const supabase = createClient();
@@ -33,6 +34,11 @@ export default async function EspelhoPage() {
       <p className="subtle" style={{ marginTop: 4 }}>
         Corpo real. Passivo — só você abre, ninguém te chama aqui.
       </p>
+
+      <div className="panel" style={{ marginTop: 14, borderLeft: "3px solid var(--neon-2)" }}>
+        <div className="lbl">Como o corpo revela (segura o curso)</div>
+        <p className="subtle" style={{ margin: "6px 0 0" }}>{ESPELHO_FRAMING}</p>
+      </div>
 
       <MirrorForm />
 
