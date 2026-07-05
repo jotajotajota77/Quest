@@ -12,6 +12,7 @@ import {
 import BehaviorTab from "@/components/BehaviorTab";
 import TrainingModule from "@/components/TrainingModule";
 import PerfilTreino from "@/components/PerfilTreino";
+import ObjetivosTreino from "@/components/ObjetivosTreino";
 
 export default async function TreinoPage() {
   const supabase = createClient();
@@ -30,6 +31,7 @@ export default async function TreinoPage() {
 
   return (
     <BehaviorTab familia="treino" ocultarHistorico>
+      <ObjetivosTreino />
       <PerfilTreino descricaoInicial={perfil ?? ""} />
       <TrainingModule
         plano={plano}
