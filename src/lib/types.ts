@@ -6,7 +6,11 @@ export type Comportamento =
   | "nutri_refeicao"
   | "nutri_agua"
   | "leitura"
-  | "danca";
+  | "danca"
+  // Fontes abertas de Stamina (v8) — 1-toque, camada universal (sem motor).
+  | "cardio"
+  | "volei"
+  | "resistencia";
 
 /** Família = a aba/atributo. Nutri agrega refeição + água. */
 export type Familia = "treino" | "nutri" | "leitura" | "danca";
@@ -84,6 +88,8 @@ export interface LogRow {
   livro?: string | null;
   paginas?: number | null;
   minutos?: number | null;
+  atividade_id?: string | null;
+  peso_esforco?: number | null;
 }
 
 export interface SpotifyTrack {

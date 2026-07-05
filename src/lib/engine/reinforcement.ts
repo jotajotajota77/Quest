@@ -23,8 +23,12 @@ export function baseProtegida(_comportamento: Comportamento): number {
 export function calcularGanho(
   comportamento: Comportamento,
   personagemDoDia: Personagem | null,
+  pesoEsforco = 1,
 ): GainResult {
-  const base = baseProtegida(comportamento);
+  // Ponderação por esforço/dificuldade (v8): ação mais difícil vale mais. O peso
+  // é embutido (o usuário não calcula). Sem teto diário — gancho DESARMADO.
+  const peso = Number.isFinite(pesoEsforco) && pesoEsforco > 0 ? pesoEsforco : 1;
+  const base = Math.round(baseProtegida(comportamento) * peso);
   const bonus = Math.round(base * pctBonus(personagemDoDia, comportamento));
   return { base, bonus, total: base + bonus };
 }

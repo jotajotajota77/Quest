@@ -11,7 +11,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import type { Comportamento, DecisaoReforco, ModoAudio } from "@/lib/types";
-import { atributoDe, familiaDe, FAMILIAS } from "@/lib/comportamentos";
+import { atributoDe, disparaMotorNutri, familiaDe, FAMILIAS } from "@/lib/comportamentos";
+import { pesoEsforcoDe } from "@/lib/atividades";
 import { calcularGanho, eloDeXp } from "@/lib/engine/reinforcement";
 import { tierDeXp } from "@/lib/engine/tier";
 import { decidirFading, deveTocarMusica } from "@/lib/engine/fading";
@@ -35,6 +36,9 @@ const COMPORTAMENTOS_VALIDOS: Comportamento[] = [
   "nutri_agua",
   "leitura",
   "danca",
+  "cardio",
+  "volei",
+  "resistencia",
 ];
 
 export async function POST(request: Request) {
@@ -56,6 +60,8 @@ export async function POST(request: Request) {
     livro?: string;
     paginas?: number;
     minutos?: number;
+    atividade_id?: string;
+    peso_esforco?: number;
   };
   const comportamento = body.comportamento;
   if (!comportamento || !COMPORTAMENTOS_VALIDOS.includes(comportamento)) {
@@ -103,9 +109,23 @@ export async function POST(request: Request) {
           minutos: body.minutos != null ? Math.round(body.minutos) : null,
         }
       : {};
+  // Ponderação por esforço: override do cliente (futuro seletor) ou padrão do
+  // comportamento. Embutido — o usuário não calcula.
+  const pesoEsforco =
+    body.peso_esforco != null && body.peso_esforco > 0
+      ? body.peso_esforco
+      : pesoEsforcoDe(comportamento);
+  const atividadeId = body.atividade_id?.trim() ? body.atividade_id.trim() : null;
   const { data: log, error: logErr } = await supabase
     .from("logs")
-    .insert({ user_id: user.id, comportamento, ...macros, ...detalhesLeitura })
+    .insert({
+      user_id: user.id,
+      comportamento,
+      atividade_id: atividadeId,
+      peso_esforco: pesoEsforco,
+      ...macros,
+      ...detalhesLeitura,
+    })
     .select("id, ts")
     .single();
   if (logErr || !log) {
@@ -114,7 +134,7 @@ export async function POST(request: Request) {
 
   // 2. Ganho = base protegida (sempre) + bônus aditivo do protagonista do dia.
   const personagem = await personagemDoDia(user.id);
-  const ganho = calcularGanho(comportamento, personagem);
+  const ganho = calcularGanho(comportamento, personagem, pesoEsforco);
   const atributo = atributoDe(comportamento);
 
   // 3. Aplica à progressão ÚNICA do jogador (atributo + XP → Elo).
@@ -138,8 +158,9 @@ export async function POST(request: Request) {
   let musica: DecisaoReforco["musica"] = null;
   let modoAudio: ModoAudio | null = null;
 
-  if (cfg.motorInstalacao) {
-    // ── NUTRI: motor de instalação completo (fading + porteiro). ──
+  if (cfg.motorInstalacao && disparaMotorNutri(comportamento)) {
+    // ── NUTRI (refeição/água): motor de instalação completo (fading + porteiro).
+    //    cardio/vôlei/resistência agregam Stamina mas NÃO acionam o motor. ──
     const schedule = await garantirSchedule(user.id, "nutri");
     const latencias = await ultimasLatenciasNutri(user.id);
     const sinal = sinalEstabilidade(latencias);

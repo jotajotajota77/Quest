@@ -64,6 +64,9 @@ export const LABEL_COMPORTAMENTO: Record<Comportamento, string> = {
   nutri_agua: "Água",
   leitura: "Registrar leitura",
   danca: "Registrar dança",
+  cardio: "Cardio",
+  volei: "Vôlei",
+  resistencia: "Resistência",
 };
 
 export const LABEL_ATRIBUTO: Record<Atributo, string> = {
@@ -74,8 +77,24 @@ export const LABEL_ATRIBUTO: Record<Atributo, string> = {
 };
 
 export function familiaDe(c: Comportamento): Familia {
-  if (c === "nutri_refeicao" || c === "nutri_agua") return "nutri";
+  // Nutri + fontes abertas de Stamina agregam na família nutri (atributo
+  // Stamina). O motor de instalação (Spotify) NÃO segue a família: é gated só
+  // em nutri_refeicao/nutri_agua no loop central (ver /api/log).
+  if (
+    c === "nutri_refeicao" ||
+    c === "nutri_agua" ||
+    c === "cardio" ||
+    c === "volei" ||
+    c === "resistencia"
+  ) {
+    return "nutri";
+  }
   return c as Familia;
+}
+
+/** Comportamento dispara o motor de instalação (Spotify-CRF)? Só Nutri real. */
+export function disparaMotorNutri(c: Comportamento): boolean {
+  return c === "nutri_refeicao" || c === "nutri_agua";
 }
 
 export function atributoDe(c: Comportamento): Atributo {
