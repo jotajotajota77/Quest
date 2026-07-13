@@ -6,7 +6,9 @@
 //  * Grid mostra só o ROSTO (retrato).
 //  * Clicar revela o CORPO inteiro + nome + título + atributo/bônus + bio/lore.
 //  * Confirmar define o protagonista do dia e leva à home.
-//  * Seleção 100% LIVRE — os 4 desbloqueados, sem recomendação nem bloqueio.
+//  * Seleção 100% LIVRE — todo o roster desbloqueado, sem recomendação nem
+//    bloqueio, sem slots extensíveis (v9: sistema fechado de uso único; 2 por
+//    atributo — Zyan+Dhavos em Força, Kai+Luan em Stamina/cardio).
 // ============================================================
 
 import { useState } from "react";
@@ -45,7 +47,7 @@ export default function CharacterSelect({ roster }: { roster: Personagem[] }) {
         Selecione o protagonista
       </h1>
       <p className="subtle" style={{ marginTop: 0 }}>
-        Escolha livre. Os quatro estão desbloqueados — nenhum é sugerido ou
+        Escolha livre. Todos estão desbloqueados — nenhum é sugerido ou
         bloqueado. O bônus (+25%) é só identidade.
       </p>
 
@@ -91,29 +93,17 @@ export default function CharacterSelect({ roster }: { roster: Personagem[] }) {
       )}
 
       <div className="roster-grid">
-        {roster.map((p) =>
-          p.desbloqueado ? (
-            <button
-              key={p.id}
-              className={`roster-cell ${p.id === selId ? "selected" : ""}`}
-              onClick={() => setSelId(p.id)}
-              title={p.nome}
-            >
-              <CharacterImage src={p.asset_rosto} nome={p.nome} className="roster-face" />
-            </button>
-          ) : (
-            <div key={p.id} className="roster-cell locked" title="Em breve">
-              <div className="lock-badge">
-                <span className="lock-ico">🔒</span>
-                <span>EM BREVE</span>
-              </div>
-            </div>
-          ),
-        )}
+        {roster.map((p) => (
+          <button
+            key={p.id}
+            className={`roster-cell ${p.id === selId ? "selected" : ""}`}
+            onClick={() => setSelId(p.id)}
+            title={p.nome}
+          >
+            <CharacterImage src={p.asset_rosto} nome={p.nome} className="roster-face" />
+          </button>
+        ))}
       </div>
-      <p className="subtle" style={{ marginTop: 10 }}>
-        🔒 5 slots a desbloquear — novos operadores a caminho.
-      </p>
     </div>
   );
 }

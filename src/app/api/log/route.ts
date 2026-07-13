@@ -3,8 +3,7 @@
 // ------------------------------------------------------------
 // Camada universal (TODOS): log + ganho (base + bônus) + atributo/XP/Elo.
 // Motor de instalação (SÓ Nutri): Spotify-CRF + fading + porteiro.
-// Dança: Spotify como TRILHA (toca sempre, não esmaece).
-// Treino/Leitura: só camada universal.
+// Treino: só camada universal.
 // O hit-confirm sensorial LOCAL já tocou no cliente antes desta chamada.
 // ============================================================
 
@@ -34,8 +33,6 @@ const COMPORTAMENTOS_VALIDOS: Comportamento[] = [
   "treino",
   "nutri_refeicao",
   "nutri_agua",
-  "leitura",
-  "danca",
   "cardio",
   "volei",
   "resistencia",
@@ -57,9 +54,6 @@ export async function POST(request: Request) {
     proteina?: number;
     carbs?: number;
     gordura?: number;
-    livro?: string;
-    paginas?: number;
-    minutos?: number;
     atividade_id?: string;
     peso_esforco?: number;
   };
@@ -100,15 +94,6 @@ export async function POST(request: Request) {
           gordura: body.gordura ?? null,
         }
       : {};
-  // Detalhes de leitura (livro / páginas / tempo) — opcionais, só p/ leitura.
-  const detalhesLeitura =
-    comportamento === "leitura"
-      ? {
-          livro: body.livro?.trim() ? body.livro.trim() : null,
-          paginas: body.paginas != null ? Math.round(body.paginas) : null,
-          minutos: body.minutos != null ? Math.round(body.minutos) : null,
-        }
-      : {};
   // Ponderação por esforço: override do cliente (futuro seletor) ou padrão do
   // comportamento. Embutido — o usuário não calcula.
   const pesoEsforco =
@@ -124,7 +109,6 @@ export async function POST(request: Request) {
       atividade_id: atividadeId,
       peso_esforco: pesoEsforco,
       ...macros,
-      ...detalhesLeitura,
     })
     .select("id, ts")
     .single();
@@ -184,13 +168,8 @@ export async function POST(request: Request) {
       musica = await proximaFaixaNova(user.id); // null → fallback local
       modoAudio = "reward";
     }
-  } else if (cfg.spotify === "soundtrack") {
-    // ── DANÇA: Spotify como TRILHA da atividade — toca sempre, não esmaece,
-    //    não passa pelo fading nem entra no histórico de reforço esmaecível. ──
-    musica = await proximaFaixaNova(user.id);
-    modoAudio = musica ? "trilha" : null;
   }
-  // TREINO / LEITURA: só camada universal — sem música como mecânica.
+  // TREINO: só camada universal — sem música como mecânica.
 
   const resposta: DecisaoReforco = {
     hitConfirm: true,

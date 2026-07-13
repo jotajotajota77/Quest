@@ -6,6 +6,7 @@
 // variações). "+ Adicionar" põe no plano do split atual.
 import { useMemo, useState } from "react";
 import type { ExercicioBib } from "@/lib/data";
+import { FichaCompleta, ProgramaLinha } from "@/components/FichaExercicio";
 
 export default function BibliotecaExercicios({
   exercicios,
@@ -106,14 +107,11 @@ export default function BibliotecaExercicios({
                   {e.equipamento && <span className="muscle-badge">{e.equipamento}</span>}
                   {e.casa_ok && <span className="muscle-badge" style={{ color: "var(--good)" }}>casa</span>}
                 </div>
+                <ProgramaLinha ex={e} />
 
                 {open && (
-                  <div style={{ marginTop: 10, fontSize: "0.8rem", lineHeight: 1.45 }}>
-                    <Ficha rotulo="Músculos" texto={e.musculos.join(", ")} />
-                    <Ficha rotulo="Execução" texto={e.execucao} />
-                    <Ficha rotulo="Cue" texto={e.cue} cor="var(--neon-2)" />
-                    <Ficha rotulo="Erro comum" texto={e.erro_comum} cor="var(--neon)" />
-                    <Ficha rotulo="Variações" texto={e.variacoes.join(" · ")} />
+                  <div style={{ marginTop: 10 }}>
+                    <FichaCompleta ex={e} />
                   </div>
                 )}
               </div>
@@ -123,16 +121,6 @@ export default function BibliotecaExercicios({
 
         <button className="btn" style={{ width: "100%", marginTop: 10 }} onClick={onClose}>Fechar</button>
       </div>
-    </div>
-  );
-}
-
-function Ficha({ rotulo, texto, cor }: { rotulo: string; texto: string | null; cor?: string }) {
-  if (!texto) return null;
-  return (
-    <div style={{ marginBottom: 6 }}>
-      <span style={{ fontWeight: 800, color: cor ?? "var(--text)" }}>{rotulo}: </span>
-      <span className="subtle">{texto}</span>
     </div>
   );
 }

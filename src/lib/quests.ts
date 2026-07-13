@@ -24,11 +24,8 @@ export interface QuestTemplate {
 const TEMPLATES: QuestTemplate[] = [
   { id: "nutri_hoje", tipo: "diaria", descricao: "Registre Nutri hoje", xp: 10, concluida: (c) => c.nucleo.has("nutri") },
   { id: "treino_hoje", tipo: "diaria", descricao: "Treine hoje", xp: 10, concluida: (c) => c.nucleo.has("treino") },
-  { id: "leitura_hoje", tipo: "diaria", descricao: "Leia hoje", xp: 10, concluida: (c) => c.nucleo.has("leitura") },
-  { id: "danca_hoje", tipo: "diaria", descricao: "Dance hoje", xp: 10, concluida: (c) => c.nucleo.has("danca") },
   { id: "agua_meta", tipo: "diaria", descricao: "Bata a meta de água", xp: 8, concluida: (c) => c.aguaCount >= AGUA_META },
-  { id: "tres_abas", tipo: "sidequest", descricao: "Registre 3 das 4 abas hoje", xp: 20, concluida: (c) => c.nucleo.size >= 3 },
-  { id: "protocolo_meio", tipo: "sidequest", descricao: "Complete metade do protocolo", xp: 15, concluida: (c) => c.nucleo.size + c.trackersFeitos >= 4 },
+  { id: "protocolo_meio", tipo: "sidequest", descricao: "Complete metade do protocolo", xp: 15, concluida: (c) => c.nucleo.size + c.trackersFeitos >= 3 },
   { id: "combo", tipo: "sidequest", descricao: "Nutri + Treino no mesmo dia", xp: 18, concluida: (c) => c.nucleo.has("nutri") && c.nucleo.has("treino") },
 ];
 

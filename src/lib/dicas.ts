@@ -27,23 +27,9 @@ const DICAS: Record<ContextoHero, string[]> = {
     "Proteína em toda refeição. É o tijolo que segura o resto.",
     "Comeu junk? Registra sem culpa — dado honesto é o que te ajusta.",
     "Fome de tarde? Vê se bebeu água e comeu proteína no almoço.",
-    "Prato colorido engana o cérebro e nutre o corpo. Põe um vegetal.",
+    "Défice vem da dieta, não do cardio. Cardio é ferramenta, não muleta.",
     "Meta não é perfeição: é a média da semana. Hoje conta pra ela.",
     "Planeja a próxima refeição agora — decisão tomada não cansa depois.",
-  ],
-  leitura: [
-    "Cinco páginas valem mais que zero. Abre o livro e começa.",
-    "Lê o que te puxa, não o que 'deveria'. Curiosidade é combustível.",
-    "Anota uma frase que te marcou. Releitura é onde mora a sabedoria.",
-    "Tempo de tela vira tempo de página: troca 10 minutos hoje.",
-    "Não corre pra terminar — entende. Uma ideia por sessão já é lucro.",
-  ],
-  danca: [
-    "Movimento é remédio. Três músicas e o corpo agradece.",
-    "Erra o passo e ri — soltar é o ponto, não acertar.",
-    "Não precisa de plateia: dança é conversa do corpo com a música.",
-    "Aquece o quadril e o tornozelo. Destreza começa na base.",
-    "Suou? Hidrata. Movimento bom é movimento sustentável.",
   ],
 };
 

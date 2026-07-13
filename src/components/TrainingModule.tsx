@@ -11,11 +11,14 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { TreinoExercicio, TreinoSerie } from "@/lib/types";
 import type { ExercicioBib } from "@/lib/data";
-import { GLOSSARIO, PRESETS, gruposDoSplit, type Preset } from "@/lib/treino";
+import { GLOSSARIO, PRESETS, SPLIT_LABEL, SPLIT_SEMANA, gruposDoSplit, type Preset } from "@/lib/treino";
 import { useHitConfirm } from "@/components/HitConfirm";
 import RestTimer from "@/components/RestTimer";
 import BibliotecaExercicios from "@/components/BibliotecaExercicios";
+import { FichaCompleta, ProgramaLinha } from "@/components/FichaExercicio";
 import { somPr, somSerie } from "@/lib/som";
+
+const ORDEM_SPLIT_SEMANA = SPLIT_SEMANA.map((s) => s.key);
 
 export default function TrainingModule({
   plano,
@@ -43,8 +46,24 @@ export default function TrainingModule({
   const [iaTexto, setIaTexto] = useState<string | null>(null);
   const [iaCarregando, setIaCarregando] = useState(false);
   const [ocupado, setOcupado] = useState(false);
+  const [fichaAberta, setFichaAberta] = useState<string | null>(null);
 
-  const splits = useMemo(() => [...new Set(plano.map((e) => e.split ?? "—"))], [plano]);
+  const bibPorId = useMemo(() => {
+    const m = new Map<string, ExercicioBib>();
+    for (const b of biblioteca) m.set(b.id, b);
+    return m;
+  }, [biblioteca]);
+
+  const splits = useMemo(() => {
+    const s = [...new Set(plano.map((e) => e.split ?? "—"))];
+    // Ficha do Apêndice A (v9): ordena Dom→Sáb em vez da ordem alfabética do
+    // banco. Splits fora dessa lista (presets antigos ABC/UL/PPL) mantêm a
+    // ordem original, ao final.
+    const naSemana = s.filter((k) => ORDEM_SPLIT_SEMANA.includes(k));
+    const fora = s.filter((k) => !ORDEM_SPLIT_SEMANA.includes(k));
+    naSemana.sort((a, b) => ORDEM_SPLIT_SEMANA.indexOf(a) - ORDEM_SPLIT_SEMANA.indexOf(b));
+    return [...naSemana, ...fora];
+  }, [plano]);
   // Rótulo de músculos por split (ex.: A → "Peito / Ombro / Tríceps").
   const gruposPorSplit = useMemo(() => {
     const m = new Map<string, string>();
@@ -182,7 +201,9 @@ export default function TrainingModule({
               style={{ borderColor: s === splitAlvo ? "var(--neon)" : "var(--panel-border)" }}
               onClick={() => setSplitAtivo(s)}
             >
-              <span style={{ textTransform: "uppercase", fontWeight: 800 }}>{s}</span>
+              <span style={{ fontWeight: 800 }}>
+                {SPLIT_LABEL[s] ?? s.toUpperCase()}
+              </span>
               {grupos && <span style={{ color: "var(--text-dim)" }}> · {grupos}</span>}
             </button>
           );
@@ -203,7 +224,7 @@ export default function TrainingModule({
       >
         <div>
           <div className="lbl">
-            Sessão de hoje · {splitAlvo}
+            Sessão de hoje · {SPLIT_LABEL[splitAlvo] ?? splitAlvo}
             {gruposPorSplit.get(splitAlvo) ? ` · ${gruposPorSplit.get(splitAlvo)}` : ""}
           </div>
           <div className="subtle" style={{ marginTop: 2 }}>
@@ -229,6 +250,8 @@ export default function TrainingModule({
         const hist = (histPorNome.get(ex.nome) ?? []).slice(0, 3);
         const hoje = hojePorNome.get(ex.nome) ?? [];
         const pr = (histPorNome.get(ex.nome) ?? []).reduce((mx, s) => Math.max(mx, s.peso ?? 0), 0);
+        const catalogo = ex.exercicio_id ? bibPorId.get(ex.exercicio_id) : undefined;
+        const fichaAbertaAqui = fichaAberta === ex.id;
         return (
           <div className="panel" key={ex.id} style={{ marginBottom: 10 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
@@ -254,6 +277,29 @@ export default function TrainingModule({
             </div>
 
             {ex.grupo_muscular && <span className="muscle-badge">{ex.grupo_muscular}</span>}
+
+            {/* Prescrição do programa embutido (Apêndice A) + ficha técnica opt-in. */}
+            {catalogo && (
+              <>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                  <ProgramaLinha ex={catalogo} />
+                  {(catalogo.cue || catalogo.erro_comum) && (
+                    <button
+                      className="nav-link"
+                      style={{ ...smallBtn, marginTop: 4 }}
+                      onClick={() => setFichaAberta(fichaAbertaAqui ? null : ex.id)}
+                    >
+                      {fichaAbertaAqui ? "ocultar ficha ▲" : "ver ficha ▾"}
+                    </button>
+                  )}
+                </div>
+                {fichaAbertaAqui && (
+                  <div style={{ marginTop: 6 }}>
+                    <FichaCompleta ex={catalogo} />
+                  </div>
+                )}
+              </>
+            )}
 
             {/* Séries de hoje (linhas) */}
             {hoje.map((s, i) => (

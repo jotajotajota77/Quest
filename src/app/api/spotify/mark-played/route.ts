@@ -3,14 +3,17 @@
 // ------------------------------------------------------------
 // O cliente chama isto APÓS tentar tocar a faixa cheia:
 //   * sucesso → tipo_reforco 'faixa_cheia' (faixa deixa de ser nova-no-sistema);
+//     v9: também entra na playlist real "Quest — Trilha do Hábito".
 //   * falha   → tipo_reforco 'fallback_local' (faixa NÃO é marcada como tocada;
 //     entra na fila "a tocar" via flag `enfileirar`).
 // O hit-confirm local já ocorreu no cliente; aqui só registramos o histórico.
+// Adicionar à playlist é bônus — falha silenciosa, nunca bloqueia o reforço.
 // ============================================================
 
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import type { TipoReforco } from "@/lib/types";
+import { adicionarFaixaNaPlaylist, getAccessTokenValido } from "@/lib/spotify/client";
 
 export async function POST(request: Request) {
   const supabase = createClient();
@@ -42,5 +45,14 @@ export async function POST(request: Request) {
   if (error) {
     return NextResponse.json({ error: "falha ao marcar" }, { status: 500 });
   }
+
+  // Playlist real "Quest — Trilha do Hábito" — só faixa que tocou de verdade.
+  if (faixaId) {
+    const token = await getAccessTokenValido(user.id);
+    if (token) {
+      await adicionarFaixaNaPlaylist(user.id, token, `spotify:track:${faixaId}`).catch(() => null);
+    }
+  }
+
   return NextResponse.json({ ok: true });
 }

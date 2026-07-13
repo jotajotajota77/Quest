@@ -11,6 +11,8 @@ import { createClient } from "@/lib/supabase/server";
 import MirrorForm from "@/components/MirrorForm";
 import BottomNav from "@/components/BottomNav";
 import { ESPELHO_FRAMING } from "@/lib/objetivos";
+import { garantirMeta, corpoRealRecente } from "@/lib/data";
+import { progressoMeta } from "@/lib/engine/meta";
 
 export default async function EspelhoPage() {
   const supabase = createClient();
@@ -19,12 +21,17 @@ export default async function EspelhoPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: registros } = await supabase
-    .from("corpo_real")
-    .select("*")
-    .eq("user_id", user.id)
-    .order("ts", { ascending: false })
-    .limit(30);
+  const [{ data: registros }, meta, corpoRecente] = await Promise.all([
+    supabase
+      .from("corpo_real")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("ts", { ascending: false })
+      .limit(30),
+    garantirMeta(user.id),
+    corpoRealRecente(user.id, 21),
+  ]);
+  const progresso = progressoMeta(meta, corpoRecente);
 
   return (
     <main className="app-shell">
@@ -34,6 +41,27 @@ export default async function EspelhoPage() {
       <p className="subtle" style={{ marginTop: 4 }}>
         Corpo real. Passivo — só você abre, ninguém te chama aqui.
       </p>
+
+      <div className="panel" style={{ marginTop: 14, borderColor: "var(--gold)" }}>
+        <div className="lbl">Progresso do cutting</div>
+        <div style={{ marginTop: 4 }}>
+          {progresso.pesoAtual != null ? `${progresso.pesoAtual}kg` : "sem peso ainda"}
+          {" → alvo "}
+          {meta.peso_alvo}kg
+          {" · "}
+          {progresso.bfAtual != null ? `${progresso.bfAtual}% BF` : "sem BF ainda"}
+          {" → alvo "}
+          {meta.bf_alvo}%
+          {progresso.pctCaminho != null ? ` · ${progresso.pctCaminho}% do caminho` : ""}
+        </div>
+        <div className="subtle" style={{ marginTop: 2 }}>
+          {progresso.diasRestantes >= 0
+            ? `${progresso.diasRestantes} dias até 09/09`
+            : "meta vencida"}
+          {" · semana "}
+          {progresso.semanaAtual}/{progresso.totalSemanas} do programa
+        </div>
+      </div>
 
       <div className="panel" style={{ marginTop: 14, borderLeft: "3px solid var(--neon-2)" }}>
         <div className="lbl">Como o corpo revela (segura o curso)</div>

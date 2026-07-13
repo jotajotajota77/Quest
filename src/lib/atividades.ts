@@ -23,8 +23,6 @@ export const PESO_ESFORCO_PADRAO: Record<Comportamento, number> = {
   treino: 1,
   nutri_refeicao: 1,
   nutri_agua: 1,
-  leitura: 1,
-  danca: 1,
   cardio: 1.2,
   volei: 1.1,
   resistencia: 1.2,
