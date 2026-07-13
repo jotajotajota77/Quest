@@ -1,8 +1,9 @@
 "use client";
 
-// Barra de abas inferior (fixa). As 4 famílias + Home, mais utilidades (Trocar,
-// Espelho). A aba atual fica MARCADA (cor + fundo). Espelho é discreto — nunca
-// convoca (TRAVA). Vira tab bar de app, não pílulas soltas.
+// Barra de abas inferior (fixa). As 2 famílias (Treino/Nutri) + Home, mais
+// utilidades (Trocar, Espelho). A aba atual fica MARCADA (cor + fundo).
+// Espelho é discreto — nunca convoca (TRAVA). Vira tab bar de app, não
+// pílulas soltas.
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -10,8 +11,6 @@ const LINKS: { href: string; label: string; ico: string; dim?: boolean }[] = [
   { href: "/home", label: "Home", ico: "🏠" },
   { href: "/treino", label: "Treino", ico: "🏋️" },
   { href: "/nutri", label: "Nutri", ico: "🍎" },
-  { href: "/leitura", label: "Leitura", ico: "📖" },
-  { href: "/danca", label: "Dança", ico: "🕺" },
   { href: "/hub", label: "Trocar", ico: "🔄" },
   { href: "/espelho", label: "Espelho", ico: "🪞", dim: true },
 ];

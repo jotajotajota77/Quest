@@ -11,15 +11,18 @@ import { createClient } from "@/lib/supabase/server";
 const TOKEN_URL = "https://accounts.spotify.com/api/token";
 const API = "https://api.spotify.com/v1";
 
-/** Escopos necessários: tocar via SDK + ler biblioteca para nova-no-sistema. */
+/** Escopos necessários: tocar via SDK + montar a playlist real da trilha.
+ *  v9: troca user-library-read/playlist-read-private (não usados) por
+ *  playlist-modify-private (playlist "Quest — Trilha do Hábito"). Quem já
+ *  tinha conectado o Spotify antes precisa reconectar pra pegar o escopo novo
+ *  — o token antigo não autoriza criar/editar playlist. */
 export const SPOTIFY_SCOPES = [
   "streaming",
   "user-read-email",
   "user-read-private",
   "user-read-playback-state",
   "user-modify-playback-state",
-  "user-library-read",
-  "playlist-read-private",
+  "playlist-modify-private",
 ].join(" ");
 
 function basicAuthHeader(): string {
@@ -125,4 +128,66 @@ export async function spotifyGet<T>(
   });
   if (!res.ok) return null;
   return (await res.json()) as T;
+}
+
+/** POST autenticado contra a Web API do Spotify. */
+async function spotifyPost<T>(
+  token: string,
+  path: string,
+  body: unknown,
+): Promise<T | null> {
+  const res = await fetch(`${API}${path}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) return null;
+  return (await res.json()) as T;
+}
+
+const NOME_PLAYLIST = "Quest — Trilha do Hábito";
+
+/** Garante que existe a playlist real da trilha e devolve o id (cacheado em
+ *  spotify_tokens.playlist_id). Cria como privada na primeira faixa tocada. */
+export async function garantirPlaylist(
+  userId: string,
+  token: string,
+): Promise<string | null> {
+  const supabase = createClient();
+  const { data: row } = await supabase
+    .from("spotify_tokens")
+    .select("playlist_id")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (row?.playlist_id) return row.playlist_id as string;
+
+  const me = await spotifyGet<{ id: string }>(token, "/me");
+  if (!me?.id) return null;
+  const criada = await spotifyPost<{ id: string }>(token, `/users/${me.id}/playlists`, {
+    name: NOME_PLAYLIST,
+    public: false,
+    description: "Trilha do hábito — faixas novas-no-sistema tocadas pelo Quest.",
+  });
+  if (!criada?.id) return null;
+
+  await supabase
+    .from("spotify_tokens")
+    .update({ playlist_id: criada.id })
+    .eq("user_id", userId);
+  return criada.id;
+}
+
+/** Adiciona uma faixa (URI) à playlist real da trilha. Falha silenciosa —
+ *  a playlist é um bônus, nunca bloqueia o reforço/hit-confirm. */
+export async function adicionarFaixaNaPlaylist(
+  userId: string,
+  token: string,
+  uri: string,
+): Promise<void> {
+  const playlistId = await garantirPlaylist(userId, token);
+  if (!playlistId) return;
+  await spotifyPost(token, `/playlists/${playlistId}/tracks`, { uris: [uri] }).catch(() => null);
 }

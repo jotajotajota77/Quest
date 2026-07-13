@@ -10,8 +10,9 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@/lib/supabase/server";
-import { perfilDe, seriesRecentes } from "@/lib/data";
+import { garantirMeta, perfilDe, seriesRecentes } from "@/lib/data";
 import { ENFASE_IA } from "@/lib/objetivos";
+import { semanaPrograma } from "@/lib/engine/meta";
 
 export async function POST() {
   const supabase = createClient();
@@ -30,10 +31,12 @@ export async function POST() {
     });
   }
 
-  const [series, perfil] = await Promise.all([
+  const [series, perfil, meta] = await Promise.all([
     seriesRecentes(user.id, 80),
     perfilDe(user.id),
+    garantirMeta(user.id),
   ]);
+  const { semana, total } = semanaPrograma(meta);
   if (series.length === 0) {
     return NextResponse.json({
       disponivel: false,
@@ -64,24 +67,31 @@ export async function POST() {
       model: "claude-opus-4-8",
       max_tokens: 900,
       system:
-        "Você é um treinador de força conciso, prático e BASEADO EM DADOS. A " +
-        "partir do histórico, diga o que está CERTO e o que está ERRADO pra " +
-        "evoluir: sobrecarga progressiva aplicada?, volume por grupo muscular, " +
-        "equilíbrio empurrar/puxar, grupos atrasados, tendência de PR, " +
-        "frequência, sinais de sub/supertreino e timing de deload. Você NÃO vê " +
-        "execução (sem vídeo) — dê cues/erros comuns como genéricos, sem " +
-        "prometer análise de forma. Personalize ao PERFIL e às ÊNFASES do aluno. " +
-        "Português do Brasil, direto, bullets curtos, sem disclaimers longos.",
+        "Você é um treinador de força conciso, prático e BASEADO EM DADOS, " +
+        "focado num cutting de 8 semanas rumo a um físico V-taper. A partir " +
+        "do histórico, diga o que está CERTO e o que está ERRADO pra evoluir: " +
+        "sobrecarga progressiva aplicada?, volume por grupo muscular, se as " +
+        "PRIORIDADES (peito superior, deltoide lateral, largura de costas, " +
+        "abdômen) estão recebendo frequência/volume suficiente, grupos " +
+        "atrasados, tendência de PR, e se o comportamento recente bate com o " +
+        "que a semana atual do programa pede (ex.: menos volume/carga numa " +
+        "semana de deload). Você NÃO vê execução (sem vídeo) — dê cues/erros " +
+        "comuns como genéricos, sem prometer análise de forma. Personalize ao " +
+        "PERFIL e às ÊNFASES do aluno. Português do Brasil, direto, bullets " +
+        "curtos, sem disclaimers longos.",
       messages: [
         {
           role: "user",
           content:
             (perfil?.trim() ? `Meu perfil: ${perfil.trim()}\n` : "") +
             `Ênfases: ${ENFASE_IA}\n\n` +
+            `Semana atual do programa de 8 semanas: ${semana} de ${total}.\n\n` +
             "Minhas séries recentes (peso x reps, mais recentes primeiro):\n" +
             resumo +
-            "\n\nAvalie progressão, volume e equilíbrio por grupo; aponte o que " +
-            "está certo e errado e sugira ajustes de carga/volume/variação " +
+            "\n\nAvalie progressão, volume e equilíbrio por grupo — com foco em " +
+            "saber se as prioridades estão sendo atendidas e se o momento " +
+            "(semana do programa) está sendo respeitado; aponte o que está " +
+            "certo e errado e sugira ajustes de carga/volume/variação " +
             "alinhados ao perfil e às ênfases.",
         },
       ],

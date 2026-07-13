@@ -2,9 +2,11 @@
 import type {
   Atributos,
   Comportamento,
+  CorpoRealPonto,
   Esquema,
   Familia,
   LogRow,
+  Meta,
   Personagem,
   ScheduleState,
   TreinoExercicio,
@@ -16,7 +18,7 @@ import type { SinalRobustez } from "@/lib/engine/gates";
 
 const NUTRI: Comportamento[] = ["nutri_refeicao", "nutri_agua"];
 
-/** Garante que existe linha de atributos para o usuário (os 4 atributos). */
+/** Garante que existe linha de atributos para o usuário (os 2 atributos). */
 export async function garantirAtributos(userId: string): Promise<Atributos> {
   const supabase = createClient();
   const { data } = await supabase
@@ -31,6 +33,24 @@ export async function garantirAtributos(userId: string): Promise<Atributos> {
     .select("*")
     .single();
   return novo as Atributos;
+}
+
+/** Garante que existe linha de meta (objetivo de cutting) para o usuário —
+ *  lazy-criada com os defaults do banco (17,8%→13% BF até 09/09/2026). */
+export async function garantirMeta(userId: string): Promise<Meta> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("meta")
+    .select("*")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (data) return data as Meta;
+  const { data: nova } = await supabase
+    .from("meta")
+    .insert({ user_id: userId })
+    .select("*")
+    .single();
+  return nova as Meta;
 }
 
 /** Garante schedule_state de uma família (inicia em CRF). Só Nutri usa. */
@@ -395,7 +415,7 @@ export async function ultimaAtividadeAntesDeHoje(
   return data?.ts ? (data.ts as string).slice(0, 10) : null;
 }
 
-/** Quantos logs de uma família o usuário tem no total (p/ unlock de leitura). */
+/** Quantos logs de uma família o usuário tem no total. */
 export async function contarFamilia(
   userId: string,
   comportamentos: Comportamento[],
@@ -554,6 +574,12 @@ export interface ExercicioBib {
   variacoes: string[];
   peso_esforco_base: number;
   casa_ok: boolean;
+  /** Prescrição de programa (v9, Apêndice A) — texto livre (faixas), nullable. */
+  series: string | null;
+  reps: string | null;
+  rir: string | null;
+  descanso: string | null;
+  cadencia: string | null;
 }
 
 export async function listarExercicios(): Promise<ExercicioBib[]> {
@@ -576,6 +602,11 @@ export async function listarExercicios(): Promise<ExercicioBib[]> {
     variacoes: (r.variacoes as string[]) ?? [],
     peso_esforco_base: Number(r.peso_esforco_base ?? 1),
     casa_ok: Boolean(r.casa_ok),
+    series: (r.series as string) ?? null,
+    reps: (r.reps as string) ?? null,
+    rir: (r.rir as string) ?? null,
+    descanso: (r.descanso as string) ?? null,
+    cadencia: (r.cadencia as string) ?? null,
   }));
 }
 
@@ -624,6 +655,30 @@ export async function pesoAtual(userId: string): Promise<number | null> {
     .limit(1)
     .maybeSingle();
   return data?.peso != null ? Number(data.peso) : null;
+}
+
+/** Registros de corpo_real dos últimos N dias (peso + BF), mais recentes
+ *  primeiro — base do goal dashboard e do resumo do Espelho. */
+export async function corpoRealRecente(
+  userId: string,
+  dias = 21,
+): Promise<CorpoRealPonto[]> {
+  const supabase = createClient();
+  const desde = new Date(Date.now() - dias * 86_400_000).toISOString();
+  const { data } = await supabase
+    .from("corpo_real")
+    .select("ts, peso, composicao")
+    .eq("user_id", userId)
+    .gte("ts", desde)
+    .order("ts", { ascending: false });
+  return (data ?? []).map((r) => ({
+    ts: r.ts as string,
+    peso: r.peso != null ? Number(r.peso) : null,
+    gordura_pct:
+      r.composicao && (r.composicao as Record<string, unknown>).gordura_pct != null
+        ? Number((r.composicao as Record<string, unknown>).gordura_pct)
+        : null,
+  }));
 }
 
 // ── Quests (v4): avalia contra o dia, credita XP uma vez por quest ──
@@ -711,41 +766,6 @@ export async function perfilDe(userId: string): Promise<string | null> {
     .eq("user_id", userId)
     .maybeSingle();
   return (data?.descricao as string) ?? null;
-}
-
-// ── Leitura (v4 afinamento): sessões recentes com livro/páginas/tempo ──
-export async function leiturasRecentes(
-  userId: string,
-  limit = 20,
-): Promise<LogRow[]> {
-  const supabase = createClient();
-  const { data } = await supabase
-    .from("logs")
-    .select("*")
-    .eq("user_id", userId)
-    .eq("comportamento", "leitura")
-    .order("ts", { ascending: false })
-    .limit(limit);
-  return (data ?? []) as LogRow[];
-}
-
-/** Totais acumulados de leitura (páginas e minutos) — placar de identidade. */
-export async function totaisLeitura(
-  userId: string,
-): Promise<{ paginas: number; minutos: number }> {
-  const supabase = createClient();
-  const { data } = await supabase
-    .from("logs")
-    .select("paginas, minutos")
-    .eq("user_id", userId)
-    .eq("comportamento", "leitura");
-  let paginas = 0;
-  let minutos = 0;
-  for (const r of data ?? []) {
-    paginas += Number(r.paginas ?? 0) || 0;
-    minutos += Number(r.minutos ?? 0) || 0;
-  }
-  return { paginas, minutos };
 }
 
 // ── Sessões de treino do dia (v4) ──

@@ -1,10 +1,12 @@
 // ============================================================
-// Home / dashboard — a ESPINHA do loop diário (v2).
+// Home / dashboard — a ESPINHA do loop diário (v9).
 // ------------------------------------------------------------
-// Alta frequência: tier + progresso + 4 atributos + VOZ contextual do
-// protagonista + FOCO do dia (uma coisa, anti-paralisia) + DAILY SPIN +
-// entrada do MODO NÉVOA. O registro 1-toque vive nas abas; o corpo real fica
-// fora daqui (TRAVA de exposição).
+// O GOAL DASHBOARD (cutting 17,8%→13% BF até 09/09) é o coração da home.
+// Alta frequência: tier + progresso + 2 atributos + VOZ contextual do
+// protagonista + FOCO do dia (o treino do split de hoje, anti-paralisia) +
+// DAILY SPIN + entrada do MODO NÉVOA. O registro 1-toque vive nas abas; o
+// corpo real detalhado fica no Espelho (TRAVA de exposição) — só um resumo
+// curto do goal aparece aqui.
 // ============================================================
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -16,6 +18,8 @@ import {
   diasNevoaSet,
   familiasLogadasHoje,
   garantirAtributos,
+  garantirMeta,
+  corpoRealRecente,
   personagemDoDia,
   registrosHoje,
   spinDeHoje,
@@ -28,7 +32,10 @@ import ProtocoloCard from "@/components/ProtocoloCard";
 import FinalizarDiaButton from "@/components/FinalizarDiaButton";
 import QuestsCard from "@/components/QuestsCard";
 import ResetHistoricoButton from "@/components/ResetHistoricoButton";
+import GoalDashboard from "@/components/GoalDashboard";
 import { analisarSemana } from "@/lib/analise";
+import { progressoMeta } from "@/lib/engine/meta";
+import { splitDeHoje } from "@/lib/treino";
 import { trackersFeitos } from "@/lib/protocolo";
 import { calcularStreak } from "@/lib/engine/streak";
 import { mensagemContextual } from "@/lib/voz";
@@ -52,7 +59,7 @@ export default async function HomePage() {
   const personagem = await personagemDoDia(user.id);
   if (!personagem) redirect("/hub");
 
-  const [attr, dia, comLog, nevoa, nHoje, spin, semana, nucleo, trackers, finalizado] =
+  const [attr, dia, comLog, nevoa, nHoje, spin, semana, nucleo, trackers, finalizado, meta, corpoRecente] =
     await Promise.all([
       garantirAtributos(user.id),
       diaDeHoje(user.id),
@@ -64,7 +71,11 @@ export default async function HomePage() {
       familiasLogadasHoje(user.id),
       trackersHoje(user.id),
       diaFinalizado(user.id),
+      garantirMeta(user.id),
+      corpoRealRecente(user.id, 21),
     ]);
+  const progresso = progressoMeta(meta, corpoRecente);
+  const splitHoje = splitDeHoje();
 
   const quests = await avaliarQuests(user.id, {
     nucleo,
@@ -84,6 +95,9 @@ export default async function HomePage() {
 
   return (
     <main className="app-shell">
+      {/* Goal dashboard — o coração da home (TRAVA v9). */}
+      <GoalDashboard meta={meta} progresso={progresso} />
+
       {/* Presença: hero contextual do protagonista do dia. */}
       <ContextualHero
         candidatos={candidatosHero("home", personagem, null)}
@@ -129,9 +143,11 @@ export default async function HomePage() {
         </div>
       </div>
 
-      {/* Foco do dia — UMA coisa (anti-paralisia). O operante frágil (Nutri). */}
+      {/* Foco do dia — UMA coisa (anti-paralisia): o treino do split de hoje.
+          Nutri continua como a âncora operante frágil (TRAVA 2) — segue como
+          linha secundária no mesmo card, não como alternativa exclusiva. */}
       <Link
-        href="/nutri"
+        href="/treino"
         className="panel"
         style={{
           display: "block",
@@ -140,11 +156,11 @@ export default async function HomePage() {
           borderColor: "var(--gold)",
         }}
       >
-        <div className="lbl">Foco de hoje</div>
-        <div style={{ fontWeight: 800, marginTop: 4 }}>
-          Nutri — um toque em refeição ou água
+        <div className="lbl">Foco de hoje · {splitHoje.dia}</div>
+        <div style={{ fontWeight: 800, marginTop: 4 }}>{splitHoje.label}</div>
+        <div className="subtle">
+          + Nutri: um toque em refeição ou água. A âncora do dia.
         </div>
-        <div className="subtle">A âncora do dia. Comece por aqui.</div>
       </Link>
 
       {/* Protocolo diário — quick-log de tracking (núcleo + trackers leves). */}

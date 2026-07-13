@@ -15,11 +15,10 @@ export interface ConfigFamilia {
   motorInstalacao: boolean;
   /**
    * Papel do Spotify nesta família:
-   *  - 'reward'     : recompensa esmaecível (Nutri) — passa pelo fading.
-   *  - 'soundtrack' : trilha da atividade (Dança) — toca sempre, não esmaece.
-   *  - 'none'       : sem Spotify como mecânica (Treino, Leitura).
+   *  - 'reward' : recompensa esmaecível (Nutri) — passa pelo fading.
+   *  - 'none'   : sem Spotify como mecânica (Treino).
    */
-  spotify: "reward" | "soundtrack" | "none";
+  spotify: "reward" | "none";
   comportamentos: Comportamento[];
 }
 
@@ -40,30 +39,12 @@ export const FAMILIAS: Record<Familia, ConfigFamilia> = {
     spotify: "reward",
     comportamentos: ["nutri_refeicao", "nutri_agua"],
   },
-  // Não-diagnosticado → universal apenas; Spotify-CRF competiria com a leitura.
-  leitura: {
-    label: "Leitura",
-    atributo: "sabedoria",
-    motorInstalacao: false,
-    spotify: "none",
-    comportamentos: ["leitura"],
-  },
-  // Reforçador intrínseco → universal + Spotify como trilha (não esmaecível).
-  danca: {
-    label: "Dança",
-    atributo: "destreza",
-    motorInstalacao: false,
-    spotify: "soundtrack",
-    comportamentos: ["danca"],
-  },
 };
 
 export const LABEL_COMPORTAMENTO: Record<Comportamento, string> = {
   treino: "Registrar treino",
   nutri_refeicao: "Registrar refeição",
   nutri_agua: "Água",
-  leitura: "Registrar leitura",
-  danca: "Registrar dança",
   cardio: "Cardio",
   volei: "Vôlei",
   resistencia: "Resistência",
@@ -72,8 +53,6 @@ export const LABEL_COMPORTAMENTO: Record<Comportamento, string> = {
 export const LABEL_ATRIBUTO: Record<Atributo, string> = {
   forca: "Força",
   stamina: "Stamina",
-  sabedoria: "Sabedoria",
-  destreza: "Destreza",
 };
 
 export function familiaDe(c: Comportamento): Familia {
@@ -101,4 +80,4 @@ export function atributoDe(c: Comportamento): Atributo {
   return FAMILIAS[familiaDe(c)].atributo;
 }
 
-export const FAMILIAS_ORDEM: Familia[] = ["treino", "nutri", "leitura", "danca"];
+export const FAMILIAS_ORDEM: Familia[] = ["treino", "nutri"];

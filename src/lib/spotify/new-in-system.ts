@@ -1,13 +1,14 @@
 // ============================================================
 // Faixa NOVA-NO-SISTEMA (modo NORTEAR) — música emergente, NÃO da biblioteca do
-// usuário. Parte de uma semente curada (gêneros + artistas de referência) e
-// EXPANDE via Spotify Search, recortando o "emergente" pelo campo `popularity`
-// (20–65: corta megahit e faixa morta). Sorteio sem reposição (filtra o que já
-// tocou via historico_reforco).
+// usuário. Parte de uma semente curada (Apêndice B: gêneros + artistas +
+// faixas específicas de referência) e EXPANDE via Spotify Search, recortando
+// o "emergente" pelo campo `popularity` (20–65: corta megahit e faixa morta).
+// Sorteio sem reposição (filtra o que já tocou via historico_reforco).
 // ------------------------------------------------------------
 // RESTRIÇÃO de API (apps pós-27/11/2024): sem Recommendations/Related/Audio
-// Features/Featured Playlists. Só Search (genre/year/popularity) + Artist Top
-// Tracks. Se o Spotify não responder, retorna null → fallback (hit-confirm).
+// Features/Featured Playlists. Só Search (track/artist/genre/year/popularity)
+// + Artist Top Tracks. Se o Spotify não responder, retorna null → fallback
+// (hit-confirm).
 // ============================================================
 
 import type { SpotifyTrack } from "@/lib/types";
@@ -15,6 +16,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getAccessTokenValido, spotifyGet } from "@/lib/spotify/client";
 import {
   ARTISTAS_SEMENTE,
+  FAIXAS_SEMENTE,
   GENEROS_SEMENTE,
   POP_MAX,
   POP_MIN,
@@ -73,10 +75,21 @@ export async function proximaFaixaNova(
   let reserva: SpotifyTrack | null = null; // inédita fora da banda de pop (fallback)
 
   for (let tentativa = 0; tentativa < 10; tentativa++) {
-    const porArtista = Math.random() < 0.5;
-    const q = porArtista
-      ? `artist:"${aleatorio(ARTISTAS_SEMENTE)}"`
-      : `${aleatorio(GENEROS_SEMENTE)} year:2019-2026`;
+    // Rotaciona entre 3 modos: faixa específica do Apêndice B (resolução
+    // "Artista — Faixa"), artista de referência (qualquer faixa dele), ou
+    // gênero+ano (descoberta mais ampla). Se uma faixa específica não
+    // resolver (título levemente diferente), a busca só volta vazia — sem
+    // quebrar nada — e a tentativa seguinte tenta outro modo.
+    const modo = Math.random();
+    const q =
+      modo < 0.34
+        ? (() => {
+            const f = aleatorio(FAIXAS_SEMENTE);
+            return `track:"${f.faixa}" artist:"${f.artista}"`;
+          })()
+        : modo < 0.67
+          ? `artist:"${aleatorio(ARTISTAS_SEMENTE)}"`
+          : `${aleatorio(GENEROS_SEMENTE)} year:2019-2026`;
     const offset = Math.floor(Math.random() * 25); // baixo → página sempre cheia
     const page = await spotifyGet<SearchResp>(
       token,

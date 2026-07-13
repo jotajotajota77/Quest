@@ -92,6 +92,27 @@ export const PRESETS: Record<Preset, { rotulo: string; itens: ExercicioPreset[] 
   },
 };
 
+// ── Ficha de treino embutida (v9, Apêndice A) — split fixo de 7 dias ──
+// seg_push..dom_pump_cardio, seedado em treino_exercicios (migration 0014).
+export const SPLIT_SEMANA: { key: string; dia: string; label: string }[] = [
+  { key: "dom_pump_cardio", dia: "Domingo", label: "Pump + Cardio (recuperação ativa)" },
+  { key: "seg_push", dia: "Segunda", label: "Push · peito superior" },
+  { key: "ter_pull", dia: "Terça", label: "Pull · largura de costas" },
+  { key: "qua_legs", dia: "Quarta", label: "Legs (manutenção)" },
+  { key: "qui_upper", dia: "Quinta", label: "Upper · peito superior (2º estímulo)" },
+  { key: "sex_ombros_bracos", dia: "Sexta", label: "Ombros + braços (largura)" },
+  { key: "sab_costas_posterior", dia: "Sábado", label: "Costas + posterior de coxa" },
+];
+
+export const SPLIT_LABEL: Record<string, string> = Object.fromEntries(
+  SPLIT_SEMANA.map((s) => [s.key, s.label]),
+);
+
+/** O split do Apêndice A programado pro dia da semana atual (0=Dom..6=Sáb). */
+export function splitDeHoje(agora = new Date()): { key: string; dia: string; label: string } {
+  return SPLIT_SEMANA[agora.getDay()];
+}
+
 /** Rótulo amigável de cada grupo muscular (para mostrar no split). */
 export const GRUPO_LABEL: Record<string, string> = {
   peito: "Peito",

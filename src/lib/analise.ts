@@ -14,8 +14,6 @@ export function analisarSemana(logs: LogRow[]): AnaliseSemana {
   const contagem: Record<Familia, number> = {
     treino: 0,
     nutri: 0,
-    leitura: 0,
-    danca: 0,
   };
   for (const l of logs) contagem[familiaDe(l.comportamento)]++;
 

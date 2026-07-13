@@ -1,22 +1,21 @@
-// Tipos compartilhados do domínio Quest (app completo: 4 comportamentos).
+// Tipos compartilhados do domínio Quest (v9: sistema interno de cutting —
+// só Treino + Nutrição).
 
 /** Comportamentos registráveis (1-toque). Nutri tem dois sub-logs. */
 export type Comportamento =
   | "treino"
   | "nutri_refeicao"
   | "nutri_agua"
-  | "leitura"
-  | "danca"
   // Fontes abertas de Stamina (v8) — 1-toque, camada universal (sem motor).
   | "cardio"
   | "volei"
   | "resistencia";
 
-/** Família = a aba/atributo. Nutri agrega refeição + água. */
-export type Familia = "treino" | "nutri" | "leitura" | "danca";
+/** Família = a aba/atributo. Nutri agrega refeição + água + cardio/vôlei/resistência. */
+export type Familia = "treino" | "nutri";
 
-/** Os quatro atributos do jogador. Alimentam um Elo ÚNICO. */
-export type Atributo = "forca" | "stamina" | "sabedoria" | "destreza";
+/** Os dois atributos do jogador (v9). Alimentam um XP/tier ÚNICO. */
+export type Atributo = "forca" | "stamina";
 
 export type TipoReforco = "faixa_cheia" | "fallback_local";
 
@@ -27,8 +26,6 @@ export interface Atributos {
   user_id: string;
   forca: number;
   stamina: number;
-  sabedoria: number;
-  destreza: number;
   elo: number;
   xp: number;
   atualizado_em: string;
@@ -44,8 +41,6 @@ export interface BonusPersonagem {
 export interface AssetsContexto {
   treino?: string;
   nutri?: string;
-  leitura?: string;
-  danca?: string;
   atributo?: string;
 }
 
@@ -67,6 +62,25 @@ export interface Personagem {
   desbloqueado: boolean;
 }
 
+/** Objetivo de cutting (v9) — 1 linha por usuário, lazy-criada como Atributos. */
+export interface Meta {
+  user_id: string;
+  bf_inicial: number;
+  bf_alvo: number;
+  peso_alvo: number;
+  data_inicio: string; // date ISO (YYYY-MM-DD)
+  data_alvo: string; // date ISO (YYYY-MM-DD)
+  prioridades: string[];
+  atualizado_em: string;
+}
+
+/** Snapshot de corpo_real usado pro cálculo de progresso do goal dashboard. */
+export interface CorpoRealPonto {
+  ts: string;
+  peso: number | null;
+  gordura_pct: number | null;
+}
+
 export interface ScheduleState {
   user_id: string;
   comportamento: Familia;
@@ -85,9 +99,6 @@ export interface LogRow {
   proteina?: number | null;
   carbs?: number | null;
   gordura?: number | null;
-  livro?: string | null;
-  paginas?: number | null;
-  minutos?: number | null;
   atividade_id?: string | null;
   peso_esforco?: number | null;
 }
@@ -114,6 +125,8 @@ export interface TreinoExercicio {
   split: string | null;
   ordem: number;
   custom: boolean;
+  /** Liga ao catálogo (exercicios.id) — traz série/reps/RIR/descanso/cadência. */
+  exercicio_id?: string | null;
 }
 
 export interface TreinoSerie {
@@ -127,8 +140,8 @@ export interface TreinoSerie {
   is_pr: boolean;
 }
 
-/** Como o áudio entra para este comportamento (assimetria de reforço). */
-export type ModoAudio = "reward" | "trilha";
+/** Como o áudio entra para este comportamento (assimetria de reforço). Só Nutri. */
+export type ModoAudio = "reward";
 
 /** Decisão de reforço devolvida pelo loop central ao cliente. */
 export interface DecisaoReforco {
@@ -139,7 +152,7 @@ export interface DecisaoReforco {
   esquema: Esquema | null;
   /** Faixa a tocar, se houver. */
   musica: SpotifyTrack | null;
-  /** 'reward' (Nutri, esmaecível) | 'trilha' (Dança, não esmaece) | null. */
+  /** 'reward' (Nutri, esmaecível) | null. */
   modoAudio: ModoAudio | null;
   /** Jackpot de comeback (VR extra no retorno após ausência), se disparou. */
   jackpot: { xp: number; rotulo: string } | null;

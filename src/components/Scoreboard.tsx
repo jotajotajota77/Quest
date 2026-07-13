@@ -8,8 +8,6 @@ import { FAMILIAS, FAMILIAS_ORDEM, LABEL_ATRIBUTO } from "@/lib/comportamentos";
 const COR_ATRIBUTO: Record<string, string> = {
   forca: "var(--neon)",
   stamina: "var(--gold)",
-  sabedoria: "var(--neon-2)",
-  destreza: "#b16cff",
 };
 
 export default function Scoreboard({
@@ -49,7 +47,7 @@ export default function Scoreboard({
 
       <div
         className="stat-row"
-        style={{ gridTemplateColumns: "repeat(4,1fr)", marginTop: 12 }}
+        style={{ gridTemplateColumns: "repeat(2,1fr)", marginTop: 12 }}
       >
         {FAMILIAS_ORDEM.map((fam) => {
           const a = FAMILIAS[fam].atributo;

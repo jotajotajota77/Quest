@@ -19,8 +19,6 @@ import { useHitConfirm } from "@/components/HitConfirm";
 const COMP_NUCLEO: Record<Familia, Comportamento> = {
   treino: "treino",
   nutri: "nutri_refeicao",
-  leitura: "leitura",
-  danca: "danca",
 };
 
 interface Trackers {

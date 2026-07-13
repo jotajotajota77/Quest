@@ -1,5 +1,5 @@
 // ============================================================
-// Aba de comportamento (Treino / Nutri / Leitura / Dança).
+// Aba de comportamento (Treino / Nutri).
 // ------------------------------------------------------------
 // Server component genérico parametrizado pela família. Mostra: atributo da
 // família, indicador do bônus ativo, botão(ões) de registro 1-toque, conexão
@@ -23,6 +23,7 @@ import {
   rosterDesbloqueado,
 } from "@/lib/data";
 import LogButtons, { type AcaoLog } from "@/components/LogButtons";
+import SpotifyPlayer from "@/components/SpotifyPlayer";
 import BottomNav from "@/components/BottomNav";
 import ContextualHero from "@/components/ContextualHero";
 import { candidatosHero } from "@/lib/heroi";
@@ -92,23 +93,24 @@ export default async function BehaviorTab({
             )}
           </div>
         </div>
-        <div className="subtle" style={{ textAlign: "right" }}>
-          {cfg.motorInstalacao
-            ? "motor de instalação (música + fading)"
-            : cfg.spotify === "soundtrack"
-              ? "trilha (música como atividade)"
-              : "reforço local"}
-        </div>
+        {cfg.motorInstalacao && (
+          <div className="subtle" style={{ textAlign: "right" }}>
+            🎵 música ativa
+          </div>
+        )}
       </div>
 
       <LogButtons acoes={acoes} coachAtivo={coachAtivo} abaPorque={ABA_PORQUE[familia]} />
 
       {cfg.motorInstalacao && (
-        <div style={{ marginTop: 16, textAlign: "center" }}>
-          <Link className="nav-link" href="/api/spotify/login">
-            Conectar Spotify (música nova-no-sistema)
-          </Link>
-        </div>
+        <>
+          <div style={{ marginTop: 16, textAlign: "center" }}>
+            <Link className="nav-link" href="/api/spotify/login">
+              Conectar Spotify
+            </Link>
+          </div>
+          <SpotifyPlayer />
+        </>
       )}
 
       {/* Tooling específico da família (ex.: módulo de treino rico). */}

@@ -14,11 +14,12 @@ public/personagens/dhavos-tavera/rosto.png
 public/personagens/dhavos-tavera/corpo.png
 ```
 
-Mapa nome → slug:
+Mapa nome → slug (v9 — só Treino/Força e Nutri/Stamina; 2 personagens por
+atributo, `donoDoAtributo` usa o de menor `ordem` como "dono" padrão):
 - Zyan Polska (Iron Core / Força / Treino) → `zyan-polska`
+- Dhavos Tavera (Beast Warden / Força / Treino) → `dhavos-tavera`
 - Kai Ryuen (Cardio Knight / Stamina / Nutri) → `kai-ryuen`
-- Luan Santos (Dance Magician / Destreza / Dança) → `luan-santos`
-- Dhavos Tavera (Beast Warden / Sabedoria / Leitura) → `dhavos-tavera`
+- Luan Santos (Dance Magician / Stamina / Nutri, ênfase cardio) → `luan-santos`
 
 `rosto.png` = retrato (mostrado no grid do hub). `corpo.png` = corpo inteiro
 (revelado ao clicar). PNG com transparência, corpo recortado, é o ideal.
@@ -43,10 +44,7 @@ Regra de exibição (com fallback gracioso, nunca quebra layout): protagonista d
 dia no contexto da aba → atributo/genérica do protagonista → dono do atributo no
 contexto → placeholder neutro (silhueta). Enquanto faltarem, aparece a silhueta.
 
-## Slots bloqueados (v4)
+## Slots bloqueados — removidos (v9)
 
-`slot-5`…`slot-9` nascem **bloqueados** (silhueta + cadeado no hub, não
-selecionáveis), com atributo/comportamento/bônus `null`. Para criar um: preencha
-`nome, titulo, atributo_foco, comportamento_alvo, bonus, asset_rosto, asset_corpo,
-assets_contexto, bio` e marque `desbloqueado = true`. A engine de bônus aceita
-qualquer mapeamento personagem→comportamento (inclusive vários no mesmo atributo).
+A migration `0014_v9_cutting.sql` apaga os slots `slot-5`…`slot-9`: o sistema
+agora é fechado (Treino + Nutrição, 4 personagens fixos), sem extensibilidade.

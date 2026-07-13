@@ -79,8 +79,7 @@ export default function LogButtons({
       if (dec.jackpot) fire("JACKPOT!");
       setUltimo(
         `+${dec.ganho.total} ${dec.atributo}` +
-          (dec.jackpot ? ` · 🎰 +${dec.jackpot.xp} XP (${dec.jackpot.rotulo})` : "") +
-          (dec.esquema ? ` · esquema ${dec.esquema}` : ""),
+          (dec.jackpot ? ` · 🎰 +${dec.jackpot.xp} XP (${dec.jackpot.rotulo})` : ""),
       );
 
       // Coach (gated): oferece registro rico OPCIONAL do log de Nutri recém-criado.

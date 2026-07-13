@@ -22,12 +22,12 @@ const SECOES: { titulo: string; texto: string }[] = [
   {
     titulo: "Operadores VHYX",
     texto:
-      "A resistência. Não lutam com armas — lutam com constância. Cada Operador instala um hábito que o sistema não consegue prever: Zyan (Iron Core) na força, Kai (Cardio Knight) no fôlego, Luan (Dance Magician) no ritmo, Dhavos (Beast Warden) no vínculo e na sabedoria.",
+      "A resistência. Não lutam com armas — lutam com constância. Zyan (Iron Core) e Dhavos (Beast Warden) instalam o hábito na força — um pela densidade, outro pela guarda. Kai (Cardio Knight) e Luan (Dance Magician) instalam o hábito no fôlego — um pelo prato e pela água, outro pelo ritmo do cardio.",
   },
   {
     titulo: "Antagonistas",
     texto:
-      "Directora Vela Crowne (CADEIA-1) assinou ordens que ninguém devia assinar. Tenente Yoshikawa (CADEIA-7) opera implantes 'pelo bem'. Marshal Baum desenhou o Anti-Flow para quebrar quem dança. Todos apostam que você desiste primeiro.",
+      "Directora Vela Crowne (CADEIA-1) assinou ordens que ninguém devia assinar. Tenente Yoshikawa (CADEIA-7) opera implantes 'pelo bem'. Todos apostam que você desiste primeiro.",
   },
   {
     titulo: "A regra do mundo",
