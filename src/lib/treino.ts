@@ -93,11 +93,12 @@ export const PRESETS: Record<Preset, { rotulo: string; itens: ExercicioPreset[] 
 };
 
 // ── Ficha de treino embutida (v9, Apêndice A) — split fixo de 7 dias ──
-// seg_push..dom_pump_cardio, seedado em treino_exercicios (migration 0014).
+// Seedado em treino_exercicios (migration 0014); SEG↔TER trocados no 0016
+// (SEG passa a pull, TER passa a push).
 export const SPLIT_SEMANA: { key: string; dia: string; label: string }[] = [
   { key: "dom_pump_cardio", dia: "Domingo", label: "Pump + Cardio (recuperação ativa)" },
-  { key: "seg_push", dia: "Segunda", label: "Push · peito superior" },
-  { key: "ter_pull", dia: "Terça", label: "Pull · largura de costas" },
+  { key: "seg_pull", dia: "Segunda", label: "Pull · largura de costas" },
+  { key: "ter_push", dia: "Terça", label: "Push · peito superior" },
   { key: "qua_legs", dia: "Quarta", label: "Legs (manutenção)" },
   { key: "qui_upper", dia: "Quinta", label: "Upper · peito superior (2º estímulo)" },
   { key: "sex_ombros_bracos", dia: "Sexta", label: "Ombros + braços (largura)" },
