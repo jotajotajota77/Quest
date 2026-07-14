@@ -12,7 +12,7 @@ import MirrorForm from "@/components/MirrorForm";
 import BottomNav from "@/components/BottomNav";
 import { ESPELHO_FRAMING } from "@/lib/objetivos";
 import { garantirMeta, corpoRealRecente } from "@/lib/data";
-import { progressoMeta } from "@/lib/engine/meta";
+import { progressoMeta, comparacaoHistorica } from "@/lib/engine/meta";
 
 export default async function EspelhoPage() {
   const supabase = createClient();
@@ -32,6 +32,9 @@ export default async function EspelhoPage() {
     corpoRealRecente(user.id, 21),
   ]);
   const progresso = progressoMeta(meta, corpoRecente);
+  const comparacao = comparacaoHistorica(corpoRecente);
+  const temComparacao =
+    comparacao.peso.delta != null || comparacao.bf.delta != null;
 
   return (
     <main className="app-shell">
@@ -62,6 +65,57 @@ export default async function EspelhoPage() {
           {progresso.semanaAtual}/{progresso.totalSemanas} do programa
         </div>
       </div>
+
+      {temComparacao && (
+        <div className="panel" style={{ marginTop: 14, borderLeft: "3px solid var(--neon)" }}>
+          <div className="lbl">Você vs você-de-{comparacao.diasAtras}-dias-atrás</div>
+          <div style={{ marginTop: 6, display: "grid", gap: 4 }}>
+            {comparacao.peso.delta != null && (
+              <div>
+                <span>Peso: {comparacao.peso.entao}kg → {comparacao.peso.agora}kg</span>{" "}
+                <span
+                  className="pr-badge"
+                  style={{
+                    marginLeft: 6,
+                    color:
+                      comparacao.peso.delta < 0
+                        ? "var(--good)"
+                        : comparacao.peso.delta > 0
+                          ? "var(--neon)"
+                          : "var(--text-dim)",
+                  }}
+                >
+                  {comparacao.peso.delta < 0 ? "↓" : comparacao.peso.delta > 0 ? "↑" : "="}{" "}
+                  {Math.abs(comparacao.peso.delta).toFixed(2)}kg
+                </span>
+              </div>
+            )}
+            {comparacao.bf.delta != null && (
+              <div>
+                <span>BF: {comparacao.bf.entao}% → {comparacao.bf.agora}%</span>{" "}
+                <span
+                  className="pr-badge"
+                  style={{
+                    marginLeft: 6,
+                    color:
+                      comparacao.bf.delta < 0
+                        ? "var(--good)"
+                        : comparacao.bf.delta > 0
+                          ? "var(--neon)"
+                          : "var(--text-dim)",
+                  }}
+                >
+                  {comparacao.bf.delta < 0 ? "↓" : comparacao.bf.delta > 0 ? "↑" : "="}{" "}
+                  {Math.abs(comparacao.bf.delta).toFixed(2)} pp
+                </span>
+              </div>
+            )}
+          </div>
+          <p className="subtle" style={{ marginTop: 8, fontSize: "0.72rem" }}>
+            O corpo mente no espelho. Os números não.
+          </p>
+        </div>
+      )}
 
       <div className="panel" style={{ marginTop: 14, borderLeft: "3px solid var(--neon-2)" }}>
         <div className="lbl">Como o corpo revela (segura o curso)</div>

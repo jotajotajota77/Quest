@@ -37,7 +37,7 @@ import { analisarSemana } from "@/lib/analise";
 import { progressoMeta } from "@/lib/engine/meta";
 import { splitDeHoje } from "@/lib/treino";
 import { trackersFeitos } from "@/lib/protocolo";
-import { calcularStreak } from "@/lib/engine/streak";
+import { streakDetalhado } from "@/lib/engine/streak";
 import { mensagemContextual } from "@/lib/voz";
 import Scoreboard from "@/components/Scoreboard";
 import BottomNav from "@/components/BottomNav";
@@ -84,7 +84,7 @@ export default async function HomePage() {
     registrosHoje: nHoje,
   });
 
-  const streak = calcularStreak(hojeISO(), comLog, nevoa);
+  const streak = streakDetalhado(hojeISO(), comLog, nevoa);
   const voz = mensagemContextual({
     personagem,
     streak,
@@ -95,8 +95,9 @@ export default async function HomePage() {
 
   return (
     <main className="app-shell">
-      {/* Goal dashboard — o coração da home (TRAVA v9). */}
-      <GoalDashboard meta={meta} progresso={progresso} />
+      {/* Goal dashboard — o coração da home (TRAVA v9). Chama viva (streak)
+          embutida no fim do card — v9.2 TRAVA 8 (gamificação da aderência). */}
+      <GoalDashboard meta={meta} progresso={progresso} streak={streak} />
 
       {/* Presença: hero contextual do protagonista do dia. */}
       <ContextualHero
@@ -127,20 +128,11 @@ export default async function HomePage() {
 
       <Scoreboard attr={attr} personagem={personagem} />
 
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          gap: 8,
-          flexWrap: "wrap",
-        }}
-      >
-        <span className="subtle">🔥 Streak: {streak.streak} dia(s)</span>
-        <div style={{ display: "flex", gap: 8 }}>
-          <LoreButton personagem={personagem} />
-          <WorldLoreButton />
-        </div>
+      {/* Streak agora vive no GoalDashboard como Chama Viva. Aqui só os botões
+          de lore continuam à direita. */}
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+        <LoreButton personagem={personagem} />
+        <WorldLoreButton />
       </div>
 
       {/* Foco do dia — UMA coisa (anti-paralisia): o treino do split de hoje.

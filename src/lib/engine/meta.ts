@@ -54,6 +54,61 @@ function mediaPeso(pontos: CorpoRealPonto[]): number | null {
   return pesos.reduce((a, b) => a + b, 0) / pesos.length;
 }
 
+/** Você vs você-passado (TRAVA 8 v9.2) — comparação hoje vs N dias atrás.
+ *  Reforço concreto no cutting (invisível no espelho, visível nos números). */
+export interface Comparacao {
+  peso: { entao: number | null; agora: number | null; delta: number | null };
+  bf: { entao: number | null; agora: number | null; delta: number | null };
+  diasAtras: number;
+}
+
+/** Pega o valor cujo ts está mais próximo do centro alvo (dias atrás), dentro
+ *  da tolerância (dias), ignorando pontos nulos. Histórico vem desc por ts. */
+function valorEmJanela(
+  historico: CorpoRealPonto[],
+  agoraMs: number,
+  centroDiasAtras: number,
+  toleranciaDias: number,
+  extrai: (p: CorpoRealPonto) => number | null,
+): number | null {
+  const alvoMs = agoraMs - centroDiasAtras * MS_DIA;
+  const tolMs = toleranciaDias * MS_DIA;
+  let melhor: { valor: number; dist: number } | null = null;
+  for (const p of historico) {
+    const v = extrai(p);
+    if (v == null) continue;
+    const dist = Math.abs(new Date(p.ts).getTime() - alvoMs);
+    if (dist > tolMs) continue;
+    if (!melhor || dist < melhor.dist) melhor = { valor: v, dist };
+  }
+  return melhor?.valor ?? null;
+}
+
+export function comparacaoHistorica(
+  historico: CorpoRealPonto[],
+  agora = new Date(),
+  diasAtras = 14,
+): Comparacao {
+  const agoraMs = agora.getTime();
+  const pesoAgora = historico.find((p) => p.peso != null)?.peso ?? null;
+  const bfAgora = historico.find((p) => p.gordura_pct != null)?.gordura_pct ?? null;
+  const pesoEntao = valorEmJanela(historico, agoraMs, diasAtras, 3, (p) => p.peso);
+  const bfEntao = valorEmJanela(historico, agoraMs, diasAtras, 3, (p) => p.gordura_pct);
+  const pesoDelta =
+    pesoAgora != null && pesoEntao != null
+      ? Math.round((pesoAgora - pesoEntao) * 100) / 100
+      : null;
+  const bfDelta =
+    bfAgora != null && bfEntao != null
+      ? Math.round((bfAgora - bfEntao) * 100) / 100
+      : null;
+  return {
+    peso: { entao: pesoEntao, agora: pesoAgora, delta: pesoDelta },
+    bf: { entao: bfEntao, agora: bfAgora, delta: bfDelta },
+    diasAtras,
+  };
+}
+
 export function progressoMeta(
   meta: Meta,
   historico: CorpoRealPonto[],

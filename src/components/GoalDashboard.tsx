@@ -2,21 +2,71 @@
 // Goal dashboard — o CORAÇÃO da home (v9). Contagem regressiva pra 09/09,
 // peso/BF atual vs alvo, tendência semanal e semana do programa de 8.
 // Apresentacional — recebe meta + progresso já resolvidos (lib/engine/meta.ts).
+// v9.2 TRAVA 8: chama viva (streak) embutida — o marco visual de aderência
+// (verde = hoje bateu, amarela = em risco, cinza = apagada). Recorde é o piso
+// que o operante busca superar.
 // ============================================================
 import type { Meta } from "@/lib/types";
 import type { ProgressoMeta } from "@/lib/engine/meta";
+import type { StreakDetalhado } from "@/lib/engine/streak";
 
 function fmtData(iso: string): string {
   const [y, m, d] = iso.split("-");
   return `${d}/${m}/${y}`;
 }
 
+function ChamaViva({ streak }: { streak: StreakDetalhado }) {
+  const cor = streak.hitHoje
+    ? "var(--good)"
+    : streak.emRisco
+      ? "var(--gold)"
+      : "var(--text-dim)";
+  const rotulo = streak.hitHoje
+    ? "chama viva"
+    : streak.emRisco
+      ? "em risco — logue hoje"
+      : "chama apagada";
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        marginTop: 12,
+        padding: "10px 12px",
+        border: `1px solid ${cor}`,
+        borderRadius: 10,
+      }}
+    >
+      <div style={{ fontSize: "1.8rem", lineHeight: 1 }} aria-hidden>
+        {streak.hitHoje ? "🔥" : streak.emRisco ? "🟡" : "◯"}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontWeight: 800, fontSize: "1.05rem", color: cor }}>
+          {streak.streak} {streak.streak === 1 ? "dia" : "dias"}
+          <span className="subtle" style={{ marginLeft: 8, fontSize: "0.72rem" }}>
+            · recorde {streak.recorde}
+          </span>
+        </div>
+        <div className="subtle" style={{ fontSize: "0.72rem", marginTop: 2 }}>
+          {rotulo}
+          {streak.proximoMarco && streak.hitHoje
+            ? ` · próximo marco: ${streak.proximoMarco}`
+            : ""}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function GoalDashboard({
   meta,
   progresso,
+  streak,
 }: {
   meta: Meta;
   progresso: ProgressoMeta;
+  streak: StreakDetalhado;
 }) {
   const {
     diasRestantes,
@@ -94,6 +144,8 @@ export default function GoalDashboard({
         {" · "}
         {meta.prioridades.slice(0, 3).join(" · ")}
       </div>
+
+      <ChamaViva streak={streak} />
     </div>
   );
 }
