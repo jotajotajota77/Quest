@@ -129,7 +129,7 @@ export default function CharacterSelect({
       </h1>
       <p className="subtle" style={{ marginTop: 0 }}>
         Cada mestre guarda um domínio numa faixa canônica. O escolhido direciona
-        o foco do dia (braços, core, pernas, dança ou taekwondo).
+        o foco do dia (upper, core, lower, dança ou taekwondo).
       </p>
 
       {sel && (
