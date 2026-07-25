@@ -117,29 +117,114 @@ export default async function BehaviorTab({
       {children}
 
       {!ocultarHistorico && (
-      <div style={{ marginTop: 22 }}>
-        <h3 style={{ marginBottom: 8 }}>Histórico</h3>
-        {historico.length === 0 && (
-          <p className="subtle">Nada registrado ainda.</p>
-        )}
-        {historico.map((l) => (
-          <div
-            className="panel"
-            key={l.id}
-            style={{ marginBottom: 8, padding: "10px 14px" }}
-          >
-            <span className="subtle">
-              {new Date(l.ts).toLocaleString("pt-BR")}
-            </span>
-            <span style={{ marginLeft: 10 }}>
-              {LABEL_COMPORTAMENTO[l.comportamento]}
-            </span>
-          </div>
-        ))}
-      </div>
+        <HistoricoAgregado historico={historico} />
       )}
 
       <BottomNav />
     </main>
+  );
+}
+
+// Agrupa logs por dia (BR) e renderiza um resumo compacto — melhor pra
+// escanear muitos dias do que uma lista corrida de timestamps.
+function HistoricoAgregado({
+  historico,
+}: {
+  historico: { id: string; ts: string; comportamento: string; kcal?: number | null }[];
+}) {
+  if (historico.length === 0) {
+    return (
+      <div style={{ marginTop: 22 }}>
+        <h3 style={{ marginBottom: 8 }}>Histórico</h3>
+        <p className="subtle">Nada registrado ainda.</p>
+      </div>
+    );
+  }
+
+  // Agrupa por data local BR (YYYY-MM-DD).
+  const porDia = new Map<
+    string,
+    { total: number; porComportamento: Record<string, number>; kcalTotal: number }
+  >();
+  for (const l of historico) {
+    const d = new Date(l.ts).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+    const bucket =
+      porDia.get(d) ?? { total: 0, porComportamento: {}, kcalTotal: 0 };
+    bucket.total += 1;
+    bucket.porComportamento[l.comportamento] =
+      (bucket.porComportamento[l.comportamento] ?? 0) + 1;
+    bucket.kcalTotal += Number(l.kcal ?? 0);
+    porDia.set(d, bucket);
+  }
+
+  const dias = Array.from(porDia.entries()).sort(([a], [b]) => {
+    // "dd/mm/yyyy" → ordena desc pela data
+    const [da, ma, ya] = a.split("/").map(Number);
+    const [db, mb, yb] = b.split("/").map(Number);
+    return (
+      new Date(yb, mb - 1, db).getTime() -
+      new Date(ya, ma - 1, da).getTime()
+    );
+  });
+
+  const totalGeral = historico.length;
+
+  return (
+    <div style={{ marginTop: 22 }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "baseline",
+          gap: 8,
+          marginBottom: 10,
+        }}
+      >
+        <h3 style={{ margin: 0 }}>Histórico</h3>
+        <span
+          className="subtle"
+          style={{ fontFamily: "var(--font-mono)", fontSize: "0.72rem" }}
+        >
+          {totalGeral} registros · {dias.length} dias
+        </span>
+      </div>
+      {dias.map(([data, agg]) => (
+        <div
+          className="panel"
+          key={data}
+          style={{
+            marginBottom: 6,
+            padding: "8px 12px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          <span
+            className="subtle"
+            style={{ fontFamily: "var(--font-mono)", fontSize: "0.78rem" }}
+          >
+            {data}
+          </span>
+          <span style={{ fontSize: "0.82rem", textAlign: "right" }}>
+            {Object.entries(agg.porComportamento)
+              .map(
+                ([c, n]) =>
+                  `${LABEL_COMPORTAMENTO[c as keyof typeof LABEL_COMPORTAMENTO] ?? c} ×${n}`,
+              )
+              .join(" · ")}
+            {agg.kcalTotal > 0 && (
+              <span
+                className="subtle"
+                style={{ marginLeft: 8, fontFamily: "var(--font-mono)", fontSize: "0.72rem" }}
+              >
+                {Math.round(agg.kcalTotal)} kcal
+              </span>
+            )}
+          </span>
+        </div>
+      ))}
+    </div>
   );
 }

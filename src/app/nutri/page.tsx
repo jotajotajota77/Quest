@@ -63,7 +63,7 @@ export default async function NutriPage() {
   }
 
   return (
-    <BehaviorTab familia="nutri" coachAtivo={ativo} ocultarHistorico>
+    <BehaviorTab familia="nutri" coachAtivo={ativo}>
       {tips && <CoachTips tips={tips} />}
       <AtividadesStamina />
       <NutriDashboard

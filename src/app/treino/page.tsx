@@ -32,7 +32,7 @@ export default async function TreinoPage() {
   ]);
 
   return (
-    <BehaviorTab familia="treino" ocultarHistorico>
+    <BehaviorTab familia="treino">
       <ObjetivosTreino />
       <PerfilTreino descricaoInicial={perfil ?? ""} />
       <TrainingModule
