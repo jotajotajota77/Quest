@@ -11,7 +11,6 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Comportamento, DecisaoReforco } from "@/lib/types";
 import { useHitConfirm } from "@/components/HitConfirm";
-import { tocarUri } from "@/lib/spotify/playback";
 
 export interface AcaoLog {
   comportamento: Comportamento;
@@ -87,24 +86,10 @@ export default function LogButtons({
         setMacroPara(dec.logId);
       }
 
-      if (dec.musica && dec.modoAudio) {
-        const ok = await tocarUri(dec.musica.uri);
-        if (dec.modoAudio === "reward") {
-          try {
-            await fetch("/api/spotify/mark-played", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                logId: dec.logId,
-                faixaId: dec.musica.id,
-                tipo: ok ? "faixa_cheia" : "fallback_local",
-              }),
-            });
-          } catch {
-            /* histórico falhou; reforço já entregue */
-          }
-        }
-      }
+      // v10.2: pareamento música-no-registro DESLIGADO. O user quer a fila do
+      //   Spotify visível o tempo todo (SpotifyPlayer já rendeirza na aba Nutri),
+      //   sem trigger de play a cada log — só o hit-confirm local.
+      //   dec.musica ainda vem no payload mas ignoramos aqui.
       router.refresh();
     }
     setOcupado(false);
