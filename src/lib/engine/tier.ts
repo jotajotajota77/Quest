@@ -1,8 +1,9 @@
 // ============================================================
-// Ladder de Tier temático — substitui o "Elo: 2" vago.
+// Ladder de Faixa TKD (v10) — substitui o E→SSR+ genérico.
 // ------------------------------------------------------------
-// 10 bases × 4 divisões (IV→I) = 40 ranks. O XP TOTAL do jogador alimenta o
-// ladder. Atributo continua sendo placar; o tier é a leitura concreta dele.
+// 10 bases (10º kup → 1º dan) × 4 divisões (IV→I) = 40 ranks. O XP TOTAL
+// do jogador alimenta o ladder — cada base equivale a uma faixa canônica
+// do Taekwondo. Divisões são substeps dentro da mesma faixa.
 // ============================================================
 
 export interface Base {
@@ -11,16 +12,16 @@ export interface Base {
 }
 
 export const BASES: Base[] = [
-  { sigla: "E", nome: "Recruta" },
-  { sigla: "D", nome: "Aprendiz" },
-  { sigla: "C", nome: "Operador" },
-  { sigla: "B", nome: "Veterano" },
-  { sigla: "A", nome: "Especialista" },
-  { sigla: "A+", nome: "Elite" },
-  { sigla: "S", nome: "Awakened" },
-  { sigla: "SS", nome: "Sovereign" },
-  { sigla: "SSR", nome: "Mythic" },
-  { sigla: "SSR+", nome: "Apex" },
+  { sigla: "10K", nome: "Faixa Branca" },
+  { sigla: "9K",  nome: "Faixa Amarela" },
+  { sigla: "8K",  nome: "Amarela ponta verde" },
+  { sigla: "7K",  nome: "Faixa Verde" },
+  { sigla: "6K",  nome: "Verde ponta azul" },
+  { sigla: "5K",  nome: "Faixa Azul" },
+  { sigla: "4K",  nome: "Azul ponta vermelha" },
+  { sigla: "3K",  nome: "Faixa Vermelha" },
+  { sigla: "2K",  nome: "Vermelha ponta preta" },
+  { sigla: "1D",  nome: "Faixa Preta · 1º dan" },
 ];
 
 const DIVISOES = ["IV", "III", "II", "I"]; // 4 por base
@@ -69,7 +70,7 @@ export function tierDeXp(xp: number): Tier {
     const nbIdx = Math.floor((r + 1) / DIVISOES.length);
     const ndIdx = (r + 1) % DIVISOES.length;
     proximoRotulo = `${BASES[nbIdx].sigla}-${DIVISOES[ndIdx]}`;
-    proximoNomeDivisao = `${BASES[nbIdx].nome} ${DIVISOES[ndIdx]}`;
+    proximoNomeDivisao = `${BASES[nbIdx].nome} · ${DIVISOES[ndIdx]}`;
   }
 
   return {
@@ -77,8 +78,8 @@ export function tierDeXp(xp: number): Tier {
     base,
     divisao,
     sigla,
-    rotulo: `${sigla} · ${base.nome}`,
-    nomeDivisao: `${base.nome} ${divisao}`,
+    rotulo: `${base.nome} · ${divisao}`,
+    nomeDivisao: `${base.nome} · ${divisao}`,
     xpNoRank,
     xpDoRank,
     pctParaProximo: noMax ? 100 : Math.min(100, (xpNoRank / xpDoRank) * 100),
