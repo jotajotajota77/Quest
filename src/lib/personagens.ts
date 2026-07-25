@@ -5,12 +5,15 @@
 // ============================================================
 
 export const LABEL_DOMINIO: Record<string, string> = {
-  bracos: "Braços",
+  upper: "Upper",              // peito, costas, ombros, braços (prioridade peito superior)
+  lower: "Lower",              // pernas, glúteo, posterior
   abs: "Abs / Core",
-  pernas: "Pernas",
   danca: "Dança",
   taekwondo: "Taekwondo",
   avatar: "Trainee",
+  // Aliases retro-compat pra qualquer row ainda com o nome antigo:
+  bracos: "Upper",
+  pernas: "Lower",
 };
 
 /** Faixa canônica → rótulo curto pra exibição. */
@@ -47,25 +50,27 @@ export function focoDoMestre(mestre: {
   const nome = mestre?.nome ?? "O sabum";
   const dominio = mestre?.dominio ?? "avatar";
   switch (dominio) {
-    case "bracos":
+    case "upper":
+    case "bracos": // retro-compat pra rows antigas
       return {
         dominio,
-        titulo: "Braços · push + pull",
-        descricao: `${nome} te chama. Supino, remada, elevações — carga controlada.`,
+        titulo: "Upper · peito + costas + ombros",
+        descricao: `${nome} te chama. Prioridade peito superior — supino inclinado, puxada aberta, elevação lateral.`,
         href: "/treino",
       };
     case "abs":
       return {
         dominio,
-        titulo: "Core · abdômen com carga",
+        titulo: "Abs · core com carga",
         descricao: `${nome} te chama. Crunch na polia, prancha, elevação de pernas — controle absoluto.`,
         href: "/treino",
       };
-    case "pernas":
+    case "lower":
+    case "pernas": // retro-compat
       return {
         dominio,
-        titulo: "Pernas + cardio leve",
-        descricao: `${nome} te chama. Agachamento, leg press, stiff — fôlego não é opcional.`,
+        titulo: "Lower · pernas + posterior",
+        descricao: `${nome} te chama. Agachamento, leg press, stiff — base firme.`,
         href: "/treino",
       };
     case "danca":
