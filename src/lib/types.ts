@@ -60,6 +60,16 @@ export interface Personagem {
   ativo: boolean;
   ordem: number;
   desbloqueado: boolean;
+  /** v10 — domínio TKD-idol que o mestre guarda. */
+  dominio: string | null;              // 'bracos'|'abs'|'pernas'|'danca'|'taekwondo'|'avatar'
+  /** v10 — faixa canônica do mestre (o "boss level" a desafiar). */
+  faixa_canonica: string | null;       // ex.: 'azul_4kup' | 'preta_2dan'
+  /** v10 — nome em hangul, mostrado como acento K-pop no cartão. */
+  nome_kr: string | null;
+  /** v10 — nota de inspiração ("Mark Lee (NCT)"), pra mostrar no lore. */
+  inspiracao: string | null;
+  /** v10 — se true, é o avatar do jogador (aparece só no Espelho, não no Hub). */
+  avatar_jogador: boolean;
 }
 
 /** Objetivo de cutting (v9) — 1 linha por usuário, lazy-criada como Atributos. */

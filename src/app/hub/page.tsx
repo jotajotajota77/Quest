@@ -12,10 +12,12 @@ export default async function HubPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  // v10: exclui avatar_jogador (Sanha) — ele só aparece no Espelho.
   const { data: roster } = await supabase
     .from("personagens")
     .select("*")
     .eq("ativo", true)
+    .eq("avatar_jogador", false)
     .order("ordem", { ascending: true });
 
   return (
