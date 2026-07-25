@@ -154,7 +154,7 @@ export async function registrosNutriDesdeUltimaMusica(
 export async function historicoFamilia(
   userId: string,
   comportamentos: Comportamento[],
-  limit = 20,
+  limit = 100,
 ): Promise<LogRow[]> {
   const supabase = createClient();
   const { data } = await supabase

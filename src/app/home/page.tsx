@@ -48,8 +48,6 @@ import { candidatosHero } from "@/lib/heroi";
 import { dicaDoDia } from "@/lib/dicas";
 import FogButton from "@/components/FogButton";
 import DailySpin from "@/components/DailySpin";
-import LoreButton from "@/components/LoreButton";
-import WorldLoreButton from "@/components/WorldLoreButton";
 
 export default async function HomePage() {
   const supabase = createClient();
@@ -136,12 +134,9 @@ export default async function HomePage() {
 
       <Scoreboard attr={attr} personagem={personagem} />
 
-      {/* Streak agora vive no GoalDashboard como Chama Viva. Aqui só os botões
-          de lore continuam à direita. */}
-      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-        <LoreButton personagem={personagem} />
-        <WorldLoreButton />
-      </div>
+      {/* Streak vive no GoalDashboard como Chama Viva. Botões de lore antigos
+          (Mundo VHYX / Lore do personagem) foram removidos na v10.1 — a
+          personalização agora é a faixa canônica de cada mestre. */}
 
       {/* Foco do dia — UMA coisa (anti-paralisia). v10: o DOMÍNIO do mestre
           escolhido no hub direciona o dia (braços, core, pernas, dança ou

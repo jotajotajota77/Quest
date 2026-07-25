@@ -18,7 +18,7 @@ export interface ContextoVoz {
 }
 
 function nome(p: Personagem | null): string {
-  return p?.nome ?? "VHYX";
+  return p?.nome ?? "O sabum";
 }
 
 export function mensagemContextual(ctx: ContextoVoz): string {
