@@ -1,15 +1,12 @@
 "use client";
 
 // ============================================================
-// Hub de seleção estilo tela de luta (MK/SF). (TRAVA 4)
-// ------------------------------------------------------------
-//  * Grid mostra o ROSTO (retrato) + tag do domínio.
-//  * Clicar revela o CORPO inteiro + nome (+ KR) + título + faixa canônica +
-//    domínio + inspiração + bio/lore.
-//  * Confirmar define o protagonista do dia e leva à home.
-//  * v10: 5 mestres (Braços · Abs · Pernas · Dança · Taekwondo), cada um
-//    guardando um domínio numa faixa canônica. Sanha (avatar do jogador) é
-//    filtrado no /hub/page.tsx — aparece só no Espelho.
+// Hub de seleção — 2 fases (v10):
+//   Fase 1 (identidade): retrato do Sanha (avatar do jogador) + botão
+//     "Entrar no dojang". Ritual de auto-reconhecimento antes de agir.
+//   Fase 2 (mestres): grid dos 5 mestres + 1 slot bloqueado ("em breve").
+//     Escolher define o protagonista do dia e leva à home. O domínio do
+//     mestre escolhido direciona o foco do dia.
 // ============================================================
 
 import { useState } from "react";
@@ -19,8 +16,17 @@ import { LABEL_ATRIBUTO } from "@/lib/comportamentos";
 import { LABEL_DOMINIO, LABEL_FAIXA, corDaFaixa } from "@/lib/personagens";
 import CharacterImage from "@/components/CharacterImage";
 
-export default function CharacterSelect({ roster }: { roster: Personagem[] }) {
+type Phase = "identidade" | "mestres";
+
+export default function CharacterSelect({
+  roster,
+  avatar,
+}: {
+  roster: Personagem[];
+  avatar: Personagem | null;
+}) {
   const router = useRouter();
+  const [phase, setPhase] = useState<Phase>(avatar ? "identidade" : "mestres");
   const [selId, setSelId] = useState<string | null>(
     roster.find((p) => p.desbloqueado)?.id ?? null,
   );
@@ -43,14 +49,87 @@ export default function CharacterSelect({ roster }: { roster: Personagem[] }) {
     }
   }
 
+  // ── Fase 1: identidade do jogador (Sanha) ─────────────────
+  if (phase === "identidade" && avatar) {
+    return (
+      <div style={{ display: "grid", gap: 20, placeItems: "center", padding: "24px 0" }}>
+        <div
+          className="panel"
+          style={{
+            maxWidth: 360,
+            width: "100%",
+            display: "grid",
+            gap: 14,
+            padding: 24,
+            borderColor: "var(--calm)",
+            textAlign: "center",
+          }}
+        >
+          <div
+            style={{
+              width: 160,
+              height: 200,
+              borderRadius: 12,
+              overflow: "hidden",
+              margin: "0 auto",
+              background: "linear-gradient(160deg, var(--lilac), var(--surface))",
+              border: "1px solid var(--hairline)",
+              boxShadow: "0 8px 30px var(--kihap-glow)",
+            }}
+          >
+            <CharacterImage
+              src={avatar.asset_corpo ?? avatar.asset_rosto}
+              nome={avatar.nome}
+              fallbackSize="4rem"
+            />
+          </div>
+          <div>
+            <h2 className="title-fight" style={{ margin: "0 0 4px", fontSize: "2rem" }}>
+              {avatar.nome}
+            </h2>
+            {avatar.nome_kr && (
+              <div
+                className="subtle"
+                style={{ fontFamily: "var(--font-body)", fontSize: "1.1rem" }}
+              >
+                {avatar.nome_kr}
+              </div>
+            )}
+            {avatar.titulo && (
+              <div className="subtle" style={{ color: "var(--calm)", marginTop: 6 }}>
+                {avatar.titulo}
+              </div>
+            )}
+            {avatar.lore && (
+              <p
+                className="subtle"
+                style={{ margin: "12px 0 0", fontStyle: "italic", fontSize: "0.85rem" }}
+              >
+                {avatar.lore}
+              </p>
+            )}
+          </div>
+          <button
+            className="btn btn-primary"
+            style={{ width: "100%" }}
+            onClick={() => setPhase("mestres")}
+          >
+            Entrar no dojang · 시작
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Fase 2: escolher o mestre do dia ──────────────────────
   return (
     <div>
       <h1 className="title-fight" style={{ fontSize: "2rem", margin: "0 0 4px" }}>
-        Selecione o protagonista
+        Escolha o mestre de hoje
       </h1>
       <p className="subtle" style={{ marginTop: 0 }}>
-        Escolha livre. Todos estão desbloqueados — nenhum é sugerido ou
-        bloqueado. O bônus (+25%) é só identidade.
+        Cada mestre guarda um domínio numa faixa canônica. O escolhido direciona
+        o foco do dia (braços, core, pernas, dança ou taekwondo).
       </p>
 
       {sel && (
@@ -113,7 +192,7 @@ export default function CharacterSelect({ roster }: { roster: Personagem[] }) {
             {sel.atributo_foco && sel.bonus && (
               <p style={{ margin: "0 0 8px", color: "var(--belt-gold)" }}>
                 Bônus: +{Math.round(sel.bonus.valor * 100)}%{" "}
-                {LABEL_ATRIBUTO[sel.atributo_foco]} no dia em que é protagonista.
+                {LABEL_ATRIBUTO[sel.atributo_foco]} no dia em que é o mestre.
               </p>
             )}
             {sel.bio && <p className="subtle" style={{ margin: "8px 0" }}>{sel.bio}</p>}
@@ -194,22 +273,17 @@ export default function CharacterSelect({ roster }: { roster: Personagem[] }) {
           </button>
         ))}
 
-        {/* 4 slots bloqueados — placeholders pros mestres futuros. */}
-        {[0, 1, 2, 3].map((i) => (
-          <div
-            key={`locked-${i}`}
-            className="roster-cell locked"
-            aria-hidden
-            title="Slot bloqueado — mestre a ser adicionado"
-          >
-            <div className="lock-badge">
-              <span className="lock-ico">🔒</span>
-              <span style={{ fontSize: "0.6rem", opacity: 0.7 }}>
-                slot bloqueado
-              </span>
-            </div>
+        {/* 1 slot bloqueado — placeholder pro próximo mestre ("em breve"). */}
+        <div
+          className="roster-cell locked"
+          aria-hidden
+          title="Em breve — próximo mestre"
+        >
+          <div className="lock-badge">
+            <span className="lock-ico">🔒</span>
+            <span style={{ fontSize: "0.6rem", opacity: 0.7 }}>em breve</span>
           </div>
-        ))}
+        </div>
       </div>
     </div>
   );

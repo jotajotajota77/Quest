@@ -32,6 +32,66 @@ export const LABEL_FAIXA: Record<string, string> = {
   preta_4dan: "Preta · 4º dan",
 };
 
+/** Foco de hoje derivado do mestre escolhido (o domínio direciona o dia). */
+export interface FocoDoMestre {
+  dominio: string;
+  titulo: string;      // ex.: "Braços · treino de push/pull"
+  descricao: string;   // ex.: "Ryuki te chama. Supino, remada, elevações."
+  href: string;        // rota primária pra abrir o foco
+}
+
+export function focoDoMestre(mestre: {
+  nome: string;
+  dominio: string | null;
+} | null): FocoDoMestre {
+  const nome = mestre?.nome ?? "O sabum";
+  const dominio = mestre?.dominio ?? "avatar";
+  switch (dominio) {
+    case "bracos":
+      return {
+        dominio,
+        titulo: "Braços · push + pull",
+        descricao: `${nome} te chama. Supino, remada, elevações — carga controlada.`,
+        href: "/treino",
+      };
+    case "abs":
+      return {
+        dominio,
+        titulo: "Core · abdômen com carga",
+        descricao: `${nome} te chama. Crunch na polia, prancha, elevação de pernas — controle absoluto.`,
+        href: "/treino",
+      };
+    case "pernas":
+      return {
+        dominio,
+        titulo: "Pernas + cardio leve",
+        descricao: `${nome} te chama. Agachamento, leg press, stiff — fôlego não é opcional.`,
+        href: "/treino",
+      };
+    case "danca":
+      return {
+        dominio,
+        titulo: "Dança K-pop · presença",
+        descricao: `${nome} te chama. Sortear uma coreografia e dançar por 1-2 faixas.`,
+        href: "/nutri",
+      };
+    case "taekwondo":
+      return {
+        dominio,
+        titulo: "Taekwondo · dojang",
+        descricao: `${nome} te chama. Aquecimento + corda + sparring ou hapkido.`,
+        href: "/treino",
+      };
+    default:
+      return {
+        dominio,
+        titulo: "Foco livre",
+        descricao: "Escolha um mestre no hub pra direcionar o dia.",
+        href: "/hub",
+      };
+  }
+}
+
 /** Cor CSS da faixa (usa vars do belt-ladder token). */
 export function corDaFaixa(faixa: string | null | undefined): string {
   if (!faixa) return "var(--belt-white)";

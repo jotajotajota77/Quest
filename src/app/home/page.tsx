@@ -37,6 +37,7 @@ import AppHeader from "@/components/AppHeader";
 import { analisarSemana } from "@/lib/analise";
 import { progressoMeta } from "@/lib/engine/meta";
 import { splitDeHoje } from "@/lib/treino";
+import { focoDoMestre } from "@/lib/personagens";
 import { trackersFeitos } from "@/lib/protocolo";
 import { streakDetalhado } from "@/lib/engine/streak";
 import { mensagemContextual } from "@/lib/voz";
@@ -77,6 +78,9 @@ export default async function HomePage() {
     ]);
   const progresso = progressoMeta(meta, corpoRecente);
   const splitHoje = splitDeHoje();
+  // v10: foco do dia derivado do domínio do mestre escolhido no hub.
+  //   O split do Apêndice A vira contexto secundário (mostrado na linha de baixo).
+  const foco = focoDoMestre(personagem);
 
   const quests = await avaliarQuests(user.id, {
     nucleo,
@@ -139,23 +143,31 @@ export default async function HomePage() {
         <WorldLoreButton />
       </div>
 
-      {/* Foco do dia — UMA coisa (anti-paralisia): o treino do split de hoje.
-          Nutri continua como a âncora operante frágil (TRAVA 2) — segue como
-          linha secundária no mesmo card, não como alternativa exclusiva. */}
+      {/* Foco do dia — UMA coisa (anti-paralisia). v10: o DOMÍNIO do mestre
+          escolhido no hub direciona o dia (braços, core, pernas, dança ou
+          taekwondo). O split do Apêndice A fica como contexto secundário. */}
       <Link
-        href="/treino"
+        href={foco.href}
         className="panel"
         style={{
           display: "block",
           textDecoration: "none",
           marginTop: 12,
-          borderColor: "var(--gold)",
+          borderColor: "var(--kihap)",
         }}
       >
-        <div className="lbl">Foco de hoje · {splitHoje.dia}</div>
-        <div style={{ fontWeight: 800, marginTop: 4 }}>{splitHoje.label}</div>
-        <div className="subtle">
-          + Nutri: um toque em refeição ou água. A âncora do dia.
+        <div className="lbl">Foco de hoje · com {personagem.nome}</div>
+        <div style={{ fontWeight: 800, marginTop: 4, fontSize: "1.05rem" }}>
+          {foco.titulo}
+        </div>
+        <div className="subtle" style={{ marginTop: 2 }}>
+          {foco.descricao}
+        </div>
+        <div
+          className="subtle"
+          style={{ marginTop: 8, fontSize: "0.72rem", opacity: 0.7 }}
+        >
+          contexto do dia · {splitHoje.dia} — {splitHoje.label} (Apêndice A)
         </div>
       </Link>
 
