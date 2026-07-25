@@ -12,17 +12,28 @@ export default async function HubPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  // v10: exclui avatar_jogador (Sanha) — ele só aparece no Espelho.
-  const { data: roster } = await supabase
-    .from("personagens")
-    .select("*")
-    .eq("ativo", true)
-    .eq("avatar_jogador", false)
-    .order("ordem", { ascending: true });
+  // v10: Hub em 2 fases (identidade → mestres). Sanha aparece na Fase 1
+  //   (identidade do jogador) e no Espelho; NÃO entra no grid de mestres.
+  const [{ data: roster }, { data: avatar }] = await Promise.all([
+    supabase
+      .from("personagens")
+      .select("*")
+      .eq("ativo", true)
+      .eq("avatar_jogador", false)
+      .order("ordem", { ascending: true }),
+    supabase
+      .from("personagens")
+      .select("*")
+      .eq("avatar_jogador", true)
+      .maybeSingle(),
+  ]);
 
   return (
     <main className="app-shell">
-      <CharacterSelect roster={(roster ?? []) as Personagem[]} />
+      <CharacterSelect
+        roster={(roster ?? []) as Personagem[]}
+        avatar={(avatar as Personagem | null) ?? null}
+      />
     </main>
   );
 }
