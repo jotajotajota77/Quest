@@ -192,7 +192,7 @@ export default function CharacterSelect({
             {sel.atributo_foco && sel.bonus && (
               <p style={{ margin: "0 0 8px", color: "var(--belt-gold)" }}>
                 Bônus: +{Math.round(sel.bonus.valor * 100)}%{" "}
-                {LABEL_ATRIBUTO[sel.atributo_foco]} no dia em que é protagonista.
+                {LABEL_ATRIBUTO[sel.atributo_foco]} no dia em que é o mestre.
               </p>
             )}
             {sel.bio && <p className="subtle" style={{ margin: "8px 0" }}>{sel.bio}</p>}

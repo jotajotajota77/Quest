@@ -11,7 +11,7 @@ export default function FinalizarDiaButton({ finalizado }: { finalizado: boolean
   if (finalizado) {
     return (
       <p className="subtle" style={{ textAlign: "center", marginTop: 12 }}>
-        ✓ Dia finalizado. Descanse — amanhã o protagonista te espera.
+        ✓ Dia finalizado. Descanse — amanhã o mestre te espera.
       </p>
     );
   }
