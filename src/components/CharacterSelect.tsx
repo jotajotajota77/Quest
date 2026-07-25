@@ -15,15 +15,23 @@ import type { Personagem } from "@/lib/types";
 import { LABEL_ATRIBUTO } from "@/lib/comportamentos";
 import { LABEL_DOMINIO, LABEL_FAIXA, corDaFaixa } from "@/lib/personagens";
 import CharacterImage from "@/components/CharacterImage";
+import {
+  faixaAtual,
+  decodificarFaixaCanonica,
+  alcancouCanonica,
+  type ProgressoDominio,
+} from "@/lib/engine/faixa";
 
 type Phase = "identidade" | "mestres";
 
 export default function CharacterSelect({
   roster,
   avatar,
+  progressos = [],
 }: {
   roster: Personagem[];
   avatar: Personagem | null;
+  progressos?: ProgressoDominio[];
 }) {
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>(avatar ? "identidade" : "mestres");
@@ -183,6 +191,96 @@ export default function CharacterSelect({
                 )}
               </div>
             )}
+
+            {/* v10.2: seu progresso no domínio do mestre vs a faixa canônica dele. */}
+            {sel.dominio && sel.dominio !== "avatar" && (() => {
+              const meu = progressos.find((p) => p.dominio === sel.dominio);
+              if (!meu) return null;
+              const minha = faixaAtual(meu);
+              const alvo = decodificarFaixaCanonica(sel.faixa_canonica);
+              const bateu = alcancouCanonica({ kup: meu.kup, dan: meu.dan }, alvo);
+              return (
+                <div
+                  className="panel"
+                  style={{
+                    marginTop: 10,
+                    padding: 10,
+                    borderColor: bateu ? "var(--kihap)" : "var(--hairline)",
+                    background: "color-mix(in srgb, var(--surface) 96%, transparent)",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "baseline",
+                      gap: 8,
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontFamily: "var(--font-mono)",
+                        fontSize: "0.7rem",
+                        letterSpacing: "0.12em",
+                        textTransform: "uppercase",
+                        color: "var(--ink-dim)",
+                      }}
+                    >
+                      Sua faixa em {LABEL_DOMINIO[sel.dominio] ?? sel.dominio}
+                    </span>
+                    {bateu ? (
+                      <span
+                        style={{
+                          fontFamily: "var(--font-mono)",
+                          fontSize: "0.66rem",
+                          letterSpacing: "0.14em",
+                          textTransform: "uppercase",
+                          color: "var(--kihap)",
+                          fontWeight: 800,
+                        }}
+                      >
+                        ✓ desafiável
+                      </span>
+                    ) : (
+                      <span
+                        className="subtle"
+                        style={{
+                          fontFamily: "var(--font-mono)",
+                          fontSize: "0.66rem",
+                        }}
+                      >
+                        alvo · {LABEL_FAIXA[sel.faixa_canonica ?? ""] ?? sel.faixa_canonica}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ marginTop: 4, fontWeight: 700 }}>
+                    {minha.rotulo}
+                  </div>
+                  {!minha.atingiuMaxima && (
+                    <>
+                      <div className="xp-bar" style={{ marginTop: 6 }}>
+                        <div
+                          className="xp-fill"
+                          style={{ width: `${minha.pctPraProxima}%` }}
+                        />
+                      </div>
+                      <div
+                        className="subtle"
+                        style={{ marginTop: 4, fontSize: "0.68rem", fontFamily: "var(--font-mono)" }}
+                      >
+                        {minha.xpNoNivel} / {minha.xpPraProxima} xp no domínio
+                      </div>
+                    </>
+                  )}
+                  <div
+                    className="subtle"
+                    style={{ marginTop: 6, fontSize: "0.7rem", fontStyle: "italic" }}
+                  >
+                    Log com {sel.nome} como mestre do dia → XP soma aqui.
+                  </div>
+                </div>
+              );
+            })()}
 
             {sel.atributo_foco && (
               <p style={{ margin: "10px 0 6px" }}>

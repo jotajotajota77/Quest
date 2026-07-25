@@ -15,6 +15,11 @@ import type {
 import { createClient } from "@/lib/supabase/server";
 import { familiaDe } from "@/lib/comportamentos";
 import type { SinalRobustez } from "@/lib/engine/gates";
+import {
+  DOMINIOS,
+  aplicarXp,
+  type ProgressoDominio,
+} from "@/lib/engine/faixa";
 
 const NUTRI: Comportamento[] = ["nutri_refeicao", "nutri_agua"];
 
@@ -33,6 +38,68 @@ export async function garantirAtributos(userId: string): Promise<Atributos> {
     .select("*")
     .single();
   return novo as Atributos;
+}
+
+/** Garante que existem as 5 linhas de progresso_dominio pro usuário (lazy). */
+export async function garantirProgressoDominio(
+  userId: string,
+): Promise<ProgressoDominio[]> {
+  const supabase = createClient();
+  const { data: existentes } = await supabase
+    .from("progresso_dominio")
+    .select("*")
+    .eq("user_id", userId);
+  const jaTem = new Set((existentes ?? []).map((r) => r.dominio as string));
+  const faltando = DOMINIOS.filter((d) => !jaTem.has(d));
+  if (faltando.length > 0) {
+    await supabase
+      .from("progresso_dominio")
+      .insert(faltando.map((dominio) => ({ user_id: userId, dominio })));
+  }
+  const { data: full } = await supabase
+    .from("progresso_dominio")
+    .select("*")
+    .eq("user_id", userId);
+  return (full ?? []) as ProgressoDominio[];
+}
+
+/** Aplica XP ao domínio, subindo kup/dan se atingir o threshold. */
+export async function aplicarXpDominio(
+  userId: string,
+  dominio: string,
+  xpAdd: number,
+): Promise<ProgressoDominio | null> {
+  if (!DOMINIOS.includes(dominio as (typeof DOMINIOS)[number]) || xpAdd <= 0) {
+    return null;
+  }
+  const supabase = createClient();
+  // Lazy create a linha se não existir
+  await supabase
+    .from("progresso_dominio")
+    .insert({ user_id: userId, dominio })
+    .then(() => {})
+    .then(undefined, () => {}); // ignora conflito de PK
+  const { data: atual } = await supabase
+    .from("progresso_dominio")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("dominio", dominio)
+    .maybeSingle();
+  if (!atual) return null;
+  const novo = aplicarXp(atual as ProgressoDominio, xpAdd);
+  const { data: updated } = await supabase
+    .from("progresso_dominio")
+    .update({
+      kup: novo.kup,
+      dan: novo.dan,
+      xp_no_kup: novo.xp_no_kup,
+      atualizado_em: new Date().toISOString(),
+    })
+    .eq("user_id", userId)
+    .eq("dominio", dominio)
+    .select("*")
+    .single();
+  return (updated as ProgressoDominio) ?? null;
 }
 
 /** Garante que existe linha de meta (objetivo de cutting) para o usuário —
