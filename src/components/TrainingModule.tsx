@@ -105,7 +105,7 @@ export default function TrainingModule({
     });
     if (r.is_pr) {
       somPr();
-      fire(r.recorde ? "PR!" : "TOP!"); // recorde novo vs. recorde igualado
+      fire(r.recorde ? "승리!" : "최고!"); // seungri (vitória) vs. choego (melhor)
     } else {
       somSerie(); // tom curto de confirmação em toda série
     }
@@ -143,7 +143,7 @@ export default function TrainingModule({
   const sessaoFechada = fechadas.has(splitAlvo);
 
   async function concluirSessao() {
-    fire("SESSÃO!"); // reforço local imediato
+    fire("완벽!"); // wanbyeok — perfect / flawless (substitui SESSÃO!)
     try {
       // Camada universal: concluir a sessão registra treino → Força + hit-confirm.
       await fetch("/api/log", {

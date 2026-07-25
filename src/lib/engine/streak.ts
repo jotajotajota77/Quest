@@ -3,11 +3,12 @@
 // ------------------------------------------------------------
 // Um dia "conta" para o streak se teve qualquer log OU é um dia de névoa
 // declarado. A quebra só acontece num dia sem log e sem névoa.
+//
+// v10.1: reescrita usando string-based date math (sem aritmética de ms) pra
+// ficar 100% imune a fronteira de dia / DST / off-by-one no cruzamento
+// UTC↔local. Antes, `hojeT - N*86_400_000` misturado com `diaISO(t)` gerava
+// falha silenciosa em certas horas do dia.
 // ============================================================
-
-function diaISO(t: number): string {
-  return new Date(t).toISOString().slice(0, 10);
-}
 
 export interface StreakInfo {
   streak: number;
@@ -30,6 +31,22 @@ export interface StreakDetalhado extends StreakInfo {
 }
 
 const MARCOS_CHAMA = [3, 7, 14, 21, 28, 42, 56, 84, 112];
+const MS_DIA = 86_400_000;
+
+/** Subtrai 1 dia de "YYYY-MM-DD" via Date.UTC (imune a DST e ms edge). */
+function diaAnterior(dataISO: string): string {
+  const [y, m, d] = dataISO.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() - 1);
+  return dt.toISOString().slice(0, 10);
+}
+
+/** Diferença em dias entre duas datas ISO (a > b → positivo). */
+function difDias(a: string, b: string): number {
+  const ta = new Date(`${a}T00:00:00Z`).getTime();
+  const tb = new Date(`${b}T00:00:00Z`).getTime();
+  return Math.round((ta - tb) / MS_DIA);
+}
 
 function maiorStreakHistorico(dias: Set<string>): number {
   if (dias.size === 0) return 0;
@@ -37,9 +54,7 @@ function maiorStreakHistorico(dias: Set<string>): number {
   let melhor = 1;
   let corrente = 1;
   for (let i = 1; i < ordenados.length; i++) {
-    const anterior = new Date(`${ordenados[i - 1]}T00:00:00Z`).getTime();
-    const atual = new Date(`${ordenados[i]}T00:00:00Z`).getTime();
-    if (atual - anterior === 86_400_000) {
+    if (difDias(ordenados[i], ordenados[i - 1]) === 1) {
       corrente++;
       if (corrente > melhor) melhor = corrente;
     } else {
@@ -55,27 +70,28 @@ export function calcularStreak(
   diasNevoa: Set<string>,
 ): StreakInfo {
   const ativo = (d: string) => diasComLog.has(d) || diasNevoa.has(d);
-  const hojeT = new Date(`${hojeISO}T00:00:00Z`).getTime();
 
-  // Começa hoje se hoje está ativo; senão a partir de ontem (streak até ontem).
-  let cursor = ativo(hojeISO) ? hojeT : hojeT - 86_400_000;
+  // Começa em hoje se ativo; senão em ontem (streak "até ontem"). Trabalha
+  // com strings de data pra evitar qualquer off-by-one de fuso.
+  let dia = ativo(hojeISO) ? hojeISO : diaAnterior(hojeISO);
   let streak = 0;
-  while (ativo(diaISO(cursor))) {
+  while (ativo(dia)) {
     streak++;
-    cursor -= 86_400_000;
+    dia = diaAnterior(dia);
   }
 
-  // Última atividade real (log), varrendo até 365 dias atrás.
+  // Última atividade real (só logs, ignora névoa), até 365 dias atrás.
   let ultimaAtividade: string | null = null;
+  let cursor = hojeISO;
   for (let i = 0; i < 365; i++) {
-    const d = diaISO(hojeT - i * 86_400_000);
-    if (diasComLog.has(d)) {
-      ultimaAtividade = d;
+    if (diasComLog.has(cursor)) {
+      ultimaAtividade = cursor;
       break;
     }
+    cursor = diaAnterior(cursor);
   }
   const diasDesdeUltimaAtividade = ultimaAtividade
-    ? Math.round((hojeT - new Date(`${ultimaAtividade}T00:00:00Z`).getTime()) / 86_400_000)
+    ? difDias(hojeISO, ultimaAtividade)
     : null;
 
   return { streak, diasDesdeUltimaAtividade, ultimaAtividade };
