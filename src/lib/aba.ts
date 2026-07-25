@@ -11,12 +11,12 @@ export const ABA_PORQUE: Record<Familia, string> = {
     "Operante forte: só a camada universal reforça. O tooling (plano, PR, timer) é alavanca de Premack — a atividade que você já curte te traz pro app.",
 };
 
-/** Flavor temático do hit-confirm por comportamento (cosmético). */
+/** Flavor temático do hit-confirm por comportamento (cosmético). v10: KR/TKD. */
 export const HIT_TEMATICO: Record<Comportamento, string> = {
-  treino: "IRON!",
-  nutri_refeicao: "HIT!",
-  nutri_agua: "GULP!",
-  cardio: "PUMP!",
+  treino: "KIHAP!",         // 기합 — o grito do treino
+  nutri_refeicao: "화이팅!", // fighting — o padrão do refeição/água
+  nutri_agua: "물!",         // mul — água
+  cardio: "STAGE!",         // vibe idol de palco
   volei: "SET!",
-  resistencia: "GRIND!",
+  resistencia: "SPARRING!", // 겨루기 — TKD
 };
