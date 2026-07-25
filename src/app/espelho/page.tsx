@@ -10,9 +10,11 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import MirrorForm from "@/components/MirrorForm";
 import BottomNav from "@/components/BottomNav";
+import CharacterImage from "@/components/CharacterImage";
 import { ESPELHO_FRAMING } from "@/lib/objetivos";
 import { garantirMeta, corpoRealRecente } from "@/lib/data";
 import { progressoMeta, comparacaoHistorica } from "@/lib/engine/meta";
+import type { Personagem } from "@/lib/types";
 
 export default async function EspelhoPage() {
   const supabase = createClient();
@@ -21,7 +23,7 @@ export default async function EspelhoPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [{ data: registros }, meta, corpoRecente] = await Promise.all([
+  const [{ data: registros }, meta, corpoRecente, { data: avatar }] = await Promise.all([
     supabase
       .from("corpo_real")
       .select("*")
@@ -30,11 +32,18 @@ export default async function EspelhoPage() {
       .limit(30),
     garantirMeta(user.id),
     corpoRealRecente(user.id, 21),
+    // v10: Sanha (Yoon Sanha) — o avatar do jogador, só aparece aqui.
+    supabase
+      .from("personagens")
+      .select("*")
+      .eq("avatar_jogador", true)
+      .maybeSingle(),
   ]);
   const progresso = progressoMeta(meta, corpoRecente);
   const comparacao = comparacaoHistorica(corpoRecente);
   const temComparacao =
     comparacao.peso.delta != null || comparacao.bf.delta != null;
+  const sanha = avatar as Personagem | null;
 
   return (
     <main className="app-shell">
@@ -44,6 +53,61 @@ export default async function EspelhoPage() {
       <p className="subtle" style={{ marginTop: 4 }}>
         Corpo real. Passivo — só você abre, ninguém te chama aqui.
       </p>
+
+      {/* v10: Sanha — o avatar do jogador. Vive só nesta aba. */}
+      {sanha && (
+        <div
+          className="panel"
+          style={{
+            marginTop: 14,
+            display: "flex",
+            gap: 14,
+            alignItems: "center",
+            borderLeft: "3px solid var(--calm)",
+          }}
+        >
+          <div
+            style={{
+              width: 72,
+              height: 72,
+              borderRadius: 10,
+              overflow: "hidden",
+              flexShrink: 0,
+              background: "linear-gradient(160deg, var(--lilac), var(--surface))",
+              border: "1px solid var(--hairline)",
+            }}
+          >
+            <CharacterImage
+              src={sanha.asset_rosto}
+              nome={sanha.nome}
+              className="roster-face"
+            />
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontWeight: 800, fontSize: "1.05rem" }}>
+              {sanha.nome}
+              {sanha.nome_kr && (
+                <span
+                  className="subtle"
+                  style={{ marginLeft: 8, fontSize: "0.75em", fontWeight: 500 }}
+                >
+                  {sanha.nome_kr}
+                </span>
+              )}
+            </div>
+            {sanha.titulo && (
+              <div className="subtle" style={{ color: "var(--calm)", fontSize: "0.85rem" }}>
+                {sanha.titulo}
+              </div>
+            )}
+            {sanha.lore && (
+              <p className="subtle" style={{ margin: "6px 0 0", fontSize: "0.78rem", fontStyle: "italic" }}>
+                {sanha.lore}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="panel" style={{ marginTop: 14, borderColor: "var(--gold)" }}>
         <div className="lbl">Progresso do cutting</div>

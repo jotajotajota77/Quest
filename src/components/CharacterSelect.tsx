@@ -3,18 +3,20 @@
 // ============================================================
 // Hub de seleção estilo tela de luta (MK/SF). (TRAVA 4)
 // ------------------------------------------------------------
-//  * Grid mostra só o ROSTO (retrato).
-//  * Clicar revela o CORPO inteiro + nome + título + atributo/bônus + bio/lore.
+//  * Grid mostra o ROSTO (retrato) + tag do domínio.
+//  * Clicar revela o CORPO inteiro + nome (+ KR) + título + faixa canônica +
+//    domínio + inspiração + bio/lore.
 //  * Confirmar define o protagonista do dia e leva à home.
-//  * Seleção 100% LIVRE — todo o roster desbloqueado, sem recomendação nem
-//    bloqueio, sem slots extensíveis (v9: sistema fechado de uso único; 2 por
-//    atributo — Zyan+Dhavos em Força, Kai+Luan em Stamina/cardio).
+//  * v10: 5 mestres (Braços · Abs · Pernas · Dança · Taekwondo), cada um
+//    guardando um domínio numa faixa canônica. Sanha (avatar do jogador) é
+//    filtrado no /hub/page.tsx — aparece só no Espelho.
 // ============================================================
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Personagem } from "@/lib/types";
 import { LABEL_ATRIBUTO } from "@/lib/comportamentos";
+import { LABEL_DOMINIO, LABEL_FAIXA, corDaFaixa } from "@/lib/personagens";
 import CharacterImage from "@/components/CharacterImage";
 
 export default function CharacterSelect({ roster }: { roster: Personagem[] }) {
@@ -57,19 +59,59 @@ export default function CharacterSelect({ roster }: { roster: Personagem[] }) {
             <CharacterImage src={sel.asset_corpo} nome={sel.nome} fallbackSize="4rem" />
           </div>
           <div className="panel">
-            <h2 style={{ margin: "0 0 2px" }}>{sel.nome}</h2>
+            <h2 style={{ margin: "0 0 2px" }}>
+              {sel.nome}
+              {sel.nome_kr && (
+                <span
+                  className="subtle"
+                  style={{ marginLeft: 8, fontSize: "0.72em", fontWeight: 500 }}
+                >
+                  {sel.nome_kr}
+                </span>
+              )}
+            </h2>
             {sel.titulo && (
-              <div className="subtle" style={{ color: "var(--neon-2)" }}>
+              <div className="subtle" style={{ color: "var(--calm)" }}>
                 {sel.titulo}
               </div>
             )}
+
+            {sel.dominio && sel.dominio !== "avatar" && (
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10 }}>
+                <span
+                  className="muscle-badge"
+                  style={{ color: "var(--kihap)", borderColor: "var(--kihap)" }}
+                >
+                  Mestre · {LABEL_DOMINIO[sel.dominio] ?? sel.dominio}
+                </span>
+                {sel.faixa_canonica && (
+                  <span
+                    className="muscle-badge"
+                    style={{
+                      background: corDaFaixa(sel.faixa_canonica),
+                      color:
+                        sel.faixa_canonica.startsWith("preta") ||
+                        sel.faixa_canonica.startsWith("azul") ||
+                        sel.faixa_canonica.startsWith("vermelha") ||
+                        sel.faixa_canonica.startsWith("verde")
+                          ? "#fff"
+                          : "var(--ink)",
+                      borderColor: "transparent",
+                    }}
+                  >
+                    {LABEL_FAIXA[sel.faixa_canonica] ?? sel.faixa_canonica}
+                  </span>
+                )}
+              </div>
+            )}
+
             {sel.atributo_foco && (
               <p style={{ margin: "10px 0 6px" }}>
                 Atributo: <strong>{LABEL_ATRIBUTO[sel.atributo_foco]}</strong>
               </p>
             )}
             {sel.atributo_foco && sel.bonus && (
-              <p style={{ margin: "0 0 8px", color: "var(--gold)" }}>
+              <p style={{ margin: "0 0 8px", color: "var(--belt-gold)" }}>
                 Bônus: +{Math.round(sel.bonus.valor * 100)}%{" "}
                 {LABEL_ATRIBUTO[sel.atributo_foco]} no dia em que é protagonista.
               </p>
@@ -80,9 +122,17 @@ export default function CharacterSelect({ roster }: { roster: Personagem[] }) {
                 {sel.lore}
               </p>
             )}
+            {sel.inspiracao && (
+              <p
+                className="subtle"
+                style={{ margin: "6px 0 0", fontSize: "0.72rem", opacity: 0.7 }}
+              >
+                inspirado em · {sel.inspiracao}
+              </p>
+            )}
             <button
               className="btn btn-primary"
-              style={{ width: "100%", marginTop: 8 }}
+              style={{ width: "100%", marginTop: 12 }}
               onClick={confirmar}
               disabled={confirmando}
             >
@@ -99,9 +149,66 @@ export default function CharacterSelect({ roster }: { roster: Personagem[] }) {
             className={`roster-cell ${p.id === selId ? "selected" : ""}`}
             onClick={() => setSelId(p.id)}
             title={p.nome}
+            style={{ position: "relative" }}
           >
             <CharacterImage src={p.asset_rosto} nome={p.nome} className="roster-face" />
+            {p.dominio && p.dominio !== "avatar" && (
+              <span
+                style={{
+                  position: "absolute",
+                  bottom: 4,
+                  left: 4,
+                  right: 4,
+                  padding: "3px 6px",
+                  borderRadius: 6,
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "0.58rem",
+                  fontWeight: 700,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  background: "color-mix(in srgb, var(--ground) 82%, transparent)",
+                  color: "var(--ink)",
+                  textAlign: "center",
+                  backdropFilter: "blur(4px)",
+                }}
+              >
+                {LABEL_DOMINIO[p.dominio] ?? p.dominio}
+              </span>
+            )}
+            {p.faixa_canonica && (
+              <span
+                aria-hidden
+                style={{
+                  position: "absolute",
+                  top: 4,
+                  right: 4,
+                  width: 22,
+                  height: 4,
+                  borderRadius: 2,
+                  background: corDaFaixa(p.faixa_canonica),
+                  boxShadow: "0 0 0 1px var(--hairline)",
+                }}
+                title={LABEL_FAIXA[p.faixa_canonica] ?? p.faixa_canonica}
+              />
+            )}
           </button>
+        ))}
+
+        {/* 4 slots bloqueados — placeholders pros mestres futuros. */}
+        {[0, 1, 2, 3].map((i) => (
+          <div
+            key={`locked-${i}`}
+            className="roster-cell locked"
+            aria-hidden
+            title="Slot bloqueado — mestre a ser adicionado"
+          >
+            <div className="lock-badge">
+              <span className="lock-ico">🔒</span>
+              <span style={{ fontSize: "0.6rem", opacity: 0.7 }}>
+                slot bloqueado
+              </span>
+            </div>
+          </div>
         ))}
       </div>
     </div>
