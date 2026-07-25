@@ -33,6 +33,7 @@ import FinalizarDiaButton from "@/components/FinalizarDiaButton";
 import QuestsCard from "@/components/QuestsCard";
 import ResetHistoricoButton from "@/components/ResetHistoricoButton";
 import GoalDashboard from "@/components/GoalDashboard";
+import AppHeader from "@/components/AppHeader";
 import { analisarSemana } from "@/lib/analise";
 import { progressoMeta } from "@/lib/engine/meta";
 import { splitDeHoje } from "@/lib/treino";
@@ -95,6 +96,9 @@ export default async function HomePage() {
 
   return (
     <main className="app-shell">
+      {/* v10 direção D+A: mark do app + belt-bar TKD no topo. */}
+      <AppHeader />
+
       {/* Goal dashboard — o coração da home (TRAVA v9). Chama viva (streak)
           embutida no fim do card — v9.2 TRAVA 8 (gamificação da aderência). */}
       <GoalDashboard meta={meta} progresso={progresso} streak={streak} />
