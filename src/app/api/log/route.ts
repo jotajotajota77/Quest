@@ -19,6 +19,7 @@ import { sinalEstabilidade } from "@/lib/engine/latency";
 import { porteiroPermiteAfinar } from "@/lib/engine/gates";
 import { proximaFaixaNova } from "@/lib/spotify/new-in-system";
 import {
+  aplicarXpDominio,
   garantirAtributos,
   garantirSchedule,
   personagemDoDia,
@@ -136,6 +137,19 @@ export async function POST(request: Request) {
       atualizado_em: new Date().toISOString(),
     })
     .eq("user_id", user.id);
+
+  // 3b. v10.2: XP acumula no DOMÍNIO do mestre selecionado no hub — sobe
+  //     seu kup/dan naquele domínio até alcançar a faixa canônica do mestre.
+  //     Sanha (avatar_jogador) e ausência de mestre = sem aplicação (dominio
+  //     'avatar' fica de fora do enum de progresso).
+  const dominioDoMestre = personagem?.dominio ?? null;
+  if (
+    dominioDoMestre &&
+    dominioDoMestre !== "avatar" &&
+    !personagem?.avatar_jogador
+  ) {
+    await aplicarXpDominio(user.id, dominioDoMestre, ganho.total);
+  }
 
   // 4. Reforço de áudio — ASSIMÉTRICO por família.
   let esquema: DecisaoReforco["esquema"] = null;

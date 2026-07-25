@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { Personagem } from "@/lib/types";
 import CharacterSelect from "@/components/CharacterSelect";
+import { garantirProgressoDominio } from "@/lib/data";
 
 export default async function HubPage() {
   const supabase = createClient();
@@ -14,7 +15,9 @@ export default async function HubPage() {
 
   // v10: Hub em 2 fases (identidade → mestres). Sanha aparece na Fase 1
   //   (identidade do jogador) e no Espelho; NÃO entra no grid de mestres.
-  const [{ data: roster }, { data: avatar }] = await Promise.all([
+  // v10.2: também carregamos o progresso por domínio pra mostrar seu kup
+  //   atual vs a faixa canônica de cada mestre.
+  const [{ data: roster }, { data: avatar }, progressos] = await Promise.all([
     supabase
       .from("personagens")
       .select("*")
@@ -26,6 +29,7 @@ export default async function HubPage() {
       .select("*")
       .eq("avatar_jogador", true)
       .maybeSingle(),
+    garantirProgressoDominio(user.id),
   ]);
 
   return (
@@ -33,6 +37,7 @@ export default async function HubPage() {
       <CharacterSelect
         roster={(roster ?? []) as Personagem[]}
         avatar={(avatar as Personagem | null) ?? null}
+        progressos={progressos}
       />
     </main>
   );
