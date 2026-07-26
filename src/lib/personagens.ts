@@ -14,6 +14,7 @@ export type PoseKey =
   | "treino"    // pose de treino (musculação, halter, foco força)
   | "palco"     // pose idol/palco (dança, presença, luz de show)
   | "kihap"     // pose de kihap/luta (taekwondo, kicking stance)
+  | "sparring"  // pose de sparring TKD (guarda + rotação — mestre OU Sanha)
   | "vitoria"   // pose vitória (PR, streak marco, mestre desafiável)
   | "espelho";  // pose corpo frontal (só usada pro Sanha na aba Espelho)
 
@@ -23,6 +24,7 @@ const NOMES_ARQUIVO: Record<PoseKey, string> = {
   treino: "pose_treino.png",
   palco: "pose_palco.png",
   kihap: "pose_kihap.png",
+  sparring: "pose_sparring.png",
   vitoria: "pose_vitoria.png",
   espelho: "pose_espelho.png",
 };

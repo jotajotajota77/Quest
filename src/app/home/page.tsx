@@ -60,7 +60,7 @@ export default async function HomePage() {
   const personagem = await personagemDoDia(user.id);
   if (!personagem) redirect("/hub");
 
-  const [attr, dia, comLog, nevoa, nHoje, spin, semana, nucleo, trackers, finalizado, meta, corpoRecente] =
+  const [attr, dia, comLog, nevoa, nHoje, spin, semana, nucleo, trackers, finalizado, meta, corpoRecente, { data: sanhaData }] =
     await Promise.all([
       garantirAtributos(user.id),
       diaDeHoje(user.id),
@@ -74,7 +74,10 @@ export default async function HomePage() {
       diaFinalizado(user.id),
       garantirMeta(user.id),
       corpoRealRecente(user.id, 21),
+      // v10.2: Sanha carregado pra render de "dojang duo" quando TKD é o foco.
+      supabase.from("personagens").select("slug, nome").eq("avatar_jogador", true).maybeSingle(),
     ]);
+  const sanha = sanhaData as { slug: string; nome: string } | null;
   const progresso = progressoMeta(meta, corpoRecente);
   const splitHoje = splitDeHoje();
   // v10: foco do dia derivado do domínio do mestre escolhido no hub.
@@ -192,6 +195,97 @@ export default async function HomePage() {
         </div>
         </div>
       </Link>
+
+      {/* v10.2: quando TKD é o foco, aparece o "Dojang" — mestre + Sanha lado a
+          lado em pose de sparring. Presença dupla no dia de taekwondo. */}
+      {personagem.dominio === "taekwondo" && sanha && (
+        <div
+          className="panel"
+          style={{
+            marginTop: 10,
+            display: "grid",
+            gap: 8,
+            borderLeft: "3px solid var(--kihap)",
+          }}
+        >
+          <div className="lbl">Dojang · sparring do dia</div>
+          <div style={{ display: "flex", gap: 10 }}>
+            <div style={{ flex: 1, display: "grid", gap: 4 }}>
+              <div
+                style={{
+                  aspectRatio: "3 / 4",
+                  borderRadius: 10,
+                  overflow: "hidden",
+                  background: "linear-gradient(160deg, var(--lilac), var(--surface))",
+                  border: "1px solid var(--hairline)",
+                  display: "grid",
+                  placeItems: "center",
+                }}
+              >
+                <CharacterImage
+                  src={imagemPose(personagem.slug, "sparring")}
+                  nome={personagem.nome}
+                  className="roster-face"
+                />
+              </div>
+              <div
+                className="subtle"
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "0.66rem",
+                  textAlign: "center",
+                  letterSpacing: "0.14em",
+                  textTransform: "uppercase",
+                }}
+              >
+                {personagem.nome} · sabum
+              </div>
+            </div>
+            <div
+              style={{
+                alignSelf: "center",
+                fontFamily: "var(--font-display)",
+                fontSize: "1.4rem",
+                color: "var(--kihap)",
+              }}
+              aria-hidden
+            >
+              vs
+            </div>
+            <div style={{ flex: 1, display: "grid", gap: 4 }}>
+              <div
+                style={{
+                  aspectRatio: "3 / 4",
+                  borderRadius: 10,
+                  overflow: "hidden",
+                  background: "linear-gradient(160deg, var(--lilac), var(--surface))",
+                  border: "1px solid var(--hairline)",
+                  display: "grid",
+                  placeItems: "center",
+                }}
+              >
+                <CharacterImage
+                  src={imagemPose(sanha.slug, "sparring")}
+                  nome={sanha.nome}
+                  className="roster-face"
+                />
+              </div>
+              <div
+                className="subtle"
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "0.66rem",
+                  textAlign: "center",
+                  letterSpacing: "0.14em",
+                  textTransform: "uppercase",
+                }}
+              >
+                {sanha.nome} · trainee
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Protocolo diário — quick-log de tracking (núcleo + trackers leves). */}
       <ProtocoloCard nucleoInicial={[...nucleo]} trackersInicial={trackers} />

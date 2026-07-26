@@ -113,6 +113,47 @@ export default async function EspelhoPage() {
         </div>
       )}
 
+      {/* v10.2: "Sua stance" — Sanha em pose de kihap TKD. Reforça a identidade
+          de trainee-lutador, aparece só na aba Espelho. */}
+      {sanha && (
+        <div
+          className="panel"
+          style={{
+            marginTop: 14,
+            display: "grid",
+            gap: 10,
+            borderLeft: "3px solid var(--kihap)",
+          }}
+        >
+          <div className="lbl">Sua stance · 태권도 kihap</div>
+          <div
+            style={{
+              aspectRatio: "4 / 5",
+              maxHeight: 320,
+              borderRadius: 10,
+              overflow: "hidden",
+              background: "linear-gradient(160deg, var(--lilac), var(--surface))",
+              border: "1px solid var(--hairline)",
+              display: "grid",
+              placeItems: "center",
+            }}
+          >
+            <CharacterImage
+              src={imagemPose(sanha.slug, "kihap")}
+              nome={sanha.nome}
+              className="roster-face"
+              fallbackSize="4rem"
+            />
+          </div>
+          <p
+            className="subtle"
+            style={{ margin: 0, fontSize: "0.72rem", fontStyle: "italic" }}
+          >
+            &quot;Kihap não é grito — é decisão.&quot; — Chan-ho Lee
+          </p>
+        </div>
+      )}
+
       <div className="panel" style={{ marginTop: 14, borderColor: "var(--gold)" }}>
         <div className="lbl">Progresso do cutting</div>
         <div style={{ marginTop: 4 }}>
