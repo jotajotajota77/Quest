@@ -13,7 +13,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Personagem } from "@/lib/types";
 import { LABEL_ATRIBUTO } from "@/lib/comportamentos";
-import { LABEL_DOMINIO, LABEL_FAIXA, corDaFaixa } from "@/lib/personagens";
+import { LABEL_DOMINIO, LABEL_FAIXA, corDaFaixa, imagemPose } from "@/lib/personagens";
 import CharacterImage from "@/components/CharacterImage";
 import {
   faixaAtual,
@@ -86,7 +86,7 @@ export default function CharacterSelect({
             }}
           >
             <CharacterImage
-              src={avatar.asset_corpo ?? avatar.asset_rosto}
+              src={avatar.asset_corpo ?? avatar.asset_rosto ?? imagemPose(avatar.slug, "rosto")}
               nome={avatar.nome}
               fallbackSize="4rem"
             />
@@ -143,7 +143,11 @@ export default function CharacterSelect({
       {sel && (
         <div className="reveal" style={{ margin: "18px 0" }}>
           <div className="reveal-body">
-            <CharacterImage src={sel.asset_corpo} nome={sel.nome} fallbackSize="4rem" />
+            <CharacterImage
+              src={sel.asset_corpo ?? imagemPose(sel.slug, "corpo")}
+              nome={sel.nome}
+              fallbackSize="4rem"
+            />
           </div>
           <div className="panel">
             <h2 style={{ margin: "0 0 2px" }}>
@@ -328,7 +332,11 @@ export default function CharacterSelect({
             title={p.nome}
             style={{ position: "relative" }}
           >
-            <CharacterImage src={p.asset_rosto} nome={p.nome} className="roster-face" />
+            <CharacterImage
+              src={p.asset_rosto ?? imagemPose(p.slug, "rosto")}
+              nome={p.nome}
+              className="roster-face"
+            />
             {p.dominio && p.dominio !== "avatar" && (
               <span
                 style={{
