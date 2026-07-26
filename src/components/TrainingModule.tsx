@@ -12,6 +12,11 @@ import { useRouter } from "next/navigation";
 import type { TreinoExercicio, TreinoSerie } from "@/lib/types";
 import type { ExercicioBib } from "@/lib/data";
 import { GLOSSARIO, SPLIT_LABEL, SPLIT_SEMANA, gruposDoSplit } from "@/lib/treino";
+import {
+  DOW_TO_SPLIT_KEY,
+  LABEL_PROGRAMA_SPLIT,
+  PROGRAMA_SPLIT_KEYS,
+} from "@/lib/programa";
 import { useHitConfirm } from "@/components/HitConfirm";
 import RestTimer from "@/components/RestTimer";
 import BibliotecaExercicios from "@/components/BibliotecaExercicios";
@@ -35,7 +40,12 @@ export default function TrainingModule({
 }) {
   const router = useRouter();
   const { fire, overlay } = useHitConfirm();
-  const [splitAtivo, setSplitAtivo] = useState<string | null>(plano[0]?.split ?? null);
+  // v11: default = split do programa pro dia da semana atual, se existir.
+  const splitHoje = DOW_TO_SPLIT_KEY[new Date().getDay()];
+  const inicial = plano.some((e) => e.split === splitHoje)
+    ? splitHoje
+    : (plano[0]?.split ?? null);
+  const [splitAtivo, setSplitAtivo] = useState<string | null>(inicial);
   const [fechadas, setFechadas] = useState<Set<string>>(
     new Set(sessoesHoje.filter((s) => s.finalizada).map((s) => s.split)),
   );
@@ -54,16 +64,26 @@ export default function TrainingModule({
     return m;
   }, [biblioteca]);
 
+  // v11: ordem canônica = splits do /plano (seg → dom) + core_cardio +
+  // qualquer outro custom que o user tenha criado. Splits antigos do
+  // Apêndice A (dom_pump_cardio, seg_pull, etc.) e presets ABC/UL/PPL
+  // ficam ESCONDIDOS — o botão "Sincronizar com /plano" limpa tudo.
+  const ORDEM_PROGRAMA: string[] = [
+    ...PROGRAMA_SPLIT_KEYS,
+    "core_cardio",
+  ];
+  const SPLITS_LEGADOS = new Set([...ORDEM_SPLIT_SEMANA, "A", "B", "C", "upper", "lower", "push", "pull", "legs", "core"]);
   const splits = useMemo(() => {
     const s = [...new Set(plano.map((e) => e.split ?? "—"))];
-    // Ficha do Apêndice A (v9): ordena Dom→Sáb em vez da ordem alfabética do
-    // banco. Splits fora dessa lista (presets antigos ABC/UL/PPL) mantêm a
-    // ordem original, ao final.
-    const naSemana = s.filter((k) => ORDEM_SPLIT_SEMANA.includes(k));
-    const fora = s.filter((k) => !ORDEM_SPLIT_SEMANA.includes(k));
-    naSemana.sort((a, b) => ORDEM_SPLIT_SEMANA.indexOf(a) - ORDEM_SPLIT_SEMANA.indexOf(b));
-    return [...naSemana, ...fora];
+    const naOrdem = s.filter((k) => ORDEM_PROGRAMA.includes(k));
+    const custom = s.filter((k) => !ORDEM_PROGRAMA.includes(k) && !SPLITS_LEGADOS.has(k));
+    naOrdem.sort((a, b) => ORDEM_PROGRAMA.indexOf(a) - ORDEM_PROGRAMA.indexOf(b));
+    return [...naOrdem, ...custom];
   }, [plano]);
+  const temLegado = useMemo(
+    () => plano.some((e) => SPLITS_LEGADOS.has(e.split ?? "")),
+    [plano],
+  );
   // Rótulo de músculos por split (ex.: A → "Peito / Ombro / Tríceps").
   const gruposPorSplit = useMemo(() => {
     const m = new Map<string, string>();
@@ -117,17 +137,17 @@ export default function TrainingModule({
       <div className="panel" style={{ marginTop: 18 }}>
         <h3 style={{ marginTop: 0 }}>Popular plano</h3>
         <p className="subtle">
-          Comece pelo <strong>Core + Cardio</strong> — depois adicione exercícios do split
-          com &quot;Registrar avulso&quot; ou a Biblioteca. O plano fixo do seu programa está
-          em <em>/plano</em>.
+          Sincronize com o <strong>/plano</strong> e todos os exercícios da semana
+          aparecem aqui, organizados por dia. Depois dá pra registrar avulso qualquer
+          coisa fora do plano.
         </p>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button
             className="btn btn-primary"
             disabled={ocupado}
-            onClick={() => api({ action: "seed", preset: "CORE" })}
+            onClick={() => api({ action: "sync_programa" })}
           >
-            Popular Core + Cardio
+            🔄 Sincronizar com /plano
           </button>
         </div>
       </div>
@@ -192,6 +212,43 @@ export default function TrainingModule({
         </div>
       </div>
 
+      {/* v11: banner de sincronização quando o plano tem splits antigos */}
+      {temLegado && (
+        <div
+          className="panel"
+          style={{
+            margin: "10px 0",
+            padding: "10px 12px",
+            borderLeft: "3px solid var(--gold)",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          <div>
+            <div className="lbl" style={{ color: "var(--gold)" }}>
+              Seu plano tem splits antigos
+            </div>
+            <div className="subtle" style={{ fontSize: "0.72rem" }}>
+              Sincronize pra deixar só os exercícios do /plano (custom não é apagado).
+            </div>
+          </div>
+          <button
+            className="btn btn-primary"
+            style={{ padding: "8px 12px", fontSize: "0.8rem" }}
+            disabled={ocupado}
+            onClick={() => {
+              if (confirm("Substituir plano atual pelo /plano? Exercícios custom são preservados.")) {
+                api({ action: "sync_programa" });
+              }
+            }}
+          >
+            🔄 Sincronizar
+          </button>
+        </div>
+      )}
+
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", margin: "10px 0" }}>
         {splits.map((s) => {
           const grupos = gruposPorSplit.get(s);
@@ -203,7 +260,7 @@ export default function TrainingModule({
               onClick={() => setSplitAtivo(s)}
             >
               <span style={{ fontWeight: 800 }}>
-                {SPLIT_LABEL[s] ?? s.toUpperCase()}
+                {LABEL_PROGRAMA_SPLIT[s as never] ?? SPLIT_LABEL[s] ?? s.toUpperCase()}
               </span>
               {grupos && <span style={{ color: "var(--text-dim)" }}> · {grupos}</span>}
             </button>
@@ -225,7 +282,7 @@ export default function TrainingModule({
       >
         <div>
           <div className="lbl">
-            Sessão de hoje · {SPLIT_LABEL[splitAlvo] ?? splitAlvo}
+            Sessão de hoje · {LABEL_PROGRAMA_SPLIT[splitAlvo as never] ?? SPLIT_LABEL[splitAlvo] ?? splitAlvo}
             {gruposPorSplit.get(splitAlvo) ? ` · ${gruposPorSplit.get(splitAlvo)}` : ""}
           </div>
           <div className="subtle" style={{ marginTop: 2 }}>
