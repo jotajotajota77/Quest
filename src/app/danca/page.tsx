@@ -16,6 +16,7 @@ import {
 import BottomNav from "@/components/BottomNav";
 import CharacterImage from "@/components/CharacterImage";
 import ContextualHero from "@/components/ContextualHero";
+import CoreoSorteador, { coreografiaDoDia } from "@/components/CoreoSorteador";
 import DancaLog, { type DancaLogRow } from "@/components/DancaLog";
 import { candidatosHero } from "@/lib/heroi";
 import { dicaDoDia } from "@/lib/dicas";
@@ -23,23 +24,6 @@ import { hojeISO } from "@/lib/data";
 import { imagemPose } from "@/lib/personagens";
 import { faixaAtual } from "@/lib/engine/faixa";
 import type { Personagem } from "@/lib/types";
-
-// Coreografias curtas (2 faixas ~6-7min) — determinística pela data.
-const COREOGRAFIAS = [
-  { grupo: "TXT",         musica: "Sugar Rush Ride",       nivel: "médio" },
-  { grupo: "NCT DREAM",   musica: "Smoothie",              nivel: "difícil" },
-  { grupo: "ZEROBASEONE", musica: "In Bloom",              nivel: "médio" },
-  { grupo: "TWS",         musica: "Plot Twist",            nivel: "fácil" },
-  { grupo: "SEVENTEEN",   musica: "God of Music",          nivel: "difícil" },
-  { grupo: "RIIZE",       musica: "Get A Guitar",          nivel: "médio" },
-  { grupo: "BOYNEXTDOOR", musica: "Earth, Wind & Fire",    nivel: "fácil" },
-];
-
-function coreografiaDoDia(iso: string) {
-  let h = 0;
-  for (const c of iso) h = (h * 31 + c.charCodeAt(0)) >>> 0;
-  return COREOGRAFIAS[h % COREOGRAFIAS.length];
-}
 
 export default async function DancaPage() {
   const supabase = createClient();
@@ -86,23 +70,10 @@ export default async function DancaPage() {
         </p>
       </div>
 
-      {/* Coreografia do dia */}
-      <div className="panel" style={{ marginBottom: 14, borderLeft: "3px solid var(--neon)" }}>
-        <div className="lbl">Coreografia do dia</div>
-        <div style={{ marginTop: 6, display: "grid", gap: 4 }}>
-          <div style={{ fontWeight: 800, fontSize: "1.2rem" }}>
-            {coreo.musica}
-          </div>
-          <div className="subtle" style={{ fontSize: "0.85rem" }}>
-            {coreo.grupo} · nível {coreo.nivel}
-          </div>
-        </div>
-        <p className="subtle" style={{ marginTop: 8, fontSize: "0.72rem" }}>
-          Dance 1-2 faixas seguidas. Não precisa acertar tudo — precisa suar.
-        </p>
-      </div>
+      {/* Coreografia do dia + sortear de novo (v11) */}
+      <CoreoSorteador inicial={coreo} />
 
-      {/* v10.3: Registro + histórico de sessão de dança. */}
+      {/* Registro + histórico de sessão de dança. */}
       <DancaLog historico={historico} />
 
       {/* Progresso da faixa dança */}
