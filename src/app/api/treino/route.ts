@@ -39,6 +39,39 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true });
     }
 
+    // v10.3: adiciona um preset ao plano existente (sem apagar). Útil pra
+    // encaixar Core + Cardio junto do split semanal.
+    case "merge_preset": {
+      const preset = String(body.preset) as Preset;
+      const cfg = PRESETS[preset];
+      if (!cfg) return NextResponse.json({ error: "preset inválido" }, { status: 400 });
+      // Se o split desse preset já existe (algum exercicio com esse split),
+      // não duplica.
+      const splitKey = cfg.itens[0]?.split ?? "";
+      if (splitKey) {
+        const { data: jaExiste } = await supabase
+          .from("treino_exercicios")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("split", splitKey)
+          .limit(1);
+        if (jaExiste && jaExiste.length > 0) {
+          return NextResponse.json({ ok: true, ja_existia: true });
+        }
+      }
+      const linhas = cfg.itens.map((it, i) => ({
+        user_id: user.id,
+        nome: it.nome,
+        grupo_muscular: it.grupo,
+        split: it.split,
+        ordem: 900 + i,
+        custom: false,
+      }));
+      const { error } = await supabase.from("treino_exercicios").insert(linhas);
+      if (error) return NextResponse.json({ error: "falha merge" }, { status: 500 });
+      return NextResponse.json({ ok: true });
+    }
+
     case "add": {
       const nome = String(body.nome ?? "").trim();
       const grupo = String(body.grupo ?? "").trim() || null;

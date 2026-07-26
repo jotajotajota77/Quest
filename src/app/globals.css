@@ -575,19 +575,23 @@ a {
 .hero-contexto {
   position: relative;
   width: 100%;
+  /* v10.3: no desktop trava o hero num tamanho legível e centraliza pra ver
+     o personagem inteiro; no mobile continua full-width. */
+  max-width: 520px;
+  margin: 0 auto 14px;
   border-radius: 12px;
   overflow: hidden;
   border: 1px solid var(--hairline);
   background:
     radial-gradient(120% 120% at 80% 0%, var(--kihap-glow), transparent 60%),
     linear-gradient(160deg, var(--lilac), var(--surface));
-  margin-bottom: 14px;
 }
 .hero-contexto img {
   width: 100%;
   height: 100%;
+  /* v10.3: contain no desktop (personagem centralizado, whole body visível) */
   object-fit: cover;
-  object-position: center top;
+  object-position: center 20%;
   display: block;
 }
 .hero-silhueta {

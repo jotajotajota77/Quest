@@ -346,9 +346,21 @@ export default function TrainingModule({
         </button>
       </div>
 
+      {/* v10.3: botão que ADICIONA Core + Cardio ao plano (não substitui). */}
+      <div style={{ marginTop: 10 }}>
+        <button
+          className="nav-link"
+          style={{ ...smallBtn, borderColor: "var(--gold)", color: "var(--gold)" }}
+          disabled={ocupado}
+          onClick={() => api({ action: "merge_preset", preset: "CORE" })}
+        >
+          ➕ Adicionar Core + Cardio ao plano
+        </button>
+      </div>
+
       <div style={{ marginTop: 10 }}>
         <span className="subtle" style={{ fontSize: "0.72rem" }}>Trocar plano (substitui): </span>
-        {(Object.keys(PRESETS) as Preset[]).map((p) => (
+        {(Object.keys(PRESETS) as Preset[]).filter((p) => p !== "CORE").map((p) => (
           <button key={p} className="nav-link" style={{ ...smallBtn, marginLeft: 6 }} disabled={ocupado}
             onClick={() => { if (confirm(`Trocar para ${PRESETS[p].rotulo}? Substitui o plano atual.`)) { setSplitAtivo(null); api({ action: "seed", preset: p }); } }}>
             {PRESETS[p].rotulo}

@@ -91,17 +91,22 @@ export const PRESETS: Record<Preset, { rotulo: string; itens: ExercicioPreset[] 
     ],
   },
   CORE: {
-    rotulo: "Abs / Core",
+    rotulo: "Core + Cardio",
     itens: [
-      { nome: "Crunch na polia", grupo: "core", split: "core" },
-      { nome: "Prancha", grupo: "core", split: "core" },
-      { nome: "Prancha lateral", grupo: "core", split: "core" },
-      { nome: "Elevação de pernas", grupo: "core", split: "core" },
-      { nome: "Rotação russa", grupo: "core", split: "core" },
-      { nome: "Abdominal declinado", grupo: "core", split: "core" },
-      { nome: "Ab wheel", grupo: "core", split: "core" },
-      { nome: "Cable woodchopper", grupo: "core", split: "core" },
-      { nome: "Dead bug", grupo: "core", split: "core" },
+      // Core
+      { nome: "Crunch na polia", grupo: "core", split: "core_cardio" },
+      { nome: "Prancha", grupo: "core", split: "core_cardio" },
+      { nome: "Prancha lateral", grupo: "core", split: "core_cardio" },
+      { nome: "Elevação de pernas", grupo: "core", split: "core_cardio" },
+      { nome: "Rotação russa", grupo: "core", split: "core_cardio" },
+      { nome: "Ab wheel", grupo: "core", split: "core_cardio" },
+      { nome: "Cable woodchopper", grupo: "core", split: "core_cardio" },
+      { nome: "Dead bug", grupo: "core", split: "core_cardio" },
+      // Cardio (registrado como duração + descrição)
+      { nome: "Esteira", grupo: "cardio", split: "core_cardio" },
+      { nome: "Bike", grupo: "cardio", split: "core_cardio" },
+      { nome: "Corda", grupo: "cardio", split: "core_cardio" },
+      { nome: "HIIT", grupo: "cardio", split: "core_cardio" },
     ],
   },
 };
@@ -121,7 +126,7 @@ export const SPLIT_SEMANA: { key: string; dia: string; label: string }[] = [
 
 export const SPLIT_LABEL: Record<string, string> = {
   ...Object.fromEntries(SPLIT_SEMANA.map((s) => [s.key, s.label])),
-  core: "Core (Abs)",
+  core_cardio: "Core + Cardio",
 };
 
 /** O split do Apêndice A programado pro dia da semana atual (0=Dom..6=Sáb). */
@@ -140,6 +145,7 @@ export const GRUPO_LABEL: Record<string, string> = {
   posterior: "Posterior",
   panturrilha: "Panturrilha",
   core: "Core",
+  cardio: "Cardio",
 };
 
 /** Grupos distintos de um split (ex.: "Peito / Ombro / Tríceps"). */
@@ -166,6 +172,7 @@ export const ALTERNATIVAS: Record<string, string[]> = {
   posterior: ["Stiff", "Mesa flexora", "Cadeira flexora", "Terra romeno"],
   panturrilha: ["Panturrilha em pé", "Panturrilha sentado", "Panturrilha no leg"],
   core: ["Crunch na polia", "Prancha", "Prancha lateral", "Elevação de pernas", "Rotação russa", "Abdominal declinado", "Ab wheel", "Cable woodchopper", "Dead bug"],
+  cardio: ["Esteira", "Bike", "Corda", "HIIT", "Elíptico", "Remo"],
 };
 
 export function variarExercicio(grupo: string, atual: string): string {
