@@ -16,6 +16,7 @@ import {
 import BottomNav from "@/components/BottomNav";
 import CharacterImage from "@/components/CharacterImage";
 import ContextualHero from "@/components/ContextualHero";
+import DancaLog, { type DancaLogRow } from "@/components/DancaLog";
 import { candidatosHero } from "@/lib/heroi";
 import { dicaDoDia } from "@/lib/dicas";
 import { hojeISO } from "@/lib/data";
@@ -47,11 +48,18 @@ export default async function DancaPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [personagem, sanha, progressos] = await Promise.all([
+  const [personagem, sanha, progressos, { data: historicoRaw }] = await Promise.all([
     personagemDoDia(user.id),
     avatarJogador(),
     garantirProgressoDominio(user.id),
+    supabase
+      .from("logs_danca")
+      .select("id, ts, musica, spotify_url, duracao_min, nota")
+      .eq("user_id", user.id)
+      .order("ts", { ascending: false })
+      .limit(50),
   ]);
+  const historico = (historicoRaw ?? []) as DancaLogRow[];
 
   const danca = progressos.find((p) => p.dominio === "danca");
   const faixaDanca = danca ? faixaAtual(danca) : null;
@@ -93,6 +101,9 @@ export default async function DancaPage() {
           Dance 1-2 faixas seguidas. Não precisa acertar tudo — precisa suar.
         </p>
       </div>
+
+      {/* v10.3: Registro + histórico de sessão de dança. */}
+      <DancaLog historico={historico} />
 
       {/* Progresso da faixa dança */}
       {faixaDanca && (

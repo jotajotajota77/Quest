@@ -6,7 +6,7 @@
 // operante forte como ferramenta (alavanca de Premack) — não esmaece nada.
 // ============================================================
 
-export type Preset = "ABC" | "UL" | "PPL";
+export type Preset = "ABC" | "UL" | "PPL" | "CORE";
 
 export interface ExercicioPreset {
   nome: string;
@@ -90,6 +90,25 @@ export const PRESETS: Record<Preset, { rotulo: string; itens: ExercicioPreset[] 
       { nome: "Panturrilha em pé", grupo: "panturrilha", split: "legs" },
     ],
   },
+  CORE: {
+    rotulo: "Core + Cardio",
+    itens: [
+      // Core
+      { nome: "Crunch na polia", grupo: "core", split: "core_cardio" },
+      { nome: "Prancha", grupo: "core", split: "core_cardio" },
+      { nome: "Prancha lateral", grupo: "core", split: "core_cardio" },
+      { nome: "Elevação de pernas", grupo: "core", split: "core_cardio" },
+      { nome: "Rotação russa", grupo: "core", split: "core_cardio" },
+      { nome: "Ab wheel", grupo: "core", split: "core_cardio" },
+      { nome: "Cable woodchopper", grupo: "core", split: "core_cardio" },
+      { nome: "Dead bug", grupo: "core", split: "core_cardio" },
+      // Cardio (registrado como duração + descrição)
+      { nome: "Esteira", grupo: "cardio", split: "core_cardio" },
+      { nome: "Bike", grupo: "cardio", split: "core_cardio" },
+      { nome: "Corda", grupo: "cardio", split: "core_cardio" },
+      { nome: "HIIT", grupo: "cardio", split: "core_cardio" },
+    ],
+  },
 };
 
 // ── Ficha de treino embutida (v9, Apêndice A) — split fixo de 7 dias ──
@@ -105,9 +124,10 @@ export const SPLIT_SEMANA: { key: string; dia: string; label: string }[] = [
   { key: "sab_costas_posterior", dia: "Sábado", label: "Costas + posterior de coxa" },
 ];
 
-export const SPLIT_LABEL: Record<string, string> = Object.fromEntries(
-  SPLIT_SEMANA.map((s) => [s.key, s.label]),
-);
+export const SPLIT_LABEL: Record<string, string> = {
+  ...Object.fromEntries(SPLIT_SEMANA.map((s) => [s.key, s.label])),
+  core_cardio: "Core + Cardio",
+};
 
 /** O split do Apêndice A programado pro dia da semana atual (0=Dom..6=Sáb). */
 export function splitDeHoje(agora = new Date()): { key: string; dia: string; label: string } {
@@ -125,6 +145,7 @@ export const GRUPO_LABEL: Record<string, string> = {
   posterior: "Posterior",
   panturrilha: "Panturrilha",
   core: "Core",
+  cardio: "Cardio",
 };
 
 /** Grupos distintos de um split (ex.: "Peito / Ombro / Tríceps"). */
@@ -150,6 +171,8 @@ export const ALTERNATIVAS: Record<string, string[]> = {
   pernas: ["Agachamento", "Leg press", "Cadeira extensora", "Hack squat", "Afundo"],
   posterior: ["Stiff", "Mesa flexora", "Cadeira flexora", "Terra romeno"],
   panturrilha: ["Panturrilha em pé", "Panturrilha sentado", "Panturrilha no leg"],
+  core: ["Crunch na polia", "Prancha", "Prancha lateral", "Elevação de pernas", "Rotação russa", "Abdominal declinado", "Ab wheel", "Cable woodchopper", "Dead bug"],
+  cardio: ["Esteira", "Bike", "Corda", "HIIT", "Elíptico", "Remo"],
 };
 
 export function variarExercicio(grupo: string, atual: string): string {

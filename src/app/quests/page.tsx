@@ -107,7 +107,12 @@ export default async function QuestsPage() {
             }}
           >
             <CharacterImage
-              src={imagemPose(personagem.slug, "vitoria")}
+              srcs={[
+                imagemPose(personagem.slug, "vitoria"),
+                imagemPose(personagem.slug, "treino"),
+                imagemPose(personagem.slug, "corpo"),
+                imagemPose(personagem.slug, "rosto"),
+              ]}
               nome={personagem.nome}
               className="roster-face"
               fallbackSize="4rem"
