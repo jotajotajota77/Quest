@@ -409,9 +409,10 @@ a {
   right: 0;
   z-index: 30;
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  /* v10.2: 8 abas — Home Treino Nutri TKD Dança Quests Trocar Espelho. */
+  grid-template-columns: repeat(8, 1fr);
   gap: 2px;
-  padding: 6px 6px calc(6px + env(safe-area-inset-bottom, 0px));
+  padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
   background: color-mix(in srgb, var(--ground) 88%, transparent);
   border-top: 1px solid var(--hairline);
   backdrop-filter: blur(12px);
@@ -486,11 +487,15 @@ a {
   .title-fight {
     word-break: break-word;
   }
+  .tab {
+    padding: 6px 1px;
+  }
   .tab .tab-ico {
-    font-size: 1.05rem;
+    font-size: 0.95rem;
   }
   .tab .tab-lbl {
-    font-size: 0.54rem;
+    font-size: 0.48rem;
+    letter-spacing: 0.05em;
   }
 }
 

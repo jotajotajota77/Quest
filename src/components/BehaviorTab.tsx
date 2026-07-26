@@ -16,11 +16,10 @@ import {
   LABEL_COMPORTAMENTO,
 } from "@/lib/comportamentos";
 import {
-  donoDoAtributo,
+  avatarJogador,
   garantirAtributos,
   historicoFamilia,
   personagemDoDia,
-  rosterDesbloqueado,
 } from "@/lib/data";
 import LogButtons, { type AcaoLog } from "@/components/LogButtons";
 import SpotifyPlayer from "@/components/SpotifyPlayer";
@@ -53,15 +52,17 @@ export default async function BehaviorTab({
   if (!user) redirect("/login");
 
   const cfg = FAMILIAS[familia];
-  const attr = await garantirAtributos(user.id);
-  const personagem = await personagemDoDia(user.id);
-  const roster = await rosterDesbloqueado();
-  const dono = donoDoAtributo(roster, familia);
-  // O hero da aba lidera pelo DONO do atributo (ver candidatosHero) — o nome
-  // exibido acompanha a imagem para não descasar legenda e retrato.
-  const heroNome = dono?.nome ?? personagem?.nome ?? cfg.label;
+  const [attr, personagem, sanha, historico] = await Promise.all([
+    garantirAtributos(user.id),
+    personagemDoDia(user.id),
+    avatarJogador(),
+    historicoFamilia(user.id, cfg.comportamentos),
+  ]);
+  // v10.2: o hero da aba lidera pelo MESTRE selecionado (na pose que combina
+  // com o contexto). Sanha entra como fallback. Nada de mestre não escolhido.
+  const heroNome = personagem?.nome ?? sanha?.nome ?? cfg.label;
+  const heroTitulo = personagem?.titulo ?? sanha?.titulo ?? null;
   const bonusAtivo = personagem?.comportamento_alvo === familia;
-  const historico = await historicoFamilia(user.id, cfg.comportamentos);
 
   const acoes: AcaoLog[] = cfg.comportamentos.map((c) => ({
     comportamento: c,
@@ -73,9 +74,9 @@ export default async function BehaviorTab({
   return (
     <main className="app-shell">
       <ContextualHero
-        candidatos={candidatosHero(familia, personagem, dono)}
+        candidatos={candidatosHero(familia, personagem, sanha)}
         nome={heroNome}
-        titulo={dono?.titulo ?? personagem?.titulo}
+        titulo={heroTitulo}
         dica={dicaDoDia(familia, hojeISO())}
         altura={180}
       />

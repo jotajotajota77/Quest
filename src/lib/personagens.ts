@@ -2,7 +2,52 @@
 // Rótulos amigáveis pros novos campos v10 de personagens (mestres).
 // ------------------------------------------------------------
 // domínio (guardado pelo mestre) e faixa canônica (o "rank do boss").
+// Também: convenção de path pras poses ilustradas de cada mestre.
 // ============================================================
+
+/** Pose ilustrada por contexto — arquivos ficam em
+ *  /personagens/<slug>/pose_<pose>.png. Fallback gracioso (CharacterImage
+ *  cai na inicial se a imagem não existir). */
+export type PoseKey =
+  | "rosto"     // portrait/rosto — existente (rosto.png)
+  | "corpo"     // full-body neutra — existente (corpo.png)
+  | "treino"    // pose de treino (musculação, halter, foco força)
+  | "palco"     // pose idol/palco (dança, presença, luz de show)
+  | "kihap"     // pose de kihap/luta (taekwondo, kicking stance)
+  | "sparring"  // pose de sparring TKD (guarda + rotação — mestre OU Sanha)
+  | "vitoria"   // pose vitória (PR, streak marco, mestre desafiável)
+  | "espelho";  // pose corpo frontal (só usada pro Sanha na aba Espelho)
+
+const NOMES_ARQUIVO: Record<PoseKey, string> = {
+  rosto: "rosto.png",
+  corpo: "corpo.png",
+  treino: "pose_treino.png",
+  palco: "pose_palco.png",
+  kihap: "pose_kihap.png",
+  sparring: "pose_sparring.png",
+  vitoria: "pose_vitoria.png",
+  espelho: "pose_espelho.png",
+};
+
+export function imagemPose(slug: string, pose: PoseKey): string {
+  return `/personagens/${slug}/${NOMES_ARQUIVO[pose]}`;
+}
+
+/** Pose que combina com o domínio do mestre — usada no hero da home. */
+export function poseParaDominio(dominio: string | null | undefined): PoseKey {
+  switch (dominio) {
+    case "upper":
+    case "lower":
+    case "abs":
+      return "treino";
+    case "danca":
+      return "palco";
+    case "taekwondo":
+      return "kihap";
+    default:
+      return "corpo";
+  }
+}
 
 export const LABEL_DOMINIO: Record<string, string> = {
   upper: "Upper",              // peito, costas, ombros, braços (prioridade peito superior)

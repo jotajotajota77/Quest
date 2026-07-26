@@ -6,16 +6,24 @@
 // (verde = hoje bateu, amarela = em risco, cinza = apagada). Recorde é o piso
 // que o operante busca superar.
 // ============================================================
-import type { Meta } from "@/lib/types";
+import type { Meta, Personagem } from "@/lib/types";
 import type { ProgressoMeta } from "@/lib/engine/meta";
 import type { StreakDetalhado } from "@/lib/engine/streak";
+import { imagemPose } from "@/lib/personagens";
+import CharacterImage from "@/components/CharacterImage";
 
 function fmtData(iso: string): string {
   const [y, m, d] = iso.split("-");
   return `${d}/${m}/${y}`;
 }
 
-function ChamaViva({ streak }: { streak: StreakDetalhado }) {
+function ChamaViva({
+  streak,
+  mestre,
+}: {
+  streak: StreakDetalhado;
+  mestre: Personagem | null;
+}) {
   const cor = streak.hitHoje
     ? "var(--good)"
     : streak.emRisco
@@ -38,9 +46,29 @@ function ChamaViva({ streak }: { streak: StreakDetalhado }) {
         borderRadius: 10,
       }}
     >
-      <div style={{ fontSize: "1.8rem", lineHeight: 1 }} aria-hidden>
-        {streak.hitHoje ? "🔥" : streak.emRisco ? "🟡" : "◯"}
-      </div>
+      {mestre ? (
+        <div
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: "50%",
+            overflow: "hidden",
+            flexShrink: 0,
+            border: `2px solid ${cor}`,
+            background: "linear-gradient(160deg, var(--lilac), var(--surface))",
+          }}
+        >
+          <CharacterImage
+            src={imagemPose(mestre.slug, "vitoria")}
+            nome={mestre.nome}
+            className="roster-face"
+          />
+        </div>
+      ) : (
+        <div style={{ fontSize: "1.8rem", lineHeight: 1 }} aria-hidden>
+          {streak.hitHoje ? "🔥" : streak.emRisco ? "🟡" : "◯"}
+        </div>
+      )}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontWeight: 800, fontSize: "1.05rem", color: cor }}>
           {streak.streak} {streak.streak === 1 ? "dia" : "dias"}
@@ -63,10 +91,12 @@ export default function GoalDashboard({
   meta,
   progresso,
   streak,
+  mestre = null,
 }: {
   meta: Meta;
   progresso: ProgressoMeta;
   streak: StreakDetalhado;
+  mestre?: Personagem | null;
 }) {
   const {
     diasRestantes,
@@ -145,7 +175,7 @@ export default function GoalDashboard({
         {meta.prioridades.slice(0, 3).join(" · ")}
       </div>
 
-      <ChamaViva streak={streak} />
+      <ChamaViva streak={streak} mestre={mestre} />
     </div>
   );
 }

@@ -12,6 +12,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import {
+  avatarJogador,
   diaDeHoje,
   diaFinalizado,
   diasComLogSet,
@@ -37,7 +38,8 @@ import AppHeader from "@/components/AppHeader";
 import { analisarSemana } from "@/lib/analise";
 import { progressoMeta } from "@/lib/engine/meta";
 import { splitDeHoje } from "@/lib/treino";
-import { focoDoMestre } from "@/lib/personagens";
+import { focoDoMestre, imagemPose, poseParaDominio } from "@/lib/personagens";
+import CharacterImage from "@/components/CharacterImage";
 import { trackersFeitos } from "@/lib/protocolo";
 import { streakDetalhado } from "@/lib/engine/streak";
 import { mensagemContextual } from "@/lib/voz";
@@ -59,7 +61,7 @@ export default async function HomePage() {
   const personagem = await personagemDoDia(user.id);
   if (!personagem) redirect("/hub");
 
-  const [attr, dia, comLog, nevoa, nHoje, spin, semana, nucleo, trackers, finalizado, meta, corpoRecente] =
+  const [attr, dia, comLog, nevoa, nHoje, spin, semana, nucleo, trackers, finalizado, meta, corpoRecente, sanha] =
     await Promise.all([
       garantirAtributos(user.id),
       diaDeHoje(user.id),
@@ -73,6 +75,9 @@ export default async function HomePage() {
       diaFinalizado(user.id),
       garantirMeta(user.id),
       corpoRealRecente(user.id, 21),
+      // v10.2: Sanha (avatar) carregado inteiro — usado no hero, no dojang duo
+      // (TKD) e como fallback de todas as abas.
+      avatarJogador(),
     ]);
   const progresso = progressoMeta(meta, corpoRecente);
   const splitHoje = splitDeHoje();
@@ -103,11 +108,13 @@ export default async function HomePage() {
 
       {/* Goal dashboard — o coração da home (TRAVA v9). Chama viva (streak)
           embutida no fim do card — v9.2 TRAVA 8 (gamificação da aderência). */}
-      <GoalDashboard meta={meta} progresso={progresso} streak={streak} />
+      <GoalDashboard meta={meta} progresso={progresso} streak={streak} mestre={personagem} />
 
-      {/* Presença: hero contextual do protagonista do dia. */}
+      {/* Presença: hero contextual do protagonista do dia. v10.2: pose escolhida
+          pelo DOMÍNIO do mestre (treino / palco / kihap) — cai no corpo/rosto
+          se o arquivo não existir. */}
       <ContextualHero
-        candidatos={candidatosHero("home", personagem, null)}
+        candidatos={candidatosHero("home", personagem, sanha)}
         nome={personagem.nome}
         titulo={personagem.titulo}
         dica={dicaDoDia("home", hojeISO())}
@@ -145,12 +152,32 @@ export default async function HomePage() {
         href={foco.href}
         className="panel"
         style={{
-          display: "block",
+          display: "flex",
+          gap: 12,
           textDecoration: "none",
           marginTop: 12,
           borderColor: "var(--kihap)",
+          alignItems: "center",
         }}
       >
+        <div
+          style={{
+            width: 72,
+            height: 72,
+            borderRadius: 10,
+            overflow: "hidden",
+            flexShrink: 0,
+            background: "linear-gradient(160deg, var(--lilac), var(--surface))",
+            border: "1px solid var(--hairline)",
+          }}
+        >
+          <CharacterImage
+            src={imagemPose(personagem.slug, poseParaDominio(personagem.dominio))}
+            nome={personagem.nome}
+            className="roster-face"
+          />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
         <div className="lbl">Foco de hoje · com {personagem.nome}</div>
         <div style={{ fontWeight: 800, marginTop: 4, fontSize: "1.05rem" }}>
           {foco.titulo}
@@ -164,7 +191,99 @@ export default async function HomePage() {
         >
           contexto do dia · {splitHoje.dia} — {splitHoje.label} (Apêndice A)
         </div>
+        </div>
       </Link>
+
+      {/* v10.2: quando TKD é o foco, aparece o "Dojang" — mestre + Sanha lado a
+          lado em pose de sparring. Presença dupla no dia de taekwondo. */}
+      {personagem.dominio === "taekwondo" && sanha && (
+        <div
+          className="panel"
+          style={{
+            marginTop: 10,
+            display: "grid",
+            gap: 8,
+            borderLeft: "3px solid var(--kihap)",
+          }}
+        >
+          <div className="lbl">Dojang · sparring do dia</div>
+          <div style={{ display: "flex", gap: 10 }}>
+            <div style={{ flex: 1, display: "grid", gap: 4 }}>
+              <div
+                style={{
+                  aspectRatio: "3 / 4",
+                  borderRadius: 10,
+                  overflow: "hidden",
+                  background: "linear-gradient(160deg, var(--lilac), var(--surface))",
+                  border: "1px solid var(--hairline)",
+                  display: "grid",
+                  placeItems: "center",
+                }}
+              >
+                <CharacterImage
+                  src={imagemPose(personagem.slug, "sparring")}
+                  nome={personagem.nome}
+                  className="roster-face"
+                />
+              </div>
+              <div
+                className="subtle"
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "0.66rem",
+                  textAlign: "center",
+                  letterSpacing: "0.14em",
+                  textTransform: "uppercase",
+                }}
+              >
+                {personagem.nome} · sabum
+              </div>
+            </div>
+            <div
+              style={{
+                alignSelf: "center",
+                fontFamily: "var(--font-display)",
+                fontSize: "1.4rem",
+                color: "var(--kihap)",
+              }}
+              aria-hidden
+            >
+              vs
+            </div>
+            <div style={{ flex: 1, display: "grid", gap: 4 }}>
+              <div
+                style={{
+                  aspectRatio: "3 / 4",
+                  borderRadius: 10,
+                  overflow: "hidden",
+                  background: "linear-gradient(160deg, var(--lilac), var(--surface))",
+                  border: "1px solid var(--hairline)",
+                  display: "grid",
+                  placeItems: "center",
+                }}
+              >
+                <CharacterImage
+                  src={imagemPose(sanha.slug, "sparring")}
+                  nome={sanha.nome}
+                  className="roster-face"
+                />
+              </div>
+              <div
+                className="subtle"
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "0.66rem",
+                  textAlign: "center",
+                  letterSpacing: "0.14em",
+                  textTransform: "uppercase",
+                }}
+              >
+                {sanha.nome} · trainee
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Protocolo diário — quick-log de tracking (núcleo + trackers leves). */}
       <ProtocoloCard nucleoInicial={[...nucleo]} trackersInicial={trackers} />
