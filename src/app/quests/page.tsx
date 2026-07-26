@@ -20,6 +20,7 @@ import { trackersFeitos } from "@/lib/protocolo";
 import BottomNav from "@/components/BottomNav";
 import CharacterImage from "@/components/CharacterImage";
 import ContextualHero from "@/components/ContextualHero";
+import QuestRow from "@/components/QuestRow";
 import { candidatosHero } from "@/lib/heroi";
 import { dicaDoDia } from "@/lib/dicas";
 import { imagemPose } from "@/lib/personagens";
@@ -66,6 +67,8 @@ export default async function QuestsPage() {
 
   const diarias = quests.filter((q) => q.tipo === "diaria");
   const sides = quests.filter((q) => q.tipo === "sidequest");
+  const tkdQ = quests.filter((q) => q.tipo === "tkd");
+  const muscQ = quests.filter((q) => q.tipo === "musculacao");
   const feitas = quests.filter((q) => q.completa).length;
 
   return (
@@ -131,33 +134,31 @@ export default async function QuestsPage() {
           <div className="lbl">Diárias · reset à meia-noite</div>
           <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
             {diarias.map((q) => (
-              <div
-                key={q.quest_id}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  padding: "8px 10px",
-                  borderRadius: 8,
-                  border: `1px solid ${q.completa ? "var(--good)" : "var(--hairline)"}`,
-                  background: q.completa
-                    ? "color-mix(in srgb, var(--good) 8%, transparent)"
-                    : "transparent",
-                }}
-              >
-                <span
-                  style={{
-                    color: q.completa ? "var(--good)" : "var(--text)",
-                    fontWeight: q.completa ? 700 : 500,
-                  }}
-                >
-                  {q.completa ? "✓ " : "○ "}
-                  {q.descricao}
-                </span>
-                <span className="subtle" style={{ color: "var(--gold)", fontWeight: 700 }}>
-                  +{q.xp} XP
-                </span>
-              </div>
+              <QuestRow key={q.quest_id} quest={q} destaque />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* TKD moves do dia */}
+      {tkdQ.length > 0 && (
+        <div className="panel" style={{ marginBottom: 14, borderLeft: "3px solid var(--kihap)" }}>
+          <div className="lbl">TKD · techniques do dia</div>
+          <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
+            {tkdQ.map((q) => (
+              <QuestRow key={q.quest_id} quest={q} destaque />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Musculação alvo do dia */}
+      {muscQ.length > 0 && (
+        <div className="panel" style={{ marginBottom: 14, borderLeft: "3px solid var(--neon)" }}>
+          <div className="lbl">Musculação · alvo do dia</div>
+          <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
+            {muscQ.map((q) => (
+              <QuestRow key={q.quest_id} quest={q} destaque />
             ))}
           </div>
         </div>
@@ -165,37 +166,11 @@ export default async function QuestsPage() {
 
       {/* Sidequests */}
       {sides.length > 0 && (
-        <div className="panel" style={{ marginBottom: 14, borderLeft: "3px solid var(--neon)" }}>
+        <div className="panel" style={{ marginBottom: 14, borderLeft: "3px solid var(--gold)" }}>
           <div className="lbl">Sidequests · o extra do dia</div>
           <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
             {sides.map((q) => (
-              <div
-                key={q.quest_id}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  padding: "8px 10px",
-                  borderRadius: 8,
-                  border: `1px solid ${q.completa ? "var(--good)" : "var(--hairline)"}`,
-                  background: q.completa
-                    ? "color-mix(in srgb, var(--good) 8%, transparent)"
-                    : "transparent",
-                }}
-              >
-                <span
-                  style={{
-                    color: q.completa ? "var(--good)" : "var(--text)",
-                    fontWeight: q.completa ? 700 : 500,
-                  }}
-                >
-                  {q.completa ? "✓ " : "○ "}
-                  {q.descricao}
-                </span>
-                <span className="subtle" style={{ color: "var(--gold)", fontWeight: 700 }}>
-                  +{q.xp} XP
-                </span>
-              </div>
+              <QuestRow key={q.quest_id} quest={q} destaque />
             ))}
           </div>
         </div>

@@ -11,7 +11,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { TreinoExercicio, TreinoSerie } from "@/lib/types";
 import type { ExercicioBib } from "@/lib/data";
-import { GLOSSARIO, PRESETS, SPLIT_LABEL, SPLIT_SEMANA, gruposDoSplit, type Preset } from "@/lib/treino";
+import { GLOSSARIO, SPLIT_LABEL, SPLIT_SEMANA, gruposDoSplit } from "@/lib/treino";
 import { useHitConfirm } from "@/components/HitConfirm";
 import RestTimer from "@/components/RestTimer";
 import BibliotecaExercicios from "@/components/BibliotecaExercicios";
@@ -115,19 +115,20 @@ export default function TrainingModule({
   if (plano.length === 0) {
     return (
       <div className="panel" style={{ marginTop: 18 }}>
-        <h3 style={{ marginTop: 0 }}>Monte seu plano</h3>
-        <p className="subtle">Escolha um preset (editável depois):</p>
+        <h3 style={{ marginTop: 0 }}>Popular plano</h3>
+        <p className="subtle">
+          Comece pelo <strong>Core + Cardio</strong> — depois adicione exercícios do split
+          com &quot;Registrar avulso&quot; ou a Biblioteca. O plano fixo do seu programa está
+          em <em>/plano</em>.
+        </p>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {(Object.keys(PRESETS) as Preset[]).map((p) => (
-            <button
-              key={p}
-              className="btn btn-primary"
-              disabled={ocupado}
-              onClick={() => api({ action: "seed", preset: p })}
-            >
-              {PRESETS[p].rotulo}
-            </button>
-          ))}
+          <button
+            className="btn btn-primary"
+            disabled={ocupado}
+            onClick={() => api({ action: "seed", preset: "CORE" })}
+          >
+            Popular Core + Cardio
+          </button>
         </div>
       </div>
     );
@@ -346,7 +347,9 @@ export default function TrainingModule({
         </button>
       </div>
 
-      {/* v10.3: botão que ADICIONA Core + Cardio ao plano (não substitui). */}
+      {/* v11: o plano é fixo (definido em lib/programa.ts) — não tem mais
+          swap de preset. Só o botão de merge do Core + Cardio (útil pra
+          adicionar core ao dia) e o Registrar avulso. */}
       <div style={{ marginTop: 10 }}>
         <button
           className="nav-link"
@@ -356,16 +359,6 @@ export default function TrainingModule({
         >
           ➕ Adicionar Core + Cardio ao plano
         </button>
-      </div>
-
-      <div style={{ marginTop: 10 }}>
-        <span className="subtle" style={{ fontSize: "0.72rem" }}>Trocar plano (substitui): </span>
-        {(Object.keys(PRESETS) as Preset[]).filter((p) => p !== "CORE").map((p) => (
-          <button key={p} className="nav-link" style={{ ...smallBtn, marginLeft: 6 }} disabled={ocupado}
-            onClick={() => { if (confirm(`Trocar para ${PRESETS[p].rotulo}? Substitui o plano atual.`)) { setSplitAtivo(null); api({ action: "seed", preset: p }); } }}>
-            {PRESETS[p].rotulo}
-          </button>
-        ))}
       </div>
 
       {/* Biblioteca viva de exercícios (fichas + descoberta) */}

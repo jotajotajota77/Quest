@@ -769,6 +769,8 @@ export interface QuestView {
   descricao: string;
   xp: number;
   completa: boolean;
+  /** v11: quests manuais (tkd/musculação) precisam de botão. */
+  manual: boolean;
 }
 
 export async function avaliarQuests(
@@ -814,6 +816,7 @@ export async function avaliarQuests(
       descricao: t.descricao,
       xp: t.xp,
       completa: completaAgora || jaCompleta,
+      manual: t.manual === true,
     });
   }
 

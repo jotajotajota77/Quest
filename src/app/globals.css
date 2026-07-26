@@ -417,8 +417,8 @@ a {
   right: 0;
   z-index: 30;
   display: grid;
-  /* v10.2: 8 abas — Home Treino Nutri TKD Dança Quests Trocar Espelho. */
-  grid-template-columns: repeat(8, 1fr);
+  /* v11: 9 abas — Home Plano Treino Nutri TKD Dança Quests Trocar Espelho. */
+  grid-template-columns: repeat(9, 1fr);
   gap: 2px;
   padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
   background: color-mix(in srgb, var(--ground) 88%, transparent);
