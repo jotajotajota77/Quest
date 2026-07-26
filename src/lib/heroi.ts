@@ -1,51 +1,74 @@
 // ============================================================
 // Imagens contextuais do personagem — regra de exibição com fallback gracioso.
 // ------------------------------------------------------------
-// Ordem (parametrizável trocando a sequência abaixo):
-//   1. protagonista do dia no contexto da aba (acao-<ctx>)
-//   2. imagem de atributo/genérica do protagonista
-//   3. dono do atributo no contexto
-//   4. dono do atributo (atributo/corpo) → senão placeholder neutro
-// Devolve uma lista ORDENADA de URLs candidatas; o componente tenta na ordem
-// e cai no placeholder se nenhuma carregar (nunca quebra layout).
+// v10.2: quando um MESTRE está selecionado no hub, TODAS as abas mostram só
+// imagens dele (na pose que combina com o contexto) + o avatar do jogador
+// (Sanha) como reserva. Não puxa mais o "dono do atributo" — evita mostrar
+// mestre não escolhido.
+//
+// Ordem de tentativa (o componente cai pra silhueta se todas falharem):
+//   1. Mestre do dia na POSE do contexto (kihap, palco, treino…)
+//   2. Mestre do dia — retrato/corpo neutro
+//   3. Sanha na mesma pose do contexto
+//   4. Sanha — retrato/corpo neutro
 // ============================================================
-
 import type { Familia, Personagem } from "@/lib/types";
+import { imagemPose, poseParaDominio, type PoseKey } from "@/lib/personagens";
 
-export type ContextoHero = Familia | "home";
+export type ContextoHero = Familia | "home" | "taekwondo" | "danca" | "quests";
 
-function dePersonagem(
+/** Pose que combina com o contexto/aba. */
+function poseParaContexto(ctx: ContextoHero): PoseKey {
+  switch (ctx) {
+    case "treino":
+      return "treino";
+    case "nutri":
+      return "corpo";
+    case "taekwondo":
+      return "kihap";
+    case "danca":
+      return "palco";
+    case "quests":
+      return "vitoria";
+    case "home":
+    default:
+      return "corpo";
+  }
+}
+
+function candidatosDePersonagem(
   p: Personagem | null,
   ctx: ContextoHero,
-  incluirContexto: boolean,
 ): string[] {
   if (!p) return [];
-  const a = p.assets_contexto ?? {};
   const out: string[] = [];
-  if (incluirContexto && ctx !== "home" && a[ctx]) out.push(a[ctx]!);
+  // Pose do contexto primeiro
+  out.push(imagemPose(p.slug, poseParaContexto(ctx)));
+  // Pose do domínio do próprio mestre (só faz sentido se ele tem domínio)
+  if (p.dominio) out.push(imagemPose(p.slug, poseParaDominio(p.dominio)));
+  // Retrato / corpo neutro (assets_contexto + campos legados)
+  const a = p.assets_contexto ?? {};
+  if (ctx !== "home" && ctx !== "taekwondo" && ctx !== "danca" && ctx !== "quests") {
+    const legado = a[ctx as Familia];
+    if (legado) out.push(legado);
+  }
   if (a.atributo) out.push(a.atributo);
   if (p.asset_corpo) out.push(p.asset_corpo);
   if (p.asset_rosto) out.push(p.asset_rosto);
+  out.push(imagemPose(p.slug, "corpo"));
+  out.push(imagemPose(p.slug, "rosto"));
   return out;
 }
 
+/** v10.2: candidatos do hero = mestre do dia + Sanha (fallback). */
 export function candidatosHero(
   ctx: ContextoHero,
-  protagonista: Personagem | null,
-  dono: Personagem | null,
+  mestre: Personagem | null,
+  avatar: Personagem | null = null,
 ): string[] {
-  // HOME: o protagonista do dia (presença única do dia).
-  if (ctx === "home") {
-    return [...new Set(dePersonagem(protagonista, ctx, false))];
-  }
-  // ABAS: o DONO do atributo lidera (cada aba mostra um personagem diferente,
-  // no contexto da família) — evita repetir a mesma foto em todas as telas.
-  // O protagonista do dia entra como fallback se o dono não tiver imagem.
   const out = [
-    ...dePersonagem(dono, ctx, true),
-    ...(protagonista && protagonista.id !== dono?.id
-      ? dePersonagem(protagonista, ctx, true)
-      : []),
+    ...candidatosDePersonagem(mestre, ctx),
+    ...candidatosDePersonagem(avatar, ctx),
   ];
   return [...new Set(out)];
 }

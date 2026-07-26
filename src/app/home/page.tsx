@@ -12,6 +12,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import {
+  avatarJogador,
   diaDeHoje,
   diaFinalizado,
   diasComLogSet,
@@ -60,7 +61,7 @@ export default async function HomePage() {
   const personagem = await personagemDoDia(user.id);
   if (!personagem) redirect("/hub");
 
-  const [attr, dia, comLog, nevoa, nHoje, spin, semana, nucleo, trackers, finalizado, meta, corpoRecente, { data: sanhaData }] =
+  const [attr, dia, comLog, nevoa, nHoje, spin, semana, nucleo, trackers, finalizado, meta, corpoRecente, sanha] =
     await Promise.all([
       garantirAtributos(user.id),
       diaDeHoje(user.id),
@@ -74,10 +75,10 @@ export default async function HomePage() {
       diaFinalizado(user.id),
       garantirMeta(user.id),
       corpoRealRecente(user.id, 21),
-      // v10.2: Sanha carregado pra render de "dojang duo" quando TKD é o foco.
-      supabase.from("personagens").select("slug, nome").eq("avatar_jogador", true).maybeSingle(),
+      // v10.2: Sanha (avatar) carregado inteiro — usado no hero, no dojang duo
+      // (TKD) e como fallback de todas as abas.
+      avatarJogador(),
     ]);
-  const sanha = sanhaData as { slug: string; nome: string } | null;
   const progresso = progressoMeta(meta, corpoRecente);
   const splitHoje = splitDeHoje();
   // v10: foco do dia derivado do domínio do mestre escolhido no hub.
@@ -113,10 +114,7 @@ export default async function HomePage() {
           pelo DOMÍNIO do mestre (treino / palco / kihap) — cai no corpo/rosto
           se o arquivo não existir. */}
       <ContextualHero
-        candidatos={[
-          imagemPose(personagem.slug, poseParaDominio(personagem.dominio)),
-          ...candidatosHero("home", personagem, null),
-        ]}
+        candidatos={candidatosHero("home", personagem, sanha)}
         nome={personagem.nome}
         titulo={personagem.titulo}
         dica={dicaDoDia("home", hojeISO())}

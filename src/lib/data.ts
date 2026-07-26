@@ -554,6 +554,17 @@ export function donoDoAtributo(
   return roster.find((p) => p.comportamento_alvo === familia) ?? null;
 }
 
+/** v10.2: o avatar do jogador (Sanha) — usado como fallback em todas as abas. */
+export async function avatarJogador(): Promise<Personagem | null> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("personagens")
+    .select("*")
+    .eq("avatar_jogador", true)
+    .maybeSingle();
+  return (data as Personagem | null) ?? null;
+}
+
 // ── Protocolo diário (v4) ──
 export async function familiasLogadasHoje(userId: string): Promise<Set<Familia>> {
   const supabase = createClient();
