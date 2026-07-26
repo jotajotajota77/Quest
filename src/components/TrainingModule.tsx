@@ -338,6 +338,8 @@ export default function TrainingModule({
         );
       })}
 
+      <QuickAddExercicio splitAlvo={splitAlvo} ocupado={ocupado} api={api} />
+
       <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
         <button className="nav-link" disabled={ocupado} onClick={() => setCatalogo(true)}>
           📚 Biblioteca de exercícios
@@ -388,6 +390,114 @@ export default function TrainingModule({
           ))}
         </ModalBase>
       )}
+    </div>
+  );
+}
+
+// v10.3: "Registrar avulso" — versão em branco pra adicionar exercício que
+// foi feito mas não tá no split do dia. Vai pro split ativo como custom, e a
+// partir daí você loga série normalmente. Cobre o caso "fiz X, quero anotar".
+function QuickAddExercicio({
+  splitAlvo,
+  ocupado,
+  api,
+}: {
+  splitAlvo: string;
+  ocupado: boolean;
+  api: (body: Record<string, unknown>) => Promise<unknown>;
+}) {
+  const [nome, setNome] = useState("");
+  const [grupo, setGrupo] = useState<string>("peito");
+  const [aberto, setAberto] = useState(false);
+
+  async function adicionar() {
+    const n = nome.trim();
+    if (!n) return;
+    await api({ action: "add", nome: n, grupo, split: splitAlvo });
+    setNome("");
+    setAberto(false);
+  }
+
+  if (!aberto) {
+    return (
+      <div style={{ marginTop: 10 }}>
+        <button
+          className="nav-link"
+          disabled={ocupado}
+          onClick={() => setAberto(true)}
+          style={{ borderColor: "var(--neon-2)" }}
+        >
+          ➕ Registrar avulso
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="panel"
+      style={{
+        marginTop: 10,
+        display: "grid",
+        gap: 8,
+        borderLeft: "3px solid var(--neon-2)",
+      }}
+    >
+      <div className="lbl">Registrar avulso · adiciona ao split ativo</div>
+      <input
+        type="text"
+        placeholder="Nome do exercício (ex.: Elevação de pernas)"
+        value={nome}
+        onChange={(e) => setNome(e.target.value)}
+        style={{
+          padding: 10,
+          borderRadius: 8,
+          border: "1px solid var(--panel-border)",
+          background: "rgba(0,0,0,0.25)",
+          color: "var(--text)",
+        }}
+      />
+      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <label className="subtle" style={{ fontSize: "0.72rem" }}>
+          grupo:
+        </label>
+        <select
+          value={grupo}
+          onChange={(e) => setGrupo(e.target.value)}
+          style={{
+            padding: 8,
+            borderRadius: 8,
+            border: "1px solid var(--panel-border)",
+            background: "rgba(0,0,0,0.25)",
+            color: "var(--text)",
+          }}
+        >
+          {["peito", "costas", "ombro", "biceps", "triceps", "pernas", "posterior", "panturrilha", "core"].map((g) => (
+            <option key={g} value={g}>
+              {g}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div style={{ display: "flex", gap: 8 }}>
+        <button
+          className="btn btn-primary"
+          style={{ flex: 1 }}
+          disabled={ocupado || !nome.trim()}
+          onClick={adicionar}
+        >
+          Adicionar
+        </button>
+        <button
+          className="nav-link"
+          onClick={() => {
+            setNome("");
+            setAberto(false);
+          }}
+        >
+          Cancelar
+        </button>
+      </div>
     </div>
   );
 }
