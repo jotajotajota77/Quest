@@ -838,6 +838,147 @@ export async function avaliarQuests(
   return view;
 }
 
+// ============================================================
+// v11.2: Conquistas — carrega contexto agregado + avalia + persiste unlocks.
+// ============================================================
+import {
+  CONQUISTAS,
+  classificarConquistas,
+  type Conquista,
+  type ConquistaComProgresso,
+  type ConquistaCtx,
+} from "@/lib/conquistas";
+
+export async function avaliarConquistas(
+  userId: string,
+  ctx: ConquistaCtx,
+): Promise<{
+  unlocked: Conquista[];
+  novas: Conquista[];
+  locked: ConquistaComProgresso[];
+}> {
+  const supabase = createClient();
+  const { data: existentes } = await supabase
+    .from("conquistas_unlocked")
+    .select("conquista_id")
+    .eq("user_id", userId);
+  const jaSet = new Set<string>((existentes ?? []).map((r) => r.conquista_id as string));
+
+  const cls = classificarConquistas(ctx, jaSet);
+  if (cls.novas.length > 0) {
+    // Persiste as novas
+    await supabase.from("conquistas_unlocked").insert(
+      cls.novas.map((c) => ({ user_id: userId, conquista_id: c.id })),
+    );
+  }
+  return cls;
+}
+
+/** Monta o ConquistaCtx do usuário — agrega números de várias tabelas. */
+export async function contextoConquistas(userId: string): Promise<ConquistaCtx> {
+  const supabase = createClient();
+  const hoje = hojeISO();
+  const [
+    comLog,
+    nevoa,
+    { count: seriesCount },
+    { data: tkdQuests },
+    { data: muscQuests },
+    { count: dancaCount },
+    { data: progressos },
+    { count: cardioCount },
+    { data: metaRow },
+    corpoRecente,
+  ] = await Promise.all([
+    diasComLogSet(userId),
+    diasNevoaSet(userId),
+    supabase
+      .from("treino_series")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId),
+    supabase
+      .from("quests")
+      .select("quest_id")
+      .eq("user_id", userId)
+      .eq("estado", "completa")
+      .eq("tipo", "tkd"),
+    supabase
+      .from("quests")
+      .select("quest_id")
+      .eq("user_id", userId)
+      .eq("estado", "completa")
+      .eq("tipo", "musculacao"),
+    supabase
+      .from("logs_danca")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId),
+    supabase
+      .from("progresso_dominio")
+      .select("dominio, kup, dan")
+      .eq("user_id", userId),
+    supabase
+      .from("logs")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("comportamento", "cardio"),
+    supabase
+      .from("meta")
+      .select("*")
+      .eq("user_id", userId)
+      .maybeSingle(),
+    corpoRealRecente(userId, 5),
+  ]);
+
+  const { streakDetalhado } = await import("@/lib/engine/streak");
+  const streak = streakDetalhado(hoje, comLog, nevoa);
+
+  const tkdProg = (progressos ?? []).find((p) => p.dominio === "taekwondo");
+  const faixaMaxKupTKD = tkdProg && tkdProg.dan === 0 ? (tkdProg.kup as number) : 0;
+  const faixaMaxDanTKD = tkdProg ? (tkdProg.dan as number) : 0;
+
+  // Maior faixa em qualquer domínio — só rótulo básico
+  let maiorFaixaDominio = "Branca";
+  for (const p of progressos ?? []) {
+    if ((p.dan as number) > 0) {
+      maiorFaixaDominio = `Preta ${p.dan}º dan`;
+      break;
+    }
+    if ((p.kup as number) < 10) {
+      maiorFaixaDominio = `${10 - (p.kup as number) + 1}º kup`;
+    }
+  }
+
+  const meta_peso_alcancada =
+    !!metaRow &&
+    !!corpoRecente[0]?.peso &&
+    (corpoRecente[0].peso as number) <= (metaRow.peso_alvo as number);
+  const meta_bf_alcancada =
+    !!metaRow &&
+    !!corpoRecente[0]?.gordura_pct &&
+    (corpoRecente[0].gordura_pct as number) <= (metaRow.bf_alvo as number);
+
+  return {
+    streakAtual: streak.streak,
+    streakRecorde: streak.recorde,
+    seriesTotais: seriesCount ?? 0,
+    tkdMarcadasTotais: (tkdQuests ?? []).length,
+    muscMarcadasTotais: (muscQuests ?? []).length,
+    dancaLogsTotais: dancaCount ?? 0,
+    faixaMaxKupTKD,
+    faixaMaxDanTKD,
+    maiorFaixaDominio,
+    meta_peso_alcancada,
+    meta_bf_alcancada,
+    primeiraTKD: (tkdQuests ?? []).length >= 1,
+    primeiraDanca: (dancaCount ?? 0) >= 1,
+    primeiroCardio: (cardioCount ?? 0) >= 1,
+    cutting_iniciado: !!metaRow,
+  };
+}
+
+// Re-export pra UI
+export { CONQUISTAS };
+
 // ── Perfil (descrição usada nas dicas de treino / Análise IA) ──
 export async function perfilDe(userId: string): Promise<string | null> {
   const supabase = createClient();

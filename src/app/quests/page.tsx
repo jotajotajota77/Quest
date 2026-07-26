@@ -8,14 +8,17 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import {
+  avaliarConquistas,
   avaliarQuests,
   avatarJogador,
+  contextoConquistas,
   familiasLogadasHoje,
   hojeISO,
   personagemDoDia,
   registrosHoje,
   trackersHoje,
 } from "@/lib/data";
+import ConquistasCard from "@/components/ConquistasCard";
 import { trackersFeitos } from "@/lib/protocolo";
 import BottomNav from "@/components/BottomNav";
 import CharacterImage from "@/components/CharacterImage";
@@ -46,6 +49,10 @@ export default async function QuestsPage() {
     aguaCount: trackers.agua_count,
     registrosHoje: nHoje,
   });
+
+  // v11.2: conquistas — avalia contra o histórico do usuário, marca as novas.
+  const conqCtx = await contextoConquistas(user.id);
+  const conquistas = await avaliarConquistas(user.id, conqCtx);
 
   // Histórico de sidequests concluídas (últimos 7 dias)
   const desde = new Date(Date.now() - 7 * 86_400_000).toISOString().slice(0, 10);
@@ -127,6 +134,13 @@ export default async function QuestsPage() {
           </p>
         </div>
       )}
+
+      {/* v11.2: Conquistas — badges permanentes */}
+      <ConquistasCard
+        unlocked={conquistas.unlocked}
+        locked={conquistas.locked}
+        novas={conquistas.novas}
+      />
 
       {/* Diárias */}
       {diarias.length > 0 && (

@@ -47,7 +47,13 @@ export async function updateSession(request: NextRequest) {
           );
           response = NextResponse.next({ request });
           cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options),
+            response.cookies.set(name, value, {
+              ...options,
+              // v11.2: persistente 1 ano — antes usava só max-age do JWT
+              // (curto), então cookie evaporava no fim da sessão do browser
+              // e forçava re-login toda vez.
+              maxAge: options?.maxAge ?? 60 * 60 * 24 * 365,
+            }),
           );
         },
       },

@@ -17,7 +17,11 @@ export function createClient() {
         setAll(cookiesToSet: CookieToSet[]) {
           try {
             cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options),
+              cookieStore.set(name, value, {
+                ...options,
+                // v11.2: cookie persistente 1 ano pra manter logado.
+                maxAge: options?.maxAge ?? 60 * 60 * 24 * 365,
+              }),
             );
           } catch {
             // Chamado de um Server Component — middleware cuida do refresh.
