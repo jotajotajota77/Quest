@@ -36,6 +36,38 @@ export default async function ProgramaPage() {
   const programaHoje = programaDoDia(dowHoje);
   const calendario = programaAteMeta(hoje, meta.data_alvo);
 
+  // v11.1: lê o que foi feito hoje pra bater no card de HOJE. Séries de
+  // musculação por exercício, log de dança (aula ou coreo), quests TKD marcadas.
+  const inicioHoje = new Date(Date.UTC(hy, hm - 1, hd, 3, 0, 0)).toISOString(); // 00:00 BR
+  const [{ data: seriesHojeRaw }, { data: dancaHojeRaw }, { data: questsCompletas }] =
+    await Promise.all([
+      supabase
+        .from("treino_series")
+        .select("nome, peso, reps")
+        .eq("user_id", user.id)
+        .gte("ts", inicioHoje),
+      supabase
+        .from("logs_danca")
+        .select("musica, duracao_min")
+        .eq("user_id", user.id)
+        .gte("ts", inicioHoje),
+      supabase
+        .from("quests")
+        .select("quest_id, descricao, tipo")
+        .eq("user_id", user.id)
+        .eq("data", hoje)
+        .eq("estado", "completa"),
+    ]);
+  const seriesHoje = (seriesHojeRaw ?? []) as { nome: string; peso: number | null; reps: number | null }[];
+  const dancaHoje = (dancaHojeRaw ?? []) as { musica: string; duracao_min: number | null }[];
+  const questsHoje = (questsCompletas ?? []) as { quest_id: string; descricao: string; tipo: string }[];
+  const seriesPorNome = new Map<string, number>();
+  for (const s of seriesHoje) {
+    seriesPorNome.set(s.nome, (seriesPorNome.get(s.nome) ?? 0) + 1);
+  }
+  const tkdMarcados = questsHoje.filter((q) => q.tipo === "tkd").length;
+  const muscMarcados = questsHoje.filter((q) => q.tipo === "musculacao").length;
+
   // Agrupa por semana (segunda como início)
   const semanas: { titulo: string; dias: { data: string; dia: DiaPrograma }[] }[] = [];
   let bufferSemana: { data: string; dia: DiaPrograma }[] = [];
@@ -94,8 +126,42 @@ export default async function ProgramaPage() {
         )}
         <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
           {programaHoje.sessoes.map((s, i) => (
-            <SessaoCard key={i} sessao={s} destaque />
+            <SessaoCard
+              key={i}
+              sessao={s}
+              destaque
+              seriesPorNome={seriesPorNome}
+              dancaHoje={dancaHoje}
+              tkdMarcadosHoje={tkdMarcados}
+              muscMarcadosHoje={muscMarcados}
+            />
           ))}
+        </div>
+        {/* Resumo do que foi feito hoje */}
+        <div
+          className="subtle"
+          style={{
+            marginTop: 12,
+            padding: "8px 12px",
+            borderTop: "1px dashed var(--hairline)",
+            fontSize: "0.75rem",
+            display: "flex",
+            gap: 12,
+            flexWrap: "wrap",
+          }}
+        >
+          <span>
+            🏋️ <strong>{seriesHoje.length}</strong> séries logadas
+          </span>
+          <span>
+            💃 <strong>{dancaHoje.length}</strong> sessão(ões) de dança
+          </span>
+          <span>
+            🥋 <strong>{tkdMarcados}</strong> quests TKD marcadas
+          </span>
+          <span>
+            ✓ <strong>{muscMarcados}</strong> quest musc marcada
+          </span>
         </div>
       </div>
 
@@ -181,7 +247,51 @@ export default async function ProgramaPage() {
   );
 }
 
-function SessaoCard({ sessao, destaque }: { sessao: Sessao; destaque?: boolean }) {
+function SessaoCard({
+  sessao,
+  destaque,
+  seriesPorNome,
+  dancaHoje,
+  tkdMarcadosHoje = 0,
+  muscMarcadosHoje = 0,
+}: {
+  sessao: Sessao;
+  destaque?: boolean;
+  seriesPorNome?: Map<string, number>;
+  dancaHoje?: { musica: string; duracao_min: number | null }[];
+  tkdMarcadosHoje?: number;
+  muscMarcadosHoje?: number;
+}) {
+  // Status de conclusão por tipo:
+  //  - musculacao: X/Y exercícios com pelo menos 1 série hoje
+  //  - danca: N sessões logadas
+  //  - tkd: N quests TKD marcadas (proxy — sem log direto)
+  let statusLinha: React.ReactNode = null;
+  if (sessao.tipo === "musculacao" && sessao.exercicios && seriesPorNome) {
+    const feitos = sessao.exercicios.filter((e) => (seriesPorNome.get(e.nome) ?? 0) > 0).length;
+    const total = sessao.exercicios.length;
+    const cor = feitos === total ? "var(--good)" : feitos > 0 ? "var(--gold)" : "var(--text-dim)";
+    statusLinha = (
+      <div style={{ fontSize: "0.75rem", color: cor, fontWeight: 700 }}>
+        {feitos === total ? "✓ Sessão completa" : `${feitos}/${total} exercícios hoje`}
+      </div>
+    );
+  } else if (sessao.tipo === "danca" && dancaHoje) {
+    if (dancaHoje.length > 0) {
+      statusLinha = (
+        <div style={{ fontSize: "0.75rem", color: "var(--good)", fontWeight: 700 }}>
+          ✓ Registrou {dancaHoje.length} sessão(ões) hoje
+        </div>
+      );
+    }
+  } else if (sessao.tipo === "tkd" && tkdMarcadosHoje > 0) {
+    statusLinha = (
+      <div style={{ fontSize: "0.75rem", color: "var(--good)", fontWeight: 700 }}>
+        ✓ {tkdMarcadosHoje} quest(s) TKD marcada(s)
+      </div>
+    );
+  }
+  void muscMarcadosHoje; // reserved
   return (
     <div
       style={{
@@ -228,30 +338,37 @@ function SessaoCard({ sessao, destaque }: { sessao: Sessao; destaque?: boolean }
           🥋 rotina do sunbaenim · não editável
         </div>
       )}
+      {statusLinha}
       {sessao.exercicios && (
         <div style={{ marginTop: 4, display: "grid", gap: 4 }}>
-          {sessao.exercicios.map((ex, i) => (
-            <div
-              key={i}
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                gap: 8,
-                fontSize: "0.82rem",
-                padding: "4px 0",
-                borderBottom: "1px dashed var(--hairline)",
-              }}
-            >
-              <span>{ex.nome}</span>
-              <span
-                className="subtle"
-                style={{ fontFamily: "var(--font-mono)", fontSize: "0.72rem" }}
+          {sessao.exercicios.map((ex, i) => {
+            const feitas = seriesPorNome?.get(ex.nome) ?? 0;
+            return (
+              <div
+                key={i}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: 8,
+                  fontSize: "0.82rem",
+                  padding: "4px 0",
+                  borderBottom: "1px dashed var(--hairline)",
+                }}
               >
-                {ex.series ?? ""}
-                {ex.descanso_seg ? ` · ${ex.descanso_seg}s desc` : ""}
-              </span>
-            </div>
-          ))}
+                <span style={{ color: feitas > 0 ? "var(--good)" : "var(--text)" }}>
+                  {feitas > 0 ? "✓ " : ""}
+                  {ex.nome}
+                </span>
+                <span
+                  className="subtle"
+                  style={{ fontFamily: "var(--font-mono)", fontSize: "0.72rem" }}
+                >
+                  {ex.series ?? ""}
+                  {feitas > 0 ? ` · ${feitas}× logadas` : ""}
+                </span>
+              </div>
+            );
+          })}
         </div>
       )}
       {sessao.tkd_moves && sessao.tkd_moves.length > 0 && (

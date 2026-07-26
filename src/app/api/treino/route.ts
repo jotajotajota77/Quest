@@ -39,6 +39,44 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true });
     }
 
+    // v11: sincroniza o /treino com o /plano — apaga tudo e insere só os
+    // exercícios do programa (split keys prog_*). Preserva o custom=true.
+    case "sync_programa": {
+      const { exerciciosDoPrograma } = await import("@/lib/programa");
+      // Preserva os exercícios custom (adicionados via "Registrar avulso")
+      const { data: customs } = await supabase
+        .from("treino_exercicios")
+        .select("nome, grupo_muscular, split, ordem")
+        .eq("user_id", user.id)
+        .eq("custom", true);
+      // Apaga tudo
+      await supabase.from("treino_exercicios").delete().eq("user_id", user.id);
+      // Insere programa
+      const progLinhas = exerciciosDoPrograma().map((ex) => ({
+        user_id: user.id,
+        nome: ex.nome,
+        grupo_muscular: ex.grupo,
+        split: ex.split,
+        ordem: ex.ordem,
+        custom: false,
+      }));
+      const customLinhas = (customs ?? []).map((c) => ({
+        user_id: user.id,
+        nome: c.nome as string,
+        grupo_muscular: c.grupo_muscular as string | null,
+        split: c.split as string | null,
+        ordem: (c.ordem as number) ?? 999,
+        custom: true,
+      }));
+      const { error } = await supabase
+        .from("treino_exercicios")
+        .insert([...progLinhas, ...customLinhas]);
+      if (error) {
+        return NextResponse.json({ error: "falha sync" }, { status: 500 });
+      }
+      return NextResponse.json({ ok: true, count: progLinhas.length });
+    }
+
     // v10.3: adiciona um preset ao plano existente (sem apagar). Útil pra
     // encaixar Core + Cardio junto do split semanal.
     case "merge_preset": {

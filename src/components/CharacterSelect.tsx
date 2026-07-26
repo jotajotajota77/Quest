@@ -88,6 +88,7 @@ export default function CharacterSelect({
             <CharacterImage
               src={avatar.asset_corpo ?? avatar.asset_rosto ?? imagemPose(avatar.slug, "rosto")}
               nome={avatar.nome}
+              className="roster-face"
               fallbackSize="4rem"
             />
           </div>
@@ -146,6 +147,7 @@ export default function CharacterSelect({
             <CharacterImage
               src={sel.asset_corpo ?? imagemPose(sel.slug, "corpo")}
               nome={sel.nome}
+              className="roster-face"
               fallbackSize="4rem"
             />
           </div>

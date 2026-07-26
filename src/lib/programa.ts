@@ -347,3 +347,87 @@ export const ICO_TIPO_SESSAO: Record<TipoSessao, string> = {
   cardio: "🏃",
   mobilidade: "🧘",
 };
+
+// v11: split keys canônicos do programa (usados como `split` na tabela
+// treino_exercicios). Prefixados com "prog_" pra distinguir dos antigos.
+export const PROGRAMA_SPLIT_KEYS = [
+  "prog_seg_push",
+  "prog_ter_pull",
+  "prog_qua_legs",
+  "prog_qui_upper2",
+  "prog_sex_shoulders_arms",
+  "prog_sab_cardio_core",
+  "prog_dom_yoga_danca",
+] as const;
+
+export type ProgramaSplitKey = (typeof PROGRAMA_SPLIT_KEYS)[number];
+
+/** Mapa dia da semana (0=Dom..6=Sab) → chave do split do programa. */
+export const DOW_TO_SPLIT_KEY: Record<number, ProgramaSplitKey> = {
+  0: "prog_dom_yoga_danca",
+  1: "prog_seg_push",
+  2: "prog_ter_pull",
+  3: "prog_qua_legs",
+  4: "prog_qui_upper2",
+  5: "prog_sex_shoulders_arms",
+  6: "prog_sab_cardio_core",
+};
+
+/** Label amigável do split do programa (usa o título da sessão de musculação
+ *  ou o título principal do dia). */
+export const LABEL_PROGRAMA_SPLIT: Record<ProgramaSplitKey, string> = {
+  prog_seg_push: "SEG · Push (peito + ombro + tríceps)",
+  prog_ter_pull: "TER · Pull (costas + bíceps)",
+  prog_qua_legs: "QUA · Legs (pernas + glúteo)",
+  prog_qui_upper2: "QUI · Upper 2 + core",
+  prog_sex_shoulders_arms: "SEX · Ombros + braços",
+  prog_sab_cardio_core: "SAB · Cardio + core (descanso em movimento)",
+  prog_dom_yoga_danca: "DOM · Yoga + dança longa (descanso em movimento)",
+};
+
+/** Gera as linhas de treino_exercicios pra sincronizar o /treino com o /plano.
+ *  Cada exercício de musculação (+ cardio/mobilidade quando aplicável) vira
+ *  uma linha com o split do dia. Sábado e domingo entram como referência —
+ *  exercícios pequenos, mas ficam disponíveis pra logar. */
+export function exerciciosDoPrograma(): Array<{
+  nome: string;
+  grupo: string;
+  split: ProgramaSplitKey;
+  ordem: number;
+}> {
+  const out: Array<{ nome: string; grupo: string; split: ProgramaSplitKey; ordem: number }> = [];
+  for (const dow of [1, 2, 3, 4, 5, 6, 0]) {
+    const key = DOW_TO_SPLIT_KEY[dow];
+    const dia = PROGRAMA_SEMANAL[dow];
+    let ordem = 0;
+    for (const sessao of dia.sessoes) {
+      if (!sessao.exercicios || sessao.exercicios.length === 0) continue;
+      for (const ex of sessao.exercicios) {
+        out.push({
+          nome: ex.nome,
+          grupo: inferGrupo(ex.nome, sessao.tipo),
+          split: key,
+          ordem: ordem++,
+        });
+      }
+    }
+  }
+  return out;
+}
+
+/** Inferência simples de grupo muscular pelo nome do exercício. */
+function inferGrupo(nome: string, tipoSessao: string): string {
+  const n = nome.toLowerCase();
+  if (tipoSessao === "cardio") return "cardio";
+  if (tipoSessao === "mobilidade") return "core";
+  if (n.includes("supino") || n.includes("crucifixo") || n.includes("crossover") || n.includes("peck")) return "peito";
+  if (n.includes("puxada") || n.includes("remada") || n.includes("barra fixa") || n.includes("pulldown") || n.includes("face pull")) return "costas";
+  if (n.includes("desenvolvimento") || n.includes("elevação lateral") || n.includes("elevação frontal") || n.includes("crucifixo invertido")) return "ombro";
+  if (n.includes("rosca")) return "biceps";
+  if (n.includes("tríceps") || n.includes("mergulho")) return "triceps";
+  if (n.includes("agachamento") || n.includes("leg press") || n.includes("cadeira extensora") || n.includes("afundo") || n.includes("hack")) return "pernas";
+  if (n.includes("stiff") || n.includes("mesa flexora") || n.includes("cadeira flexora") || n.includes("terra") || n.includes("elevação de quadril")) return "posterior";
+  if (n.includes("panturrilha")) return "panturrilha";
+  if (n.includes("prancha") || n.includes("crunch") || n.includes("ab wheel") || n.includes("cable woodchopper") || n.includes("dead bug") || n.includes("bird dog") || n.includes("elevação de pernas") || n.includes("rotação russa") || n.includes("abdominal") || n.includes("alongamento")) return "core";
+  return "core";
+}
