@@ -14,6 +14,7 @@ import CharacterImage from "@/components/CharacterImage";
 import { ESPELHO_FRAMING } from "@/lib/objetivos";
 import { garantirMeta, corpoRealRecente } from "@/lib/data";
 import { progressoMeta, comparacaoHistorica } from "@/lib/engine/meta";
+import { imagemPose } from "@/lib/personagens";
 import type { Personagem } from "@/lib/types";
 
 export default async function EspelhoPage() {
@@ -54,37 +55,40 @@ export default async function EspelhoPage() {
         Corpo real. Passivo — só você abre, ninguém te chama aqui.
       </p>
 
-      {/* v10: Sanha — o avatar do jogador. Vive só nesta aba. */}
+      {/* v10: Sanha — o avatar do jogador. Vive só nesta aba. v10.2: pose
+          de espelho grande (torso frontal). */}
       {sanha && (
         <div
           className="panel"
           style={{
             marginTop: 14,
-            display: "flex",
-            gap: 14,
-            alignItems: "center",
+            display: "grid",
+            gap: 12,
             borderLeft: "3px solid var(--calm)",
           }}
         >
           <div
             style={{
-              width: 72,
-              height: 72,
+              width: "100%",
+              aspectRatio: "3 / 4",
+              maxHeight: 360,
               borderRadius: 10,
               overflow: "hidden",
-              flexShrink: 0,
               background: "linear-gradient(160deg, var(--lilac), var(--surface))",
               border: "1px solid var(--hairline)",
+              display: "grid",
+              placeItems: "center",
             }}
           >
             <CharacterImage
-              src={sanha.asset_rosto}
+              src={imagemPose(sanha.slug, "espelho")}
               nome={sanha.nome}
               className="roster-face"
+              fallbackSize="4rem"
             />
           </div>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontWeight: 800, fontSize: "1.05rem" }}>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: "1.15rem" }}>
               {sanha.nome}
               {sanha.nome_kr && (
                 <span

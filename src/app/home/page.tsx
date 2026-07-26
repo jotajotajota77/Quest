@@ -37,7 +37,8 @@ import AppHeader from "@/components/AppHeader";
 import { analisarSemana } from "@/lib/analise";
 import { progressoMeta } from "@/lib/engine/meta";
 import { splitDeHoje } from "@/lib/treino";
-import { focoDoMestre } from "@/lib/personagens";
+import { focoDoMestre, imagemPose, poseParaDominio } from "@/lib/personagens";
+import CharacterImage from "@/components/CharacterImage";
 import { trackersFeitos } from "@/lib/protocolo";
 import { streakDetalhado } from "@/lib/engine/streak";
 import { mensagemContextual } from "@/lib/voz";
@@ -103,11 +104,16 @@ export default async function HomePage() {
 
       {/* Goal dashboard — o coração da home (TRAVA v9). Chama viva (streak)
           embutida no fim do card — v9.2 TRAVA 8 (gamificação da aderência). */}
-      <GoalDashboard meta={meta} progresso={progresso} streak={streak} />
+      <GoalDashboard meta={meta} progresso={progresso} streak={streak} mestre={personagem} />
 
-      {/* Presença: hero contextual do protagonista do dia. */}
+      {/* Presença: hero contextual do protagonista do dia. v10.2: pose escolhida
+          pelo DOMÍNIO do mestre (treino / palco / kihap) — cai no corpo/rosto
+          se o arquivo não existir. */}
       <ContextualHero
-        candidatos={candidatosHero("home", personagem, null)}
+        candidatos={[
+          imagemPose(personagem.slug, poseParaDominio(personagem.dominio)),
+          ...candidatosHero("home", personagem, null),
+        ]}
         nome={personagem.nome}
         titulo={personagem.titulo}
         dica={dicaDoDia("home", hojeISO())}
@@ -145,12 +151,32 @@ export default async function HomePage() {
         href={foco.href}
         className="panel"
         style={{
-          display: "block",
+          display: "flex",
+          gap: 12,
           textDecoration: "none",
           marginTop: 12,
           borderColor: "var(--kihap)",
+          alignItems: "center",
         }}
       >
+        <div
+          style={{
+            width: 72,
+            height: 72,
+            borderRadius: 10,
+            overflow: "hidden",
+            flexShrink: 0,
+            background: "linear-gradient(160deg, var(--lilac), var(--surface))",
+            border: "1px solid var(--hairline)",
+          }}
+        >
+          <CharacterImage
+            src={imagemPose(personagem.slug, poseParaDominio(personagem.dominio))}
+            nome={personagem.nome}
+            className="roster-face"
+          />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
         <div className="lbl">Foco de hoje · com {personagem.nome}</div>
         <div style={{ fontWeight: 800, marginTop: 4, fontSize: "1.05rem" }}>
           {foco.titulo}
@@ -163,6 +189,7 @@ export default async function HomePage() {
           style={{ marginTop: 8, fontSize: "0.72rem", opacity: 0.7 }}
         >
           contexto do dia · {splitHoje.dia} — {splitHoje.label} (Apêndice A)
+        </div>
         </div>
       </Link>
 
