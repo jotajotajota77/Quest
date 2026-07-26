@@ -139,7 +139,7 @@ export default async function HomePage() {
         </div>
       </div>
 
-      <Scoreboard attr={attr} personagem={personagem} />
+      <Scoreboard attr={attr} personagem={personagem} sanha={sanha} />
 
       {/* Streak vive no GoalDashboard como Chama Viva. Botões de lore antigos
           (Mundo VHYX / Lore do personagem) foram removidos na v10.1 — a
