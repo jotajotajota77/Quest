@@ -989,13 +989,13 @@ export async function bossProgressoDaSemana(userId: string): Promise<BossProgres
   const supabase = createClient();
   const hoje = hojeISO();
   const boss = bossDaSemana(hoje);
-  const { inicio, fim } = limitesSemanaISO(boss.semana_iso);
-  const inicioTS = `${inicio}T00:00:00Z`;
-  const fimTS = `${fim}T23:59:59Z`;
+  const limites = limitesSemanaISO(boss.semana_iso);
+  const inicioTS = `${limites.inicio}T00:00:00Z`;
+  const fimTS = `${limites.fim}T23:59:59Z`;
 
   const [
     { count: seriesCount },
-    { data: tkdQuestsSemana },
+    { count: tkdSessoesCount },
     { count: dancaCount },
     { data: logsNutriSemana },
   ] = await Promise.all([
@@ -1005,14 +1005,14 @@ export async function bossProgressoDaSemana(userId: string): Promise<BossProgres
       .eq("user_id", userId)
       .gte("ts", inicioTS)
       .lte("ts", fimTS),
+    // v11.9: conta sessões REAIS de TKD (logs_tkd), não quests marcadas.
+    // Sessão logada no dojang = 1 unidade de dano no boss.
     supabase
-      .from("quests")
-      .select("quest_id")
+      .from("logs_tkd")
+      .select("id", { count: "exact", head: true })
       .eq("user_id", userId)
-      .eq("estado", "completa")
-      .eq("tipo", "tkd")
-      .gte("data", inicio)
-      .lte("data", fim),
+      .gte("ts", inicioTS)
+      .lte("ts", fimTS),
     supabase
       .from("logs_danca")
       .select("id", { count: "exact", head: true })
@@ -1030,7 +1030,7 @@ export async function bossProgressoDaSemana(userId: string): Promise<BossProgres
 
   return calcularBossProgresso(boss, {
     series: seriesCount ?? 0,
-    tkd: (tkdQuestsSemana ?? []).length,
+    tkd: tkdSessoesCount ?? 0,
     danca: dancaCount ?? 0,
     nutri: (logsNutriSemana ?? []).length,
   });
