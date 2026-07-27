@@ -16,6 +16,7 @@ import {
 import BottomNav from "@/components/BottomNav";
 import CharacterImage from "@/components/CharacterImage";
 import ContextualHero from "@/components/ContextualHero";
+import TkdLog, { type TkdLogRow } from "@/components/TkdLog";
 import { candidatosHero } from "@/lib/heroi";
 import { dicaDoDia } from "@/lib/dicas";
 import { hojeISO } from "@/lib/data";
@@ -44,11 +45,18 @@ export default async function TaekwondoPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [personagem, sanha, progressos] = await Promise.all([
+  const [personagem, sanha, progressos, { data: tkdRaw }] = await Promise.all([
     personagemDoDia(user.id),
     avatarJogador(),
     garantirProgressoDominio(user.id),
+    supabase
+      .from("logs_tkd")
+      .select("id, ts, descricao, duracao_min, notas")
+      .eq("user_id", user.id)
+      .order("ts", { ascending: false })
+      .limit(50),
   ]);
+  const tkdHist = (tkdRaw ?? []) as TkdLogRow[];
 
   const tkd = progressos.find((p) => p.dominio === "taekwondo");
   const faixaTkd = tkd ? faixaAtual(tkd) : null;
@@ -99,6 +107,9 @@ export default async function TaekwondoPage() {
           </p>
         </div>
       )}
+
+      {/* v11.8: registro + histórico de sessão TKD */}
+      <TkdLog historico={tkdHist} />
 
       {/* Mestre em kihap */}
       {mestreDoDojang ? (
