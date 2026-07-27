@@ -1,15 +1,16 @@
 // ============================================================
 // Quests / sidequests — camada VR SECUNDÁRIA.
 // ------------------------------------------------------------
-// v11: quests agora podem ser AUTO (avaliadas contra logs) ou MANUAIS
-// (marca via botão — usadas pra TKD e exercícios específicos do dia).
-// Quests do dia são um mix: básicas fixas + TKD-flavored do dia + exercício
-// específico da musculação do dia.
+// v11: quests podem ser AUTO (avaliadas contra logs) ou MANUAIS (marca via
+// botão — usadas pra TKD e exercícios específicos do dia).
+// v11.4: pool de TKD expandido pra chutes + esquivas + poomsae + sparring
+// drills. Quests TKD aparecem TODO DIA (não só nos dias de sessão TKD com
+// o sabum) — a ideia é praticar em casa também.
 // ============================================================
 
 import type { Familia } from "@/lib/types";
 import { AGUA_META } from "@/lib/protocolo";
-import { programaDoDia, tkdMovesDoDia } from "@/lib/programa";
+import { programaDoDia } from "@/lib/programa";
 
 export interface QuestCtx {
   nucleo: Set<Familia>;
@@ -37,26 +38,75 @@ const BASE: QuestTemplate[] = [
   { id: "combo", tipo: "sidequest", descricao: "Nutri + Treino no mesmo dia", xp: 18, concluida: (c) => c.nucleo.has("nutri") && c.nucleo.has("treino") },
 ];
 
-// TKD moves-flavored — só aparecem em dias que têm sessão TKD (seg/qua/sex).
-// Descrições geradas dinamicamente a partir dos moves do dia.
-function tkdQuestsDoDia(dataISO: string): QuestTemplate[] {
-  const [y, m, d] = dataISO.split("-").map(Number);
-  const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
-  const moves = tkdMovesDoDia(dow);
-  if (moves.length === 0) return [];
+// v11.4: Pool grande de "moves"/drills TKD com formato de quest.
+// Cada template define reps + xp + template de descrição.
+interface TkdMoveTemplate {
+  id_base: string;
+  descricao: (reps: number) => string;
+  reps_min: number;
+  reps_max: number;
+  xp: number;
+}
 
-  // Pra cada move, uma quest de "faça X reps" — número/xp varia por dia mas
-  // fixado por dataISO+move (determinístico).
-  return moves.slice(0, 3).map((move, i) => {
-    let h = 0;
-    for (const c of dataISO + move) h = (h * 31 + c.charCodeAt(0)) >>> 0;
-    const reps = 3 + (h % 5); // 3-7 reps
-    const xp = 10 + i * 2;    // 10/12/14
+const TKD_POOL: TkdMoveTemplate[] = [
+  // Chutes (kicks) básicos
+  { id_base: "dollyo",     descricao: (r) => `Fazer ${r} Dollyo Chagi (chute circular)`, reps_min: 5, reps_max: 10, xp: 12 },
+  { id_base: "ap_chagi",   descricao: (r) => `Fazer ${r} Ap Chagi (chute frontal)`,       reps_min: 5, reps_max: 12, xp: 10 },
+  { id_base: "yeop",       descricao: (r) => `Fazer ${r} Yeop Chagi (chute lateral)`,     reps_min: 5, reps_max: 10, xp: 12 },
+  { id_base: "bandal",     descricao: (r) => `Fazer ${r} Bandal Chagi (meio-chute)`,      reps_min: 5, reps_max: 10, xp: 10 },
+  { id_base: "dwit",       descricao: (r) => `Fazer ${r} Dwit Chagi (chute pra trás)`,    reps_min: 3, reps_max: 6,  xp: 14 },
+  { id_base: "neryeo",     descricao: (r) => `Fazer ${r} Neryeo Chagi (chute descida)`,   reps_min: 3, reps_max: 8,  xp: 14 },
+  { id_base: "naeryo",     descricao: (r) => `Fazer ${r} Naeryo Chagi (chute machado)`,   reps_min: 3, reps_max: 6,  xp: 14 },
+  { id_base: "tibbit",     descricao: (r) => `Fazer ${r} Tibbit Chagi (giro completo)`,   reps_min: 2, reps_max: 5,  xp: 16 },
+  { id_base: "twio",       descricao: (r) => `Fazer ${r} Twio Chagi (chute com salto)`,   reps_min: 2, reps_max: 4,  xp: 16 },
+
+  // Defesa / esquiva
+  { id_base: "esquivas",   descricao: (r) => `Fazer ${r} esquivas laterais (sparring drill)`, reps_min: 5, reps_max: 12, xp: 12 },
+  { id_base: "esquivas_recuo", descricao: (r) => `${r} esquivas com recuo + contra-ataque`,   reps_min: 3, reps_max: 8,  xp: 14 },
+  { id_base: "arae_makki", descricao: (r) => `${r} Arae Makki (defesa baixa)`,             reps_min: 5, reps_max: 12, xp: 8  },
+  { id_base: "momtong_makki", descricao: (r) => `${r} Momtong Makki (defesa média)`,        reps_min: 5, reps_max: 12, xp: 8  },
+  { id_base: "olgul_makki", descricao: (r) => `${r} Olgul Makki (defesa alta)`,             reps_min: 5, reps_max: 12, xp: 8  },
+
+  // Poomsae
+  { id_base: "poomsae_1", descricao: (r) => `Repetir Poomsae Taegeuk 1 ${r}×`,             reps_min: 1, reps_max: 3,  xp: 15 },
+  { id_base: "poomsae_2", descricao: (r) => `Repetir Poomsae Taegeuk 2 ${r}×`,             reps_min: 1, reps_max: 3,  xp: 15 },
+  { id_base: "poomsae_3", descricao: (r) => `Repetir Poomsae Taegeuk 3 ${r}×`,             reps_min: 1, reps_max: 3,  xp: 15 },
+
+  // Sparring / rounds
+  { id_base: "sparring",  descricao: (r) => `${r}× round(s) de sparring de 2 min`,         reps_min: 1, reps_max: 4,  xp: 20 },
+  { id_base: "combos",    descricao: (r) => `${r} combos completos (chute + contra)`,     reps_min: 3, reps_max: 8,  xp: 14 },
+  { id_base: "guard",     descricao: (r) => `Segurar guarda alta por ${r}× 30s`,           reps_min: 2, reps_max: 5,  xp: 10 },
+  { id_base: "kihap",     descricao: (r) => `${r} kihaps potentes seguidos`,               reps_min: 5, reps_max: 12, xp: 8  },
+
+  // Alongamento / mobilidade (contam pra TKD)
+  { id_base: "chute_alto", descricao: (r) => `${r} chutes altos parados (segurar 3s cada)`, reps_min: 3, reps_max: 6, xp: 12 },
+  { id_base: "abertura",   descricao: (r) => `Manter abertura de perna por ${r}× 30s`,     reps_min: 2, reps_max: 5,  xp: 10 },
+  { id_base: "corda",      descricao: (r) => `${r} min de corda pra aquecer`,               reps_min: 2, reps_max: 5,  xp: 12 },
+];
+
+/** v11.4: escolhe 3 quests TKD por dia (determinístico por data), tirando
+ *  do pool grande. Aparece TODO dia. */
+function tkdQuestsDoDia(dataISO: string): QuestTemplate[] {
+  let h = 0;
+  for (const c of dataISO) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+
+  const ordenado = [...TKD_POOL].sort((a, b) => {
+    const ha = (h + a.id_base.length * 7) % 997;
+    const hb = (h + b.id_base.length * 7) % 997;
+    return ha - hb;
+  });
+
+  return ordenado.slice(0, 3).map((tmpl, i) => {
+    let h2 = 0;
+    for (const c of dataISO + tmpl.id_base) h2 = (h2 * 31 + c.charCodeAt(0)) >>> 0;
+    const range = tmpl.reps_max - tmpl.reps_min + 1;
+    const reps = tmpl.reps_min + (h2 % range);
+    void i;
     return {
-      id: `tkd_${move.toLowerCase().replace(/[^a-z0-9]+/g, "_")}_${reps}`,
+      id: `tkd_${tmpl.id_base}_${reps}`,
       tipo: "tkd" as const,
-      descricao: `Fazer ${reps} ${move}`,
-      xp,
+      descricao: tmpl.descricao(reps),
+      xp: tmpl.xp,
       concluida: () => false,
       manual: true,
     };
@@ -71,7 +121,6 @@ function musculacaoQuestDoDia(dataISO: string): QuestTemplate | null {
   const musc = programaDoDia(dow).sessoes.find((s) => s.tipo === "musculacao");
   if (!musc || !musc.exercicios || musc.exercicios.length === 0) return null;
 
-  // Escolhe determinística um exercício do dia
   let h = 0;
   for (const c of dataISO) h = (h * 31 + c.charCodeAt(0)) >>> 0;
   const ex = musc.exercicios[h % musc.exercicios.length];
@@ -86,11 +135,8 @@ function musculacaoQuestDoDia(dataISO: string): QuestTemplate | null {
   };
 }
 
-/** Quests do dia — mix determinístico entre BASE + TKD (se hoje é dia TKD) +
- *  musculação (se hoje é dia de treino).
- *  Retorna até 6 quests: 3 base + até 2 TKD + até 1 musculação. */
+/** Quests do dia — mix determinístico: 3 base + 3 TKD (SEMPRE) + até 1 musc. */
 export function questsDeHoje(dataISO: string): QuestTemplate[] {
-  // Rotação das básicas
   let h = 0;
   for (const ch of dataISO) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
   const baseOrdenada = [...BASE].sort((a, b) => {
@@ -104,7 +150,7 @@ export function questsDeHoje(dataISO: string): QuestTemplate[] {
 
   const out: QuestTemplate[] = [
     ...baseOrdenada.slice(0, 3),
-    ...tkd.slice(0, 2),
+    ...tkd, // v11.4: 3 TKD sempre — chutes, esquivas, poomsae, sparring drills
   ];
   if (musc) out.push(musc);
   return out;
