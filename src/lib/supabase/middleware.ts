@@ -49,10 +49,13 @@ export async function updateSession(request: NextRequest) {
           cookiesToSet.forEach(({ name, value, options }) =>
             response.cookies.set(name, value, {
               ...options,
-              // v11.2: persistente 1 ano — antes usava só max-age do JWT
-              // (curto), então cookie evaporava no fim da sessão do browser
-              // e forçava re-login toda vez.
-              maxAge: options?.maxAge ?? 60 * 60 * 24 * 365,
+              // v11.6: FORÇA 1 ano (era `?? 1 ano` — mas Supabase sempre seta
+              // maxAge curto do access token, então o ?? nunca preenchia).
+              // Agora ignoramos o maxAge do Supabase e usamos 1 ano pra tudo,
+              // com sameSite/path preservados.
+              maxAge: 60 * 60 * 24 * 365,
+              path: options?.path ?? "/",
+              sameSite: options?.sameSite ?? "lax",
             }),
           );
         },

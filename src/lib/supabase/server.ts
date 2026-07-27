@@ -19,8 +19,12 @@ export function createClient() {
             cookiesToSet.forEach(({ name, value, options }) =>
               cookieStore.set(name, value, {
                 ...options,
-                // v11.2: cookie persistente 1 ano pra manter logado.
-                maxAge: options?.maxAge ?? 60 * 60 * 24 * 365,
+                // v11.6: FORÇA 1 ano — igual ao middleware. O ?? não
+                // preenchia porque Supabase sempre seta maxAge curto do
+                // access token.
+                maxAge: 60 * 60 * 24 * 365,
+                path: options?.path ?? "/",
+                sameSite: options?.sameSite ?? "lax",
               }),
             );
           } catch {
