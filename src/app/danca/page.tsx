@@ -16,7 +16,8 @@ import {
 import BottomNav from "@/components/BottomNav";
 import CharacterImage from "@/components/CharacterImage";
 import ContextualHero from "@/components/ContextualHero";
-import CoreoSorteador, { coreografiaDoDia } from "@/components/CoreoSorteador";
+import CoreoSorteador from "@/components/CoreoSorteador";
+import { coreografiaDoDia } from "@/lib/coreo";
 import DancaLog, { type DancaLogRow } from "@/components/DancaLog";
 import { candidatosHero } from "@/lib/heroi";
 import { dicaDoDia } from "@/lib/dicas";
