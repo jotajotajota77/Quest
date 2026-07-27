@@ -50,6 +50,11 @@ import { candidatosHero } from "@/lib/heroi";
 import { dicaDoDia } from "@/lib/dicas";
 import FogButton from "@/components/FogButton";
 import DailySpin from "@/components/DailySpin";
+import AtoHeader from "@/components/AtoHeader";
+import BossBattle from "@/components/BossBattle";
+import { atoAtual } from "@/lib/ato";
+import { bossProgressoDaSemana } from "@/lib/data";
+import { rosterDesbloqueado } from "@/lib/data";
 
 export default async function HomePage() {
   const supabase = createClient();
@@ -61,7 +66,7 @@ export default async function HomePage() {
   const personagem = await personagemDoDia(user.id);
   if (!personagem) redirect("/hub");
 
-  const [attr, dia, comLog, nevoa, nHoje, spin, semana, nucleo, trackers, finalizado, meta, corpoRecente, sanha] =
+  const [attr, dia, comLog, nevoa, nHoje, spin, semana, nucleo, trackers, finalizado, meta, corpoRecente, sanha, bossProg, roster] =
     await Promise.all([
       garantirAtributos(user.id),
       diaDeHoje(user.id),
@@ -78,7 +83,12 @@ export default async function HomePage() {
       // v10.2: Sanha (avatar) carregado inteiro — usado no hero, no dojang duo
       // (TKD) e como fallback de todas as abas.
       avatarJogador(),
+      // v11.3: boss da semana + roster pra achar o mestre-boss.
+      bossProgressoDaSemana(user.id),
+      rosterDesbloqueado(),
     ]);
+  const bossMestre = roster.find((p) => p.slug === bossProg.boss.mestre_slug) ?? null;
+  const ato = atoAtual(hojeISO());
   const progresso = progressoMeta(meta, corpoRecente);
   const splitHoje = splitDeHoje();
   // v10: foco do dia derivado do domínio do mestre escolhido no hub.
@@ -105,6 +115,10 @@ export default async function HomePage() {
     <main className="app-shell">
       {/* v10 direção D+A: mark do app + belt-bar TKD no topo. */}
       <AppHeader />
+
+      {/* v11.3 RPG: Ato atual (narrativa do cutting) + Boss da semana */}
+      <AtoHeader ato={ato} hojeISO={hojeISO()} />
+      <BossBattle progresso={bossProg} mestre={bossMestre} />
 
       {/* Goal dashboard — o coração da home (TRAVA v9). Chama viva (streak)
           embutida no fim do card — v9.2 TRAVA 8 (gamificação da aderência). */}

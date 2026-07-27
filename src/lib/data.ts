@@ -979,6 +979,66 @@ export async function contextoConquistas(userId: string): Promise<ConquistaCtx> 
 // Re-export pra UI
 export { CONQUISTAS };
 
+// ============================================================
+// v11.3: Boss Battle semanal — carrega progresso do boss da semana.
+// ============================================================
+import { bossDaSemana, calcularBossProgresso, limitesSemanaISO, semanaISO } from "@/lib/boss";
+import type { BossProgresso } from "@/lib/boss";
+
+export async function bossProgressoDaSemana(userId: string): Promise<BossProgresso> {
+  const supabase = createClient();
+  const hoje = hojeISO();
+  const boss = bossDaSemana(hoje);
+  const { inicio, fim } = limitesSemanaISO(boss.semana_iso);
+  const inicioTS = `${inicio}T00:00:00Z`;
+  const fimTS = `${fim}T23:59:59Z`;
+
+  const [
+    { count: seriesCount },
+    { data: tkdQuestsSemana },
+    { count: dancaCount },
+    { data: logsNutriSemana },
+  ] = await Promise.all([
+    supabase
+      .from("treino_series")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .gte("ts", inicioTS)
+      .lte("ts", fimTS),
+    supabase
+      .from("quests")
+      .select("quest_id")
+      .eq("user_id", userId)
+      .eq("estado", "completa")
+      .eq("tipo", "tkd")
+      .gte("data", inicio)
+      .lte("data", fim),
+    supabase
+      .from("logs_danca")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .gte("ts", inicioTS)
+      .lte("ts", fimTS),
+    supabase
+      .from("logs")
+      .select("id")
+      .eq("user_id", userId)
+      .in("comportamento", ["nutri_refeicao", "nutri_agua"])
+      .gte("ts", inicioTS)
+      .lte("ts", fimTS),
+  ]);
+
+  return calcularBossProgresso(boss, {
+    series: seriesCount ?? 0,
+    tkd: (tkdQuestsSemana ?? []).length,
+    danca: dancaCount ?? 0,
+    nutri: (logsNutriSemana ?? []).length,
+  });
+}
+
+// Re-export helper pra UI
+export { semanaISO };
+
 // ── Perfil (descrição usada nas dicas de treino / Análise IA) ──
 export async function perfilDe(userId: string): Promise<string | null> {
   const supabase = createClient();

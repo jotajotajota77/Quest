@@ -21,6 +21,8 @@ import {
   type Sessao,
   type DiaPrograma,
 } from "@/lib/programa";
+import AtoHeader from "@/components/AtoHeader";
+import { atoAtual } from "@/lib/ato";
 
 export default async function ProgramaPage() {
   const supabase = createClient();
@@ -92,8 +94,10 @@ export default async function ProgramaPage() {
 
   const diasRestantes = calendario.length;
 
+  const ato = atoAtual(hoje);
   return (
     <main className="app-shell">
+      <AtoHeader ato={ato} hojeISO={hoje} />
       <div className="panel" style={{ marginBottom: 16, borderColor: "var(--gold)" }}>
         <h1 className="title-fight" style={{ fontSize: "1.8rem", margin: 0 }}>
           Programa · até {fmtDataBR(meta.data_alvo)}
