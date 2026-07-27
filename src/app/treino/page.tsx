@@ -14,6 +14,7 @@ import BehaviorTab from "@/components/BehaviorTab";
 import TrainingModule from "@/components/TrainingModule";
 import PerfilTreino from "@/components/PerfilTreino";
 import ObjetivosTreino from "@/components/ObjetivosTreino";
+import AquecimentoLog, { type AquecimentoRow } from "@/components/AquecimentoLog";
 
 export default async function TreinoPage() {
   const supabase = createClient();
@@ -22,14 +23,21 @@ export default async function TreinoPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [plano, series, hoje, sessoes, perfil, biblioteca] = await Promise.all([
+  const [plano, series, hoje, sessoes, perfil, biblioteca, { data: aquecRaw }] = await Promise.all([
     planoTreino(user.id),
     seriesRecentes(user.id),
     seriesDeHoje(user.id),
     sessoesDeHoje(user.id),
     perfilDe(user.id),
     listarExercicios(),
+    supabase
+      .from("logs_aquecimento")
+      .select("id, ts, tipo, descricao, duracao_min")
+      .eq("user_id", user.id)
+      .order("ts", { ascending: false })
+      .limit(20),
   ]);
+  const historicoAquec = (aquecRaw ?? []) as AquecimentoRow[];
 
   return (
     <BehaviorTab familia="treino">
@@ -42,6 +50,7 @@ export default async function TreinoPage() {
         sessoesHoje={sessoes}
         biblioteca={biblioteca}
       />
+      <AquecimentoLog historico={historicoAquec} />
     </BehaviorTab>
   );
 }
