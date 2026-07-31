@@ -8,12 +8,14 @@ import {
   planoTreino,
   seriesDeHoje,
   seriesRecentes,
+  seriesUltimosDias,
   sessoesDeHoje,
 } from "@/lib/data";
 import BehaviorTab from "@/components/BehaviorTab";
 import TrainingModule from "@/components/TrainingModule";
 import PerfilTreino from "@/components/PerfilTreino";
 import ObjetivosTreino from "@/components/ObjetivosTreino";
+import HistoricoTreino from "@/components/HistoricoTreino";
 import AquecimentoLog, { type AquecimentoRow } from "@/components/AquecimentoLog";
 
 export default async function TreinoPage() {
@@ -23,13 +25,14 @@ export default async function TreinoPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [plano, series, hoje, sessoes, perfil, biblioteca, { data: aquecRaw }] = await Promise.all([
+  const [plano, series, hoje, sessoes, perfil, biblioteca, historicoSeries, { data: aquecRaw }] = await Promise.all([
     planoTreino(user.id),
     seriesRecentes(user.id),
     seriesDeHoje(user.id),
     sessoesDeHoje(user.id),
     perfilDe(user.id),
     listarExercicios(),
+    seriesUltimosDias(user.id),
     supabase
       .from("logs_aquecimento")
       .select("id, ts, tipo, descricao, duracao_min")
@@ -50,6 +53,7 @@ export default async function TreinoPage() {
         sessoesHoje={sessoes}
         biblioteca={biblioteca}
       />
+      <HistoricoTreino series={historicoSeries} />
       <AquecimentoLog historico={historicoAquec} />
     </BehaviorTab>
   );

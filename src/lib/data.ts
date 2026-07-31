@@ -418,6 +418,29 @@ export async function seriesRecentes(
   return (data ?? []) as TreinoSerie[];
 }
 
+/**
+ * v11.9: histórico expandido de séries pros últimos N dias. Independe de
+ * "concluir sessão" ter sido clicado — enquanto tiver série no dia, ela
+ * aparece aqui, agrupada por data.
+ */
+export async function seriesUltimosDias(
+  userId: string,
+  dias = 21,
+): Promise<TreinoSerie[]> {
+  const supabase = createClient();
+  const inicio = new Date(
+    Date.now() - dias * 24 * 60 * 60 * 1000,
+  ).toISOString();
+  const { data } = await supabase
+    .from("treino_series")
+    .select("*")
+    .eq("user_id", userId)
+    .gte("ts", inicio)
+    .order("ts", { ascending: false })
+    .limit(500);
+  return (data ?? []) as TreinoSerie[];
+}
+
 // ============================================================
 // Afinamento (todo derivado — sem migration).
 // ============================================================
