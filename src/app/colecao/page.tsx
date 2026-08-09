@@ -30,6 +30,7 @@ export default async function ColecaoPage() {
       item_id: i.item_id,
       quantidade: i.quantidade,
       favorito: i.favorito,
+      visto: i.visto,
     }));
 
   return (

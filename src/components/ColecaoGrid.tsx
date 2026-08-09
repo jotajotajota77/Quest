@@ -2,15 +2,17 @@
 // Suporta filtro por season, exibe slots vazios (silhueta) do que falta.
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { PHOTOCARDS, type Photocard } from "@/lib/photocards";
 import { SEASONS, seasonPorSlug } from "@/lib/seasons";
+import { usePhotocardDrop } from "@/components/PhotocardDropToast";
 
 interface Props {
   itens: {
     item_id: string;
     quantidade: number;
     favorito: boolean;
+    visto: boolean;
   }[];
   shards: number;
 }
@@ -41,14 +43,49 @@ const LABEL_PERSONAGEM: Record<string, string> = {
 export default function ColecaoGrid({ itens, shards }: Props) {
   const [filtroSeason, setFiltroSeason] = useState<string>("todas");
   const [ocultarNaoPossuidas, setOcultar] = useState<boolean>(false);
+  const { showDrop, dropOverlay } = usePhotocardDrop();
+
+  // v12 PR3: snapshot dos NEW no mount. Mantemos o badge visível na sessão
+  // atual (mesmo depois do POST marcar_visto) pra o usuário achar as cartas.
+  const naoVistasIniciais = useMemo(() => {
+    const s = new Set<string>();
+    for (const i of itens) if (!i.visto) s.add(i.item_id);
+    return s;
+  }, [itens]);
 
   const possuidas = useMemo(() => {
-    const m = new Map<string, { quantidade: number; favorito: boolean }>();
+    const m = new Map<string, { quantidade: number; favorito: boolean; visto: boolean }>();
     for (const i of itens) {
-      m.set(i.item_id, { quantidade: i.quantidade, favorito: i.favorito });
+      m.set(i.item_id, {
+        quantidade: i.quantidade,
+        favorito: i.favorito,
+        visto: i.visto,
+      });
     }
     return m;
   }, [itens]);
+
+  // Ao montar, dispara overlay pra CADA drop novo em sequência (max 3, pra
+  // não spammar), depois marca todos como vistos no servidor.
+  const jaDisparado = useRef(false);
+  useEffect(() => {
+    if (jaDisparado.current) return;
+    jaDisparado.current = true;
+    const ids = Array.from(naoVistasIniciais);
+    if (ids.length === 0) return;
+    // Desfile: mostra a primeira agora, as próximas espaçadas.
+    ids.slice(0, 3).forEach((id, i) => {
+      setTimeout(() => {
+        showDrop({ photocardId: id, header: `NOVA · ${i + 1}/${ids.length}` });
+      }, i * 2800);
+    });
+    // Marca como vistas no servidor (não bloqueante).
+    fetch("/api/colecao", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "marcar_visto", item_ids: ids }),
+    }).catch(() => {});
+  }, [naoVistasIniciais, showDrop]);
 
   const cardsFiltrados = useMemo(() => {
     return PHOTOCARDS.filter((p) => {
@@ -63,6 +100,7 @@ export default function ColecaoGrid({ itens, shards }: Props) {
 
   return (
     <>
+      {dropOverlay}
       {/* Header + stats */}
       <div className="panel" style={{ marginBottom: 12, padding: "10px 12px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
@@ -149,6 +187,7 @@ export default function ColecaoGrid({ itens, shards }: Props) {
             key={card.id}
             card={card}
             estado={possuidas.get(card.id) ?? null}
+            isNew={naoVistasIniciais.has(card.id)}
           />
         ))}
       </div>
@@ -165,13 +204,19 @@ export default function ColecaoGrid({ itens, shards }: Props) {
 function PhotocardTile({
   card,
   estado,
+  isNew,
 }: {
   card: Photocard;
-  estado: { quantidade: number; favorito: boolean } | null;
+  estado: { quantidade: number; favorito: boolean; visto: boolean } | null;
+  isNew: boolean;
 }) {
   const possui = estado !== null;
   const season = seasonPorSlug(card.season);
-  const borderColor = possui ? CORES_RARIDADE[card.raridade] : "var(--hairline)";
+  const borderColor = isNew
+    ? "var(--neon)"
+    : possui
+      ? CORES_RARIDADE[card.raridade]
+      : "var(--hairline)";
   const bgGradient = possui && season
     ? `linear-gradient(160deg, ${season.cor_primaria}22, ${season.cor_secundaria}22)`
     : "rgba(255,255,255,0.02)";
@@ -191,6 +236,7 @@ function PhotocardTile({
         padding: 8,
         opacity: possui ? 1 : 0.42,
         filter: possui ? "none" : "grayscale(0.7)",
+        boxShadow: isNew ? "0 0 16px var(--neon)" : undefined,
       }}
     >
       {/* Season stamp topo */}
@@ -285,6 +331,28 @@ function PhotocardTile({
                 : "linear-gradient(115deg, transparent 40%, rgba(200,180,255,0.15) 50%, transparent 60%)",
           }}
         />
+      )}
+
+      {/* v12 PR3: fita NEW pra drops recém-caídos (marcados como visto no
+          servidor no mount, mas o badge fica pela sessão pra facilitar achar). */}
+      {isNew && (
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            padding: "2px 8px",
+            background: "var(--neon)",
+            color: "var(--surface)",
+            fontFamily: "var(--font-mono)",
+            fontSize: "0.58rem",
+            letterSpacing: "0.14em",
+            fontWeight: 800,
+            borderBottomRightRadius: 6,
+          }}
+        >
+          NEW
+        </div>
       )}
     </div>
   );

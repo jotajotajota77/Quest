@@ -18,6 +18,7 @@ import {
   PROGRAMA_SPLIT_KEYS,
 } from "@/lib/programa";
 import { useHitConfirm } from "@/components/HitConfirm";
+import { usePhotocardDrop } from "@/components/PhotocardDropToast";
 import RestTimer from "@/components/RestTimer";
 import BibliotecaExercicios from "@/components/BibliotecaExercicios";
 import { FichaCompleta, ProgramaLinha } from "@/components/FichaExercicio";
@@ -40,6 +41,7 @@ export default function TrainingModule({
 }) {
   const router = useRouter();
   const { fire, overlay } = useHitConfirm();
+  const { showDrop, dropOverlay } = usePhotocardDrop();
   // v11: default = split do programa pro dia da semana atual, se existir.
   const splitHoje = DOW_TO_SPLIT_KEY[new Date().getDay()];
   const inicial = plano.some((e) => e.split === splitHoje)
@@ -106,6 +108,19 @@ export default function TrainingModule({
       const json = (await res.json().catch(() => ({}))) as {
         is_pr?: boolean;
         recorde?: boolean;
+        photocardId?: string | null;
+        boss?: {
+          derrotou?: boolean;
+          xp?: number;
+          shards?: number;
+          photocardId?: string | null;
+        };
+        bonus?: {
+          creditou?: boolean;
+          xp?: number;
+          shards?: number;
+          boss?: { derrotou?: boolean; photocardId?: string | null };
+        };
       };
       router.refresh();
       return json;
@@ -128,6 +143,22 @@ export default function TrainingModule({
       fire(r.recorde ? "승리!" : "최고!"); // seungri (vitória) vs. choego (melhor)
     } else {
       somSerie(); // tom curto de confirmação em toda série
+    }
+    // v12 PR3: HOLO por PR real → mostra unbox da photocard.
+    if (r.photocardId) {
+      showDrop({
+        photocardId: r.photocardId,
+        header: "HOLO · PR REAL",
+        bonus: r.recorde ? "novo recorde!" : "empate no top set",
+      });
+    }
+    // v12 PR3: se essa série derrubou o boss semanal, mostra o drop do boss.
+    if (r.boss?.derrotou && r.boss.photocardId) {
+      showDrop({
+        photocardId: r.boss.photocardId,
+        header: "BOSS DERROTADO",
+        bonus: `+${r.boss.xp ?? 0} XP · +${r.boss.shards ?? 0} shards`,
+      });
     }
     setEntradas((s) => ({ ...s, [ex.id]: { peso: "", reps: "" } }));
   }
@@ -175,13 +206,23 @@ export default function TrainingModule({
     } catch {
       /* reforço local já ocorreu */
     }
-    await api({ action: "fechar_sessao", split: splitAlvo });
+    const r = await api({ action: "fechar_sessao", split: splitAlvo });
+    // v12 PR3: bônus por fechar o split (idempotente pelo servidor); se essa
+    // conclusão derrubou o boss, mostra a drop; senão só reforça no chip.
+    if (r.bonus?.boss?.derrotou && r.bonus.boss.photocardId) {
+      showDrop({
+        photocardId: r.bonus.boss.photocardId,
+        header: "BOSS DERROTADO",
+        bonus: `+150 XP · +3 shards`,
+      });
+    }
     setFechadas((s) => new Set(s).add(splitAlvo));
   }
 
   return (
     <div style={{ marginTop: 18 }}>
       {overlay}
+      {dropOverlay}
       <RestTimer />
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>

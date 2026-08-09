@@ -8,6 +8,7 @@
 // ============================================================
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { usePhotocardDrop } from "@/components/PhotocardDropToast";
 
 export interface DancaLogRow {
   id: string;
@@ -20,6 +21,7 @@ export interface DancaLogRow {
 
 export default function DancaLog({ historico }: { historico: DancaLogRow[] }) {
   const router = useRouter();
+  const { showDrop, dropOverlay } = usePhotocardDrop();
   const [musica, setMusica] = useState("");
   const [spotifyUrl, setSpotifyUrl] = useState("");
   const [duracao, setDuracao] = useState("");
@@ -44,6 +46,13 @@ export default function DancaLog({ historico }: { historico: DancaLogRow[] }) {
       const json = (await res.json().catch(() => ({}))) as {
         error?: string;
         xp_ganho?: number;
+        mastery?: { xp: number; nivel: number } | null;
+        boss?: {
+          derrotou?: boolean;
+          xp?: number;
+          shards?: number;
+          photocardId?: string | null;
+        };
       };
       if (json.error) {
         setMsg(`erro: ${json.error}`);
@@ -51,7 +60,18 @@ export default function DancaLog({ historico }: { historico: DancaLogRow[] }) {
         setMusica("");
         setSpotifyUrl("");
         setDuracao("");
-        setMsg(json.xp_ganho ? `registrado · +${json.xp_ganho} XP dança` : "registrado");
+        const partes: string[] = [];
+        if (json.xp_ganho) partes.push(`+${json.xp_ganho} XP domínio`);
+        if (json.mastery) partes.push(`mastery dança nv.${json.mastery.nivel}`);
+        setMsg(partes.length > 0 ? `registrado · ${partes.join(" · ")}` : "registrado");
+        // v12 PR3: se essa sessão derrubou o boss semanal, mostra o drop.
+        if (json.boss?.derrotou && json.boss.photocardId) {
+          showDrop({
+            photocardId: json.boss.photocardId,
+            header: "BOSS DERROTADO",
+            bonus: `+${json.boss.xp ?? 0} XP · +${json.boss.shards ?? 0} shards`,
+          });
+        }
         router.refresh();
       }
     } finally {
@@ -76,6 +96,7 @@ export default function DancaLog({ historico }: { historico: DancaLogRow[] }) {
 
   return (
     <>
+      {dropOverlay}
       <div
         className="panel"
         style={{ marginBottom: 14, display: "grid", gap: 10, borderLeft: "3px solid var(--gold)" }}

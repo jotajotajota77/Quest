@@ -22,6 +22,8 @@ export interface BossEstadoDB {
   dano_carregado_anterior: number;
   derrotado_em: string | null;
   recompensa_creditada: boolean;
+  // v12 PR3: slug da photocard dropada quando o boss caiu (null se sem drop).
+  photocard_drop_id?: string | null;
 }
 
 /** Dano efetivo do jogador nesta semana (dano dado + carregado). */

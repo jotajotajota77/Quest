@@ -4,6 +4,7 @@
 // aba /taekwondo. Se o mestre do dia é TKD, ganha 20 XP no domínio.
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { usePhotocardDrop } from "@/components/PhotocardDropToast";
 
 export interface TkdLogRow {
   id: string;
@@ -15,6 +16,7 @@ export interface TkdLogRow {
 
 export default function TkdLog({ historico }: { historico: TkdLogRow[] }) {
   const router = useRouter();
+  const { showDrop, dropOverlay } = usePhotocardDrop();
   const [descricao, setDescricao] = useState("");
   const [duracao, setDuracao] = useState("");
   const [notas, setNotas] = useState("");
@@ -39,6 +41,13 @@ export default function TkdLog({ historico }: { historico: TkdLogRow[] }) {
       const json = (await res.json().catch(() => ({}))) as {
         error?: string;
         xp_ganho?: number;
+        mastery?: { xp: number; nivel: number } | null;
+        boss?: {
+          derrotou?: boolean;
+          xp?: number;
+          shards?: number;
+          photocardId?: string | null;
+        };
       };
       if (json.error) {
         setMsg(`erro: ${json.error}`);
@@ -46,11 +55,18 @@ export default function TkdLog({ historico }: { historico: TkdLogRow[] }) {
         setDescricao("");
         setDuracao("");
         setNotas("");
-        setMsg(
-          json.xp_ganho
-            ? `registrado · +${json.xp_ganho} XP TKD`
-            : "registrado",
-        );
+        const partes: string[] = [];
+        if (json.xp_ganho) partes.push(`+${json.xp_ganho} XP domínio`);
+        if (json.mastery) partes.push(`mastery TKD nv.${json.mastery.nivel}`);
+        setMsg(partes.length > 0 ? `registrado · ${partes.join(" · ")}` : "registrado");
+        // v12 PR3: se essa sessão derrubou o boss semanal, mostra o drop.
+        if (json.boss?.derrotou && json.boss.photocardId) {
+          showDrop({
+            photocardId: json.boss.photocardId,
+            header: "BOSS DERROTADO",
+            bonus: `+${json.boss.xp ?? 0} XP · +${json.boss.shards ?? 0} shards`,
+          });
+        }
         router.refresh();
       }
     } finally {
@@ -75,6 +91,7 @@ export default function TkdLog({ historico }: { historico: TkdLogRow[] }) {
 
   return (
     <>
+      {dropOverlay}
       <div
         className="panel"
         style={{
