@@ -6,7 +6,23 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { PRESETS, variarExercicio, type Preset } from "@/lib/treino";
-import { hojeISO } from "@/lib/data";
+import { hojeISO, aplicarMasteryPorSerie, concederHoloPorPr } from "@/lib/data";
+import { distribuicaoDoExercicio, type GrupoMuscular } from "@/lib/engine/mastery";
+import type { PersonagemSlug } from "@/lib/photocards";
+
+// v12: PR num grupo dispara HOLO do personagem responsável por aquele
+// grupo. Mapa curto — mestres continuam sendo o rosto do seu domínio.
+const PERSONAGEM_POR_GRUPO: Partial<Record<GrupoMuscular, PersonagemSlug>> = {
+  chest: "hujin-kim",      // Upper master
+  back: "hujin-kim",
+  shoulders: "hujin-kim",
+  biceps: "hujin-kim",
+  triceps: "hujin-kim",
+  lower: "sanhee-park",    // Lower master
+  core: "ryuki-han",       // Abs master
+  taekwondo: "chan-ho-lee",
+  danca: "ji-seok-moon",
+};
 
 export async function POST(request: Request) {
   const supabase = createClient();
@@ -206,7 +222,47 @@ export async function POST(request: Request) {
         is_pr: isPr,
       });
       if (error) return NextResponse.json({ error: "falha série" }, { status: 500 });
-      return NextResponse.json({ ok: true, is_pr: isPr, recorde });
+
+      // v12: fan-out RPG — Muscle Mastery + 5 eixos de atributo. Silencioso
+      // se der erro (não queremos que uma falha aqui derrube o registro).
+      let masteryGrupos: { grupo: GrupoMuscular; xp: number }[] = [];
+      try {
+        const r = await aplicarMasteryPorSerie(user.id, nome, peso, reps);
+        masteryGrupos = r.mastery;
+      } catch {
+        /* mastery é tooling — não falha o registro */
+      }
+
+      // v12: PR real de musculação → HOLO photocard do "personagem responsável"
+      // pelo grupo principal da série. Mapeamento estático abaixo.
+      let photocardId: string | null = null;
+      if (recorde) {
+        try {
+          const distrib = distribuicaoDoExercicio(nome);
+          if (distrib) {
+            const grupoPrincipal = Object.entries(distrib).sort(
+              (a, b) => (b[1] as number) - (a[1] as number),
+            )[0]?.[0] as GrupoMuscular | undefined;
+            if (grupoPrincipal) {
+              const personagem = PERSONAGEM_POR_GRUPO[grupoPrincipal];
+              if (personagem) {
+                const drop = await concederHoloPorPr(user.id, personagem);
+                photocardId = drop.photocardId;
+              }
+            }
+          }
+        } catch {
+          /* drop cosmético — não pode falhar o POST */
+        }
+      }
+
+      return NextResponse.json({
+        ok: true,
+        is_pr: isPr,
+        recorde,
+        mastery: masteryGrupos,
+        photocardId,
+      });
     }
 
     case "remover_serie": {

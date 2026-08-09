@@ -1051,12 +1051,30 @@ export async function bossProgressoDaSemana(userId: string): Promise<BossProgres
       .lte("ts", fimTS),
   ]);
 
-  return calcularBossProgresso(boss, {
+  const progresso = calcularBossProgresso(boss, {
     series: seriesCount ?? 0,
     tkd: tkdSessoesCount ?? 0,
     danca: dancaCount ?? 0,
     nutri: (logsNutriSemana ?? []).length,
   });
+
+  // v12: reconcilia estado persistente. Se dano efetivo > o já creditado,
+  // aplica o delta — pode disparar derrota + XP + shards + photocard drop.
+  // Silencioso em erro (não pode quebrar /home).
+  try {
+    const est = await garantirBossEstado(userId);
+    if (!est.derrotado_em) {
+      const danoLive = boss.hp_total - progresso.hp_restante;
+      const delta = danoLive - est.dano_creditado;
+      if (delta > 0) {
+        await aplicarDanoBoss(userId, delta);
+      }
+    }
+  } catch {
+    /* boss persistente é tooling; nunca falha o dashboard */
+  }
+
+  return progresso;
 }
 
 // Re-export helper pra UI
@@ -1088,3 +1106,474 @@ export async function sessoesDeHoje(
     finalizada: Boolean(r.finalizada),
   }));
 }
+
+// ============================================================
+// v12: Camada RPG — Mastery, Atributos v2, Season, Boss persistente,
+// Coleção. I/O apenas — a lógica pura vive nos engines correspondentes.
+// ============================================================
+
+import {
+  aplicarXpMastery,
+  masteryResolvida,
+  xpDaSerie,
+  type GrupoMuscular,
+  type MasteryResolvida,
+  GRUPOS_MUSCULARES,
+} from "@/lib/engine/mastery";
+import {
+  aplicarDeltasAtributos,
+  distribuirParaAtributos,
+  resolverBuild,
+  type AtributosV2,
+} from "@/lib/engine/atributos_v2";
+import {
+  calcularCarryOver,
+  danoEfetivo,
+  SHARDS_BONUS_BOSS,
+  XP_RECOMPENSA_BOSS,
+  type BossEstadoDB,
+} from "@/lib/engine/boss_persistente";
+import {
+  photocardPorId,
+  sortearBossDrop,
+  sortearHoloPorPersonagem,
+  SHARDS_POR_DUPLICATA,
+  type PersonagemSlug,
+} from "@/lib/photocards";
+import {
+  SEASON_INICIAL_SLUG,
+  seasonPorSlug,
+  type Season,
+} from "@/lib/seasons";
+
+// ------------------------------------------------------------
+// Muscle Mastery
+// ------------------------------------------------------------
+
+export async function carregarMasteryMusculo(
+  userId: string,
+): Promise<MasteryResolvida[]> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("mastery_musculo")
+    .select("grupo, xp, nivel")
+    .eq("user_id", userId);
+  const porGrupo = new Map<string, { grupo: GrupoMuscular; xp: number; nivel: number }>();
+  for (const r of data ?? []) {
+    porGrupo.set(r.grupo as string, {
+      grupo: r.grupo as GrupoMuscular,
+      xp: (r.xp as number) ?? 0,
+      nivel: (r.nivel as number) ?? 1,
+    });
+  }
+  return GRUPOS_MUSCULARES.map((g) =>
+    masteryResolvida(porGrupo.get(g) ?? { grupo: g, xp: 0, nivel: 1 }),
+  );
+}
+
+/**
+ * Aplica XP nos grupos musculares afetados por 1 série. Idempotente por
+ * (série já registrada); chame no MESMO POST que insere treino_series.
+ * Também roteia XP pros 5 eixos de atributo v12.
+ */
+export async function aplicarMasteryPorSerie(
+  userId: string,
+  nomeExercicio: string,
+  peso: number | null,
+  reps: number | null,
+): Promise<{ mastery: { grupo: GrupoMuscular; xp: number }[]; atributosDelta: Record<string, number> }> {
+  const deltas = xpDaSerie(nomeExercicio, peso, reps);
+  if (deltas.length === 0) {
+    return { mastery: [], atributosDelta: {} };
+  }
+  const supabase = createClient();
+
+  // Snapshot atual pra saber nivel/xp de cada grupo afetado
+  const gruposAfetados = deltas.map((d) => d.grupo);
+  const { data: existentes } = await supabase
+    .from("mastery_musculo")
+    .select("grupo, xp, nivel")
+    .eq("user_id", userId)
+    .in("grupo", gruposAfetados);
+  const snapshot = new Map<string, { xp: number; nivel: number }>();
+  for (const r of existentes ?? []) {
+    snapshot.set(r.grupo as string, {
+      xp: (r.xp as number) ?? 0,
+      nivel: (r.nivel as number) ?? 1,
+    });
+  }
+
+  // Upsert linha por linha (grupos afetados nesta série)
+  for (const delta of deltas) {
+    const atual = snapshot.get(delta.grupo) ?? { xp: 0, nivel: 1 };
+    const novo = aplicarXpMastery(atual, delta.xp);
+    await supabase.from("mastery_musculo").upsert({
+      user_id: userId,
+      grupo: delta.grupo,
+      xp: novo.xp,
+      nivel: novo.nivel,
+      atualizado_em: new Date().toISOString(),
+    });
+  }
+
+  // Roteia pros 5 eixos de atributo
+  const eixoDeltas: Record<string, number> = {};
+  for (const delta of deltas) {
+    const dists = distribuirParaAtributos(delta.grupo, delta.xp);
+    for (const d of dists) {
+      eixoDeltas[d.eixo] = (eixoDeltas[d.eixo] ?? 0) + d.delta;
+    }
+  }
+  if (Object.keys(eixoDeltas).length > 0) {
+    const { data: attrRow } = await supabase
+      .from("atributos")
+      .select("forca, potencia, resistencia, mobilidade, tecnica")
+      .eq("user_id", userId)
+      .maybeSingle();
+    const atual: AtributosV2 = {
+      forca: (attrRow?.forca as number) ?? 0,
+      potencia: (attrRow?.potencia as number) ?? 0,
+      resistencia: (attrRow?.resistencia as number) ?? 0,
+      mobilidade: (attrRow?.mobilidade as number) ?? 0,
+      tecnica: (attrRow?.tecnica as number) ?? 0,
+    };
+    const novo = aplicarDeltasAtributos(
+      atual,
+      Object.entries(eixoDeltas).map(([eixo, delta]) => ({
+        eixo: eixo as keyof AtributosV2,
+        delta,
+      })),
+    );
+    await supabase
+      .from("atributos")
+      .update({
+        forca: novo.forca,
+        potencia: novo.potencia,
+        resistencia: novo.resistencia,
+        mobilidade: novo.mobilidade,
+        tecnica: novo.tecnica,
+        atualizado_em: new Date().toISOString(),
+      })
+      .eq("user_id", userId);
+  }
+
+  return { mastery: deltas, atributosDelta: eixoDeltas };
+}
+
+export async function carregarAtributosV2(userId: string): Promise<AtributosV2 & {
+  shards: number;
+  build: ReturnType<typeof resolverBuild>;
+}> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("atributos")
+    .select("forca, potencia, resistencia, mobilidade, tecnica, shards")
+    .eq("user_id", userId)
+    .maybeSingle();
+  const attr: AtributosV2 = {
+    forca: (data?.forca as number) ?? 0,
+    potencia: (data?.potencia as number) ?? 0,
+    resistencia: (data?.resistencia as number) ?? 0,
+    mobilidade: (data?.mobilidade as number) ?? 0,
+    tecnica: (data?.tecnica as number) ?? 0,
+  };
+  return {
+    ...attr,
+    shards: (data?.shards as number) ?? 0,
+    build: resolverBuild(attr),
+  };
+}
+
+// ------------------------------------------------------------
+// Season
+// ------------------------------------------------------------
+
+export async function seasonDoJogador(userId: string): Promise<Season> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("season_ativa")
+    .select("slug")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (data?.slug) {
+    const s = seasonPorSlug(data.slug as string);
+    if (s) return s;
+  }
+  // lazy-create
+  await supabase.from("season_ativa").upsert({
+    user_id: userId,
+    slug: SEASON_INICIAL_SLUG,
+  });
+  return seasonPorSlug(SEASON_INICIAL_SLUG)!;
+}
+
+// ------------------------------------------------------------
+// Coleção
+// ------------------------------------------------------------
+
+export interface ItemColecao {
+  item_id: string;
+  tipo: string;
+  meta: Record<string, unknown> | null;
+  quantidade: number;
+  ganho_em: string;
+  favorito: boolean;
+}
+
+export async function carregarColecao(userId: string): Promise<ItemColecao[]> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("colecao_item")
+    .select("item_id, tipo, meta, quantidade, ganho_em, favorito")
+    .eq("user_id", userId)
+    .order("ganho_em", { ascending: false });
+  return (data ?? []).map((r) => ({
+    item_id: r.item_id as string,
+    tipo: r.tipo as string,
+    meta: (r.meta as Record<string, unknown> | null) ?? null,
+    quantidade: (r.quantidade as number) ?? 1,
+    ganho_em: r.ganho_em as string,
+    favorito: Boolean(r.favorito),
+  }));
+}
+
+/**
+ * Concede um item ao usuário. Se já tem, incrementa quantidade e credita
+ * shards de duplicata (photocards). Devolve se foi novo ou dup.
+ */
+export async function concederItem(
+  userId: string,
+  item_id: string,
+  tipo: "photocard" | "outfit" | "badge" | "titulo" | "era",
+  meta: Record<string, unknown>,
+): Promise<{ novo: boolean; shardsGanhos: number }> {
+  const supabase = createClient();
+  const { data: existente } = await supabase
+    .from("colecao_item")
+    .select("quantidade")
+    .eq("user_id", userId)
+    .eq("item_id", item_id)
+    .maybeSingle();
+
+  if (!existente) {
+    await supabase.from("colecao_item").insert({
+      user_id: userId,
+      item_id,
+      tipo,
+      meta,
+      quantidade: 1,
+    });
+    return { novo: true, shardsGanhos: 0 };
+  }
+  // Duplicata: incrementa e credita shards se for photocard
+  const novaQuant = ((existente.quantidade as number) ?? 1) + 1;
+  await supabase
+    .from("colecao_item")
+    .update({ quantidade: novaQuant })
+    .eq("user_id", userId)
+    .eq("item_id", item_id);
+
+  let shardsGanhos = 0;
+  if (tipo === "photocard") {
+    const pc = photocardPorId(item_id);
+    if (pc) {
+      shardsGanhos = SHARDS_POR_DUPLICATA[pc.raridade];
+      const { data: attr } = await supabase
+        .from("atributos")
+        .select("shards")
+        .eq("user_id", userId)
+        .maybeSingle();
+      const atual = (attr?.shards as number) ?? 0;
+      await supabase
+        .from("atributos")
+        .update({ shards: atual + shardsGanhos })
+        .eq("user_id", userId);
+    }
+  }
+  return { novo: false, shardsGanhos };
+}
+
+// ------------------------------------------------------------
+// Boss persistente
+// ------------------------------------------------------------
+
+export async function carregarBossEstado(
+  userId: string,
+): Promise<BossEstadoDB | null> {
+  const supabase = createClient();
+  const semana = semanaISO(hojeISO());
+  const { data } = await supabase
+    .from("boss_estado")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("semana_iso", semana)
+    .maybeSingle();
+  return data as BossEstadoDB | null;
+}
+
+/**
+ * Garante que exista boss_estado pra semana atual. Ao criar, pesquisa a
+ * semana anterior — se não derrotada, herda dano como carry-over (opção b).
+ */
+export async function garantirBossEstado(
+  userId: string,
+): Promise<BossEstadoDB> {
+  const supabase = createClient();
+  const hoje = hojeISO();
+  const semana = semanaISO(hoje);
+  const boss = bossDaSemana(hoje);
+
+  const { data: existente } = await supabase
+    .from("boss_estado")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("semana_iso", semana)
+    .maybeSingle();
+  if (existente) return existente as BossEstadoDB;
+
+  // Sem boss_estado desta semana → tenta pegar o mais recente ANTERIOR não derrotado.
+  let carry = 0;
+  const { data: anteriores } = await supabase
+    .from("boss_estado")
+    .select("*")
+    .eq("user_id", userId)
+    .neq("semana_iso", semana)
+    .order("semana_iso", { ascending: false })
+    .limit(1);
+  const anterior = anteriores?.[0] as BossEstadoDB | undefined;
+  if (anterior && !anterior.derrotado_em) {
+    const danoAnterior = danoEfetivo(anterior);
+    carry = calcularCarryOver(danoAnterior, boss.hp_total);
+  }
+
+  const novo: BossEstadoDB = {
+    user_id: userId,
+    semana_iso: semana,
+    mestre_slug: boss.mestre_slug,
+    hp_total: boss.hp_total,
+    dano_creditado: 0,
+    dano_carregado_anterior: carry,
+    derrotado_em: null,
+    recompensa_creditada: false,
+  };
+  await supabase.from("boss_estado").insert(novo);
+  return novo;
+}
+
+/**
+ * Aplica dano ao boss da semana. Se derrotar, credita XP + shards + tenta
+ * dropar photocard. Idempotente por recompensa_creditada.
+ */
+export async function aplicarDanoBoss(
+  userId: string,
+  dano: number,
+): Promise<{
+  novoHp: number;
+  derrotou: boolean;
+  recompensa?: { xp: number; shards: number; photocardId: string | null };
+}> {
+  if (dano <= 0) {
+    const est = await garantirBossEstado(userId);
+    return { novoHp: Math.max(0, est.hp_total - danoEfetivo(est)), derrotou: false };
+  }
+  const supabase = createClient();
+  const est = await garantirBossEstado(userId);
+
+  // Se já foi derrotado, não credita mais.
+  if (est.derrotado_em) {
+    return { novoHp: 0, derrotou: true };
+  }
+
+  const novoDano = est.dano_creditado + Math.max(0, Math.round(dano));
+  const efetivo = novoDano + est.dano_carregado_anterior;
+  const derrotouAgora = efetivo >= est.hp_total;
+
+  if (!derrotouAgora) {
+    await supabase
+      .from("boss_estado")
+      .update({
+        dano_creditado: novoDano,
+        atualizado_em: new Date().toISOString(),
+      })
+      .eq("user_id", userId)
+      .eq("semana_iso", est.semana_iso);
+    return { novoHp: est.hp_total - efetivo, derrotou: false };
+  }
+
+  // Derrotou — credita recompensa uma vez só
+  const now = new Date().toISOString();
+  await supabase
+    .from("boss_estado")
+    .update({
+      dano_creditado: novoDano,
+      derrotado_em: now,
+      recompensa_creditada: true,
+      atualizado_em: now,
+    })
+    .eq("user_id", userId)
+    .eq("semana_iso", est.semana_iso);
+
+  // Credita XP geral (Trainee Level) + shards
+  const { data: attr } = await supabase
+    .from("atributos")
+    .select("xp, shards")
+    .eq("user_id", userId)
+    .maybeSingle();
+  await supabase
+    .from("atributos")
+    .update({
+      xp: ((attr?.xp as number) ?? 0) + XP_RECOMPENSA_BOSS,
+      shards: ((attr?.shards as number) ?? 0) + SHARDS_BONUS_BOSS,
+    })
+    .eq("user_id", userId);
+
+  // Drop de photocard REGULAR da season atual
+  const season = await seasonDoJogador(userId);
+  let seed = 0;
+  for (const c of `${userId}:${est.semana_iso}`) seed = (seed * 31 + c.charCodeAt(0)) >>> 0;
+  const drop = sortearBossDrop(season.slug, seed);
+  let photocardId: string | null = null;
+  if (drop) {
+    photocardId = drop.id;
+    await concederItem(userId, drop.id, "photocard", {
+      personagem: drop.personagem,
+      season: drop.season,
+      conceito: drop.conceito,
+      raridade: drop.raridade,
+      origem: "boss_semanal",
+      semana_iso: est.semana_iso,
+    });
+  }
+
+  return {
+    novoHp: 0,
+    derrotou: true,
+    recompensa: {
+      xp: XP_RECOMPENSA_BOSS,
+      shards: SHARDS_BONUS_BOSS,
+      photocardId,
+    },
+  };
+}
+
+/**
+ * Ganha uma photocard HOLO ao bater PR real. Chamado do POST de treino.
+ */
+export async function concederHoloPorPr(
+  userId: string,
+  personagem: PersonagemSlug,
+): Promise<{ photocardId: string | null }> {
+  const season = await seasonDoJogador(userId);
+  let seed = Date.now() >>> 0;
+  const drop = sortearHoloPorPersonagem(personagem, season.slug, seed);
+  if (!drop) return { photocardId: null };
+  await concederItem(userId, drop.id, "photocard", {
+    personagem: drop.personagem,
+    season: drop.season,
+    conceito: drop.conceito,
+    raridade: drop.raridade,
+    origem: "pr_musculacao",
+  });
+  return { photocardId: drop.id };
+}
+
