@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import {
+  carregarMasteryMusculo,
   listarExercicios,
   perfilDe,
   planoTreino,
@@ -17,6 +18,8 @@ import PerfilTreino from "@/components/PerfilTreino";
 import ObjetivosTreino from "@/components/ObjetivosTreino";
 import HistoricoTreino from "@/components/HistoricoTreino";
 import AquecimentoLog, { type AquecimentoRow } from "@/components/AquecimentoLog";
+import TrainingRaid from "@/components/TrainingRaid";
+import MasteryCard from "@/components/MasteryCard";
 
 export default async function TreinoPage() {
   const supabase = createClient();
@@ -25,7 +28,7 @@ export default async function TreinoPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [plano, series, hoje, sessoes, perfil, biblioteca, historicoSeries, { data: aquecRaw }] = await Promise.all([
+  const [plano, series, hoje, sessoes, perfil, biblioteca, historicoSeries, masteries, { data: aquecRaw }] = await Promise.all([
     planoTreino(user.id),
     seriesRecentes(user.id),
     seriesDeHoje(user.id),
@@ -33,6 +36,7 @@ export default async function TreinoPage() {
     perfilDe(user.id),
     listarExercicios(),
     seriesUltimosDias(user.id),
+    carregarMasteryMusculo(user.id),
     supabase
       .from("logs_aquecimento")
       .select("id, ts, tipo, descricao, duracao_min")
@@ -46,6 +50,7 @@ export default async function TreinoPage() {
     <BehaviorTab familia="treino">
       <ObjetivosTreino />
       <PerfilTreino descricaoInicial={perfil ?? ""} />
+      <TrainingRaid plano={plano} seriesHoje={hoje} />
       <TrainingModule
         plano={plano}
         series={series}
@@ -53,6 +58,7 @@ export default async function TreinoPage() {
         sessoesHoje={sessoes}
         biblioteca={biblioteca}
       />
+      <MasteryCard masteries={masteries} />
       <HistoricoTreino series={historicoSeries} />
       <AquecimentoLog historico={historicoAquec} />
     </BehaviorTab>

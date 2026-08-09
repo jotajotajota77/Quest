@@ -15,6 +15,7 @@ const LINKS: { href: string; label: string; ico: string; dim?: boolean }[] = [
   { href: "/taekwondo", label: "TKD", ico: "🥋" },
   { href: "/danca", label: "Dança", ico: "💃" },
   { href: "/quests", label: "Quests", ico: "⚔️" },
+  { href: "/colecao", label: "Deck", ico: "🎴" },
   { href: "/hub", label: "Trocar", ico: "🔄", dim: true },
   { href: "/espelho", label: "Espelho", ico: "🪞", dim: true },
 ];
