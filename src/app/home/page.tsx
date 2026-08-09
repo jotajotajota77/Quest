@@ -55,6 +55,9 @@ import BossBattle from "@/components/BossBattle";
 import { atoAtual } from "@/lib/ato";
 import { bossProgressoDaSemana } from "@/lib/data";
 import { rosterDesbloqueado } from "@/lib/data";
+import { carregarAtributosV2, seasonDoJogador } from "@/lib/data";
+import SeasonBadge from "@/components/SeasonBadge";
+import AtributosCard from "@/components/AtributosCard";
 
 export default async function HomePage() {
   const supabase = createClient();
@@ -87,6 +90,11 @@ export default async function HomePage() {
       bossProgressoDaSemana(user.id),
       rosterDesbloqueado(),
     ]);
+  // v12: season + atributos v2 (5 eixos + build)
+  const [season, atributosV2] = await Promise.all([
+    seasonDoJogador(user.id),
+    carregarAtributosV2(user.id),
+  ]);
   const bossMestre = roster.find((p) => p.slug === bossProg.boss.mestre_slug) ?? null;
   const ato = atoAtual(hojeISO());
   const progresso = progressoMeta(meta, corpoRecente);
@@ -115,6 +123,9 @@ export default async function HomePage() {
     <main className="app-shell">
       {/* v10 direção D+A: mark do app + belt-bar TKD no topo. */}
       <AppHeader />
+
+      {/* v12: Season/era atual do jogador. */}
+      <SeasonBadge season={season} />
 
       {/* v11.3 RPG: Ato atual (narrativa do cutting) + Boss da semana */}
       <AtoHeader ato={ato} hojeISO={hojeISO()} />
@@ -154,6 +165,9 @@ export default async function HomePage() {
       </div>
 
       <Scoreboard attr={attr} personagem={personagem} sanha={sanha} />
+
+      {/* v12: 5-eixos atributo + build + shards */}
+      <AtributosCard atributos={atributosV2} build={atributosV2.build} />
 
       {/* Streak vive no GoalDashboard como Chama Viva. Botões de lore antigos
           (Mundo VHYX / Lore do personagem) foram removidos na v10.1 — a
