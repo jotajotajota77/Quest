@@ -17,6 +17,14 @@ export type Familia = "treino" | "nutri";
 /** Os dois atributos do jogador (v9). Alimentam um XP/tier ÚNICO. */
 export type Atributo = "forca" | "stamina";
 
+/** Eixos v12 (RPG) — 5 atributos do trainee, além de forca/stamina do log central. */
+export type EixoAtributo =
+  | "forca"
+  | "potencia"
+  | "resistencia"
+  | "mobilidade"
+  | "tecnica";
+
 export type TipoReforco = "faixa_cheia" | "fallback_local";
 
 /** Ladder de esquemas (só a Nutri usa o motor de fading). */
@@ -29,6 +37,12 @@ export interface Atributos {
   elo: number;
   xp: number;
   atualizado_em: string;
+  // v12 — 4 eixos novos + shards. Podem chegar como 0 até migration 0024 rodar.
+  potencia?: number;
+  resistencia?: number;
+  mobilidade?: number;
+  tecnica?: number;
+  shards?: number;
 }
 
 /** Bônus de personagem: percentual ADITIVO sobre a base. Nunca redireciona. */
