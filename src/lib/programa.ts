@@ -1,13 +1,17 @@
 // ============================================================
-// Programa de treino v11 (26/07 → 09/09).
+// Programa de treino v12.PR3 v2 — cutting 31 dias (10/08 → 09/09/2026).
 // ------------------------------------------------------------
-// Layout FIXO da semana baseado nos horários reais do Marcelo:
-//   Seg-Sex 05:00-06:45 → musculação + dança 30 min
-//   Seg/Qua/Sex 20:00-22:00 → taekwondo com sunbaenim (não editável)
-//   Sab-Dom 2h descanso em movimento (cardio/mobilidade/dança longa)
+// Prioridades v2: PEITO (3× exposures) + ABS com carga (4×) +
+// ombro lateral (V-taper 4× exposures). Mantém 7× musc + dança
+// diária + TKD seg/qua/sex.
 //
-// Sem dia de rest total — no máximo "descanso em movimento".
-// Zero seleção de preset: um único plano canônico.
+// A · Push #1 — Peito↑ + Ombro + Tríceps                 (seg · TKD noite)
+// B · Pull    — Costas + Bíceps + Post deltoide          (ter · HARD)
+// C · Legs    — Pernas + Glúteo + Panturrilha + Core     (qua · TKD noite)
+// D · Push #2 — Peito↑ 2 + Ombro + ABS pesado #1         (qui · HARD)
+// E · Arms    — Ombro/braço leve + ABS #2                (sex · TKD noite)
+// F · Chest+  — Peito 3 + Ombro lateral + ABS #3         (sáb · 45 min)
+// G · Regen   — Mobilidade + Core circuit + Cardio Z2    (dom)
 // ============================================================
 
 export type TipoSessao =
@@ -19,7 +23,7 @@ export type TipoSessao =
 
 export interface Exercicio {
   nome: string;
-  series?: string; // "4 × 8-10"
+  series?: string;
   descanso_seg?: number;
   nota?: string;
 }
@@ -31,8 +35,8 @@ export interface Sessao {
   descricao: string;
   duracao_min: number;
   exercicios?: Exercicio[];
-  tkd_moves?: string[]; // techniques do dia (usadas nas quests)
-  editavel: boolean;    // false = TKD com sunbaenim, não muda
+  tkd_moves?: string[];
+  editavel: boolean;
 }
 
 export interface DiaPrograma {
@@ -41,36 +45,26 @@ export interface DiaPrograma {
   observacao?: string;
 }
 
-// ────────────────────────────────────────────────────────
-// SEGUNDA
-// ────────────────────────────────────────────────────────
+// SEG · A · Push #1 (Peito↑ + Ombro + Tríceps) — TKD à noite
 const SEG: Sessao[] = [
   {
     hora: "05:00-06:45",
     tipo: "musculacao",
-    titulo: "Push · Peito superior + Ombro + Tríceps",
-    descricao: "Foco em peito superior (cutting). Composto pesado primeiro.",
-    duracao_min: 105,
+    titulo: "Treino A · Push #1 (Peito↑ + Ombro + Tríceps)",
+    descricao: "Carga média — TKD à noite. Primeira dose de peito superior da semana.",
+    duracao_min: 55,
     editavel: true,
     exercicios: [
-      { nome: "Supino inclinado (halter)", series: "4 × 8-10", descanso_seg: 90 },
-      { nome: "Supino reto (barra)", series: "3 × 8-10", descanso_seg: 90 },
-      { nome: "Crucifixo inclinado", series: "3 × 12", descanso_seg: 60 },
-      { nome: "Crossover polia alta", series: "3 × 12-15", descanso_seg: 60 },
-      { nome: "Desenvolvimento militar", series: "4 × 8-10", descanso_seg: 90 },
-      { nome: "Elevação lateral", series: "4 × 12-15", descanso_seg: 45 },
-      { nome: "Tríceps corda", series: "3 × 12-15", descanso_seg: 60 },
-      { nome: "Tríceps testa", series: "3 × 10-12", descanso_seg: 60 },
+      { nome: "Supino inclinado (halter, 30°)", series: "4 × 6-10", descanso_seg: 120, nota: "RIR 2 · principal do peito da sem · escápula presa" },
+      { nome: "Supino reto (máquina)", series: "3 × 10-12", descanso_seg: 90, nota: "RIR 2 · seguro pra progredir" },
+      { nome: "Crucifixo inclinado (polia)", series: "3 × 12-15", descanso_seg: 60, nota: "RIR 1 · amplitude > carga" },
+      { nome: "Desenvolvimento halter", series: "3 × 8-10", descanso_seg: 90, nota: "RIR 2" },
+      { nome: "Elevação lateral", series: "4 × 12-15", descanso_seg: 45, nota: "RIR 1 · V-taper prioridade" },
+      { nome: "Tríceps corda", series: "3 × 12-15", descanso_seg: 60, nota: "RIR 1 · abre no final" },
+      { nome: "Tríceps testa", series: "2 × 8-12", descanso_seg: 75, nota: "opcional" },
     ],
   },
-  {
-    hora: "após musculação",
-    tipo: "danca",
-    titulo: "Dança K-pop · 30 min",
-    descricao: "Coreografia sorteada do dia (aba /danca) ou escolhida por você.",
-    duracao_min: 30,
-    editavel: true,
-  },
+  { hora: "após musculação", tipo: "danca", titulo: "Dança K-pop · 30 min", descricao: "Coreografia do dia.", duracao_min: 30, editavel: true },
   {
     hora: "20:00-22:00",
     tipo: "tkd",
@@ -82,66 +76,48 @@ const SEG: Sessao[] = [
   },
 ];
 
-// ────────────────────────────────────────────────────────
-// TERÇA
-// ────────────────────────────────────────────────────────
+// TER · B · Pull (Costas + Bíceps + Post deltoide) — HARD
 const TER: Sessao[] = [
   {
     hora: "05:00-06:45",
     tipo: "musculacao",
-    titulo: "Pull · Costas + Bíceps",
-    descricao: "Largura + espessura de costas. Volume alto de puxada.",
-    duracao_min: 105,
+    titulo: "Treino B · Pull (Costas + Bíceps + Post)",
+    descricao: "HARD. Sem TKD → puxa pesado. Volume alto pra dorsal (V-taper).",
+    duracao_min: 65,
     editavel: true,
     exercicios: [
-      { nome: "Barra fixa (peso corporal)", series: "4 × AMRAP", descanso_seg: 90 },
-      { nome: "Puxada pronada", series: "4 × 10-12", descanso_seg: 75 },
-      { nome: "Remada curvada (barra)", series: "4 × 8-10", descanso_seg: 90 },
-      { nome: "Remada unilateral (halter)", series: "3 × 10 (cada)", descanso_seg: 60 },
-      { nome: "Pulldown reto (barra)", series: "3 × 12", descanso_seg: 60 },
-      { nome: "Rosca direta", series: "4 × 10-12", descanso_seg: 60 },
-      { nome: "Rosca martelo", series: "3 × 10-12", descanso_seg: 60 },
+      { nome: "Barra fixa pronada", series: "4 × AMRAP", descanso_seg: 120, nota: "RIR 1 · se 12+, cinta com peso" },
+      { nome: "Remada curvada (barra)", series: "4 × 6-10", descanso_seg: 120, nota: "RIR 2 · espessura" },
+      { nome: "Puxada supinada", series: "3 × 8-12", descanso_seg: 90, nota: "RIR 2 · foco V" },
+      { nome: "Remada unilateral (halter)", series: "3 × 10-12 (cada)", descanso_seg: 60, nota: "RIR 1 · cotovelo colado" },
+      { nome: "Face pull (corda)", series: "4 × 15-20", descanso_seg: 45, nota: "RIR 1 · post deltoide 1º" },
+      { nome: "Rosca direta", series: "3 × 8-10", descanso_seg: 75, nota: "RIR 1" },
+      { nome: "Rosca martelo", series: "3 × 10-12", descanso_seg: 60, nota: "RIR 1 · braquial" },
     ],
   },
-  {
-    hora: "após musculação",
-    tipo: "danca",
-    titulo: "Dança K-pop · 30 min",
-    descricao: "Coreografia sorteada do dia (aba /danca) ou escolhida por você.",
-    duracao_min: 30,
-    editavel: true,
-  },
+  { hora: "após musculação", tipo: "danca", titulo: "Dança K-pop · 30 min", descricao: "Coreografia do dia.", duracao_min: 30, editavel: true },
 ];
 
-// ────────────────────────────────────────────────────────
-// QUARTA
-// ────────────────────────────────────────────────────────
+// QUA · C · Legs + Core técnico — TKD à noite
 const QUA: Sessao[] = [
   {
     hora: "05:00-06:45",
     tipo: "musculacao",
-    titulo: "Legs · Pernas + Glúteo + Panturrilha",
-    descricao: "Composto pesado + isolador. Base pra kicks do TKD à noite.",
-    duracao_min: 105,
+    titulo: "Treino C · Legs + Core técnico (TKD à noite)",
+    descricao: "Carga média — TKD à noite. Técnica > PR. Pallof press pra core anti-rotação.",
+    duracao_min: 60,
     editavel: true,
     exercicios: [
-      { nome: "Agachamento livre", series: "4 × 6-8", descanso_seg: 120 },
-      { nome: "Leg press 45°", series: "4 × 10-12", descanso_seg: 90 },
-      { nome: "Cadeira extensora", series: "3 × 12-15", descanso_seg: 60 },
-      { nome: "Stiff", series: "4 × 10", descanso_seg: 90 },
-      { nome: "Mesa flexora", series: "3 × 12", descanso_seg: 60 },
-      { nome: "Elevação de quadril (glúteo)", series: "3 × 12", descanso_seg: 60 },
-      { nome: "Panturrilha em pé", series: "4 × 15-20", descanso_seg: 45 },
+      { nome: "Agachamento livre", series: "4 × 6-8", descanso_seg: 120, nota: "RIR 2-3 · nunca falha em TKD-day" },
+      { nome: "Leg press 45°", series: "3 × 10-12", descanso_seg: 90, nota: "RIR 2 · quadríceps" },
+      { nome: "Stiff (halter)", series: "3 × 8-10", descanso_seg: 90, nota: "RIR 2 · base do chute" },
+      { nome: "Cadeira flexora", series: "3 × 12-15", descanso_seg: 60, nota: "RIR 1 · pausa 1s no topo" },
+      { nome: "Elevação de quadril", series: "3 × 10-12", descanso_seg: 60, nota: "RIR 1 · glúteo · pausa 1s" },
+      { nome: "Panturrilha em pé", series: "4 × 12-15", descanso_seg: 45, nota: "RIR 1 · pausa embaixo" },
+      { nome: "Pallof press (polia)", series: "3 × 10 (cada)", descanso_seg: 45, nota: "RIR 1 · anti-rotação · core técnico" },
     ],
   },
-  {
-    hora: "após musculação",
-    tipo: "danca",
-    titulo: "Dança K-pop · 30 min",
-    descricao: "Coreografia sorteada do dia (aba /danca) ou escolhida por você.",
-    duracao_min: 30,
-    editavel: true,
-  },
+  { hora: "após musculação", tipo: "danca", titulo: "Dança K-pop · 30 min", descricao: "Coreografia do dia.", duracao_min: 30, editavel: true },
   {
     hora: "20:00-22:00",
     tipo: "tkd",
@@ -153,67 +129,50 @@ const QUA: Sessao[] = [
   },
 ];
 
-// ────────────────────────────────────────────────────────
-// QUINTA
-// ────────────────────────────────────────────────────────
+// QUI · D · Push #2 (Peito↑ 2 + Ombro + ABS pesado) — HARD
 const QUI: Sessao[] = [
   {
     hora: "05:00-06:45",
     tipo: "musculacao",
-    titulo: "Upper 2 · Peito superior 2º estímulo + Core",
-    descricao: "2º estímulo de peito superior + core direto (abs para o V-taper).",
-    duracao_min: 105,
+    titulo: "Treino D · Push #2 + ABS pesado (dia forte de peito+abs)",
+    descricao: "HARD. 2º estímulo peito superior · ABS com CARGA — tratado como músculo, não circuito.",
+    duracao_min: 65,
     editavel: true,
     exercicios: [
-      { nome: "Supino inclinado (máquina)", series: "4 × 10-12", descanso_seg: 75 },
-      { nome: "Peck deck (foco superior)", series: "3 × 12-15", descanso_seg: 60 },
-      { nome: "Puxada supinada", series: "3 × 10-12", descanso_seg: 75 },
-      { nome: "Face pull", series: "4 × 15", descanso_seg: 45 },
-      { nome: "Crunch na polia", series: "4 × 15", descanso_seg: 45 },
-      { nome: "Elevação de pernas (barra)", series: "4 × 10-12", descanso_seg: 60 },
-      { nome: "Prancha", series: "3 × 60s", descanso_seg: 45 },
+      { nome: "Supino inclinado (barra)", series: "4 × 8-10", descanso_seg: 120, nota: "RIR 2 · 2º peito superior" },
+      { nome: "Peck deck (foco superior)", series: "3 × 12-15", descanso_seg: 60, nota: "RIR 1 · isolador" },
+      { nome: "Desenvolvimento arnold", series: "3 × 10-12", descanso_seg: 90, nota: "RIR 2 · rota completa" },
+      { nome: "Elevação lateral (polia baixa)", series: "4 × 12-15", descanso_seg: 45, nota: "RIR 1 · unilateral" },
+      { nome: "Face pull", series: "3 × 15-20", descanso_seg: 45, nota: "RIR 1 · post 2º" },
+      { nome: "Crunch na polia (com peso)", series: "4 × 12-15", descanso_seg: 45, nota: "RIR 1 · ab COM carga = ab que cresce · progride toda semana" },
+      { nome: "Elevação de pernas (barra)", series: "3 × 8-12", descanso_seg: 60, nota: "RIR 1 · ab inferior · pausa embaixo" },
+      { nome: "Cable woodchopper", series: "3 × 10 (cada)", descanso_seg: 45, nota: "RIR 1 · oblíquo com carga" },
     ],
   },
-  {
-    hora: "após musculação",
-    tipo: "danca",
-    titulo: "Dança K-pop · 30 min",
-    descricao: "Coreografia sorteada do dia (aba /danca) ou escolhida por você.",
-    duracao_min: 30,
-    editavel: true,
-  },
+  { hora: "após musculação", tipo: "danca", titulo: "Dança K-pop · 30 min", descricao: "Coreografia do dia.", duracao_min: 30, editavel: true },
 ];
 
-// ────────────────────────────────────────────────────────
-// SEXTA
-// ────────────────────────────────────────────────────────
+// SEX · E · Arms leve + ABS #2 — TKD à noite
 const SEX: Sessao[] = [
   {
     hora: "05:00-06:45",
     tipo: "musculacao",
-    titulo: "Ombros + braços · largura",
-    descricao: "Ombro em prioridade + volume de braços. Cutting = manter braço cheio.",
-    duracao_min: 105,
+    titulo: "Treino E · Shoulders/Arms leve + ABS #2",
+    descricao: "Carga leve — TKD à noite. Ab dinâmico (ab wheel + reverse crunch).",
+    duracao_min: 50,
     editavel: true,
     exercicios: [
-      { nome: "Desenvolvimento halter", series: "4 × 8-10", descanso_seg: 90 },
-      { nome: "Elevação lateral", series: "5 × 12-15", descanso_seg: 45 },
-      { nome: "Elevação frontal (polia)", series: "3 × 12", descanso_seg: 45 },
-      { nome: "Crucifixo invertido (peck deck)", series: "4 × 12-15", descanso_seg: 45 },
-      { nome: "Rosca scott", series: "3 × 10-12", descanso_seg: 60 },
-      { nome: "Rosca martelo (corda)", series: "3 × 12", descanso_seg: 60 },
-      { nome: "Tríceps francês (halter)", series: "3 × 10-12", descanso_seg: 60 },
-      { nome: "Mergulho paralela", series: "3 × AMRAP", descanso_seg: 90 },
+      { nome: "Desenvolvimento halter", series: "3 × 8-10", descanso_seg: 90, nota: "RIR 2 · único composto do dia" },
+      { nome: "Elevação lateral", series: "4 × 12-15", descanso_seg: 45, nota: "RIR 1 · varia halter/polia/máquina" },
+      { nome: "Crucifixo invertido (peck deck)", series: "3 × 12-15", descanso_seg: 45, nota: "RIR 1 · post deltoide" },
+      { nome: "Rosca scott", series: "3 × 8-12", descanso_seg: 60, nota: "RIR 1" },
+      { nome: "Rosca martelo (corda)", series: "3 × 12", descanso_seg: 60, nota: "RIR 1 · braquial" },
+      { nome: "Tríceps corda", series: "3 × 12-15", descanso_seg: 60, nota: "RIR 1" },
+      { nome: "Ab wheel (rollout)", series: "3 × 6-10", descanso_seg: 60, nota: "RIR 1 · joelho no chão até dominar" },
+      { nome: "Reverse crunch", series: "3 × 12-15", descanso_seg: 45, nota: "RIR 1 · ab inferior dinâmico" },
     ],
   },
-  {
-    hora: "após musculação",
-    tipo: "danca",
-    titulo: "Dança K-pop · 30 min",
-    descricao: "Coreografia sorteada do dia (aba /danca) ou escolhida por você.",
-    duracao_min: 30,
-    editavel: true,
-  },
+  { hora: "após musculação", tipo: "danca", titulo: "Dança K-pop · 30 min", descricao: "Coreografia do dia.", duracao_min: 30, editavel: true },
   {
     hora: "20:00-22:00",
     tipo: "tkd",
@@ -221,33 +180,47 @@ const SEX: Sessao[] = [
     descricao: "Programa do sabum. Foco típico de sexta: kicking combo + poomsae completo.",
     duracao_min: 120,
     editavel: false,
-    tkd_moves: [
-      "Neryeo Chagi",
-      "Dollyo Chagi (combos)",
-      "Poomsae Taegeuk 2",
-      "Poomsae Taegeuk 3",
-    ],
+    tkd_moves: ["Neryeo Chagi", "Dollyo Chagi (combos)", "Poomsae Taegeuk 2", "Poomsae Taegeuk 3"],
   },
 ];
 
-// ────────────────────────────────────────────────────────
-// SÁBADO — descanso em movimento
-// ────────────────────────────────────────────────────────
+// SÁB · F · Peito 3º + Ombro + ABS #3
 const SAB: Sessao[] = [
   {
-    hora: "livre (2h total)",
+    hora: "05:00-06:00",
+    tipo: "musculacao",
+    titulo: "Treino F · Chest+ (Peito 3º + Ombro + ABS #3)",
+    descricao: "45 min cirúrgicos. 3ª dose de peito + 5 séries dedicadas ao ombro lateral + prancha com carga.",
+    duracao_min: 45,
+    editavel: true,
+    exercicios: [
+      { nome: "Supino inclinado (máquina)", series: "3 × 10-12", descanso_seg: 90, nota: "RIR 2 · 3ª exposure peito superior" },
+      { nome: "Crossover polia alta", series: "3 × 12-15", descanso_seg: 60, nota: "RIR 1 · foco fibras médias" },
+      { nome: "Elevação lateral (halter)", series: "5 × 12-15", descanso_seg: 45, nota: "RIR 1 · 5 SÉRIES DEDICADAS · meta: 12kg limpo" },
+      { nome: "Face pull", series: "3 × 15-20", descanso_seg: 45, nota: "RIR 1 · post 3º da sem" },
+      { nome: "Mergulho paralela", series: "3 × 8-12", descanso_seg: 90, nota: "RIR 1-2 · peito baixo + tríceps" },
+      { nome: "Prancha com peso (nas costas)", series: "3 × 30-45s", descanso_seg: 45, nota: "core estático com carga · progride +2,5kg quando bater 45s" },
+      { nome: "Panturrilha sentado", series: "3 × 15-20", descanso_seg: 45, nota: "RIR 1 · sóleo" },
+    ],
+  },
+  { hora: "após musculação", tipo: "danca", titulo: "Dança K-pop · 30 min", descricao: "Coreografia do dia.", duracao_min: 30, editavel: true },
+];
+
+// DOM · G · Mobilidade + Core circuit + Cardio Z2
+const DOM: Sessao[] = [
+  {
+    hora: "livre (90 min total)",
     tipo: "cardio",
-    titulo: "Cardio longo · 60-75 min",
-    descricao:
-      "Corrida leve, caminhada em subida ou bike. Zona 2 (conversa possível). Queima gordura sem impactar recuperação.",
-    duracao_min: 70,
+    titulo: "Treino G · Cardio Z2 (45-60 min)",
+    descricao: "Caminhada em subida, bike ou trote leve. Zona 2 (conversa possível). Queima gordura sem impacto na recuperação.",
+    duracao_min: 55,
     editavel: true,
   },
   {
-    hora: "seguida do cardio",
+    hora: "seguido do cardio",
     tipo: "mobilidade",
-    titulo: "Core + mobilidade · 30 min",
-    descricao: "Circuito curto de core + alongamento ativo (quadril, ombro, coluna).",
+    titulo: "Core circuito + mobilidade TKD",
+    descricao: "3 rounds de core + rotina de mobilidade TKD.",
     duracao_min: 30,
     editavel: true,
     exercicios: [
@@ -255,54 +228,27 @@ const SAB: Sessao[] = [
       { nome: "Prancha lateral", series: "3 × 30s (cada)" },
       { nome: "Dead bug", series: "3 × 10" },
       { nome: "Bird dog", series: "3 × 10" },
-      { nome: "Alongamento cadeia posterior", series: "5 min" },
+      { nome: "Hollow hold", series: "3 × 20s" },
+      { nome: "Mobilidade TKD (90/90 · cossack · frog · WGS)", series: "15 min" },
     ],
   },
+  { hora: "à tarde/noite", tipo: "danca", titulo: "Dança longa · 30-60 min", descricao: "Sessão livre — coreo nova sem pressão.", duracao_min: 45, editavel: true },
 ];
 
-// ────────────────────────────────────────────────────────
-// DOMINGO — descanso em movimento
-// ────────────────────────────────────────────────────────
-const DOM: Sessao[] = [
-  {
-    hora: "livre (2h total)",
-    tipo: "mobilidade",
-    titulo: "Yoga + mobilidade · 60 min",
-    descricao:
-      "Yoga flow ou mobilidade guiada. Foca em abrir quadril (kicks TKD), ombro (push) e coluna. Regenera pra próxima semana.",
-    duracao_min: 60,
-    editavel: true,
-  },
-  {
-    hora: "após yoga",
-    tipo: "danca",
-    titulo: "Dança longa · 60 min",
-    descricao:
-      "Sessão longa de dança K-pop (aba /danca). Aproveita pra tirar coreo nova sem pressão do relógio.",
-    duracao_min: 60,
-    editavel: true,
-  },
-];
-
-// ────────────────────────────────────────────────────────
-// PROGRAMA SEMANAL FIXO
-// ────────────────────────────────────────────────────────
 const PROGRAMA_SEMANAL: Record<number, DiaPrograma> = {
-  0: { dia_semana: "Domingo", sessoes: DOM, observacao: "Descanso em movimento" },
+  0: { dia_semana: "Domingo", sessoes: DOM, observacao: "Treino G · regenerativo" },
   1: { dia_semana: "Segunda", sessoes: SEG },
   2: { dia_semana: "Terça", sessoes: TER },
   3: { dia_semana: "Quarta", sessoes: QUA },
   4: { dia_semana: "Quinta", sessoes: QUI },
   5: { dia_semana: "Sexta", sessoes: SEX },
-  6: { dia_semana: "Sábado", sessoes: SAB, observacao: "Descanso em movimento" },
+  6: { dia_semana: "Sábado", sessoes: SAB, observacao: "Treino F · acessório curto" },
 };
 
-/** Programa de hoje baseado no dia da semana. */
 export function programaDoDia(dow: number): DiaPrograma {
   return PROGRAMA_SEMANAL[dow];
 }
 
-/** Retorna todos os dias do programa entre agora e a data alvo (inclusive). */
 export function programaAteMeta(
   hojeISO: string,
   metaISO = "2026-09-09",
@@ -316,21 +262,18 @@ export function programaAteMeta(
   for (let t = inicio; t <= fim; t += 86_400_000) {
     const dt = new Date(t);
     const iso = dt.toISOString().slice(0, 10);
-    // getUTCDay: 0=Sun..6=Sat — usar direto no PROGRAMA_SEMANAL
     const dow = dt.getUTCDay();
     out.push({ data: iso, dia: PROGRAMA_SEMANAL[dow] });
   }
   return out;
 }
 
-/** TKD moves de hoje (usado pelas quests). */
 export function tkdMovesDoDia(dow: number): string[] {
   const dia = PROGRAMA_SEMANAL[dow];
   const tkd = dia.sessoes.find((s) => s.tipo === "tkd");
   return tkd?.tkd_moves ?? [];
 }
 
-/** Nome amigável do tipo de sessão. */
 export const LABEL_TIPO_SESSAO: Record<TipoSessao, string> = {
   musculacao: "Musculação",
   tkd: "Taekwondo",
@@ -339,7 +282,6 @@ export const LABEL_TIPO_SESSAO: Record<TipoSessao, string> = {
   mobilidade: "Mobilidade",
 };
 
-/** Emoji do tipo (usado nos cards do programa). */
 export const ICO_TIPO_SESSAO: Record<TipoSessao, string> = {
   musculacao: "🏋️",
   tkd: "🥋",
@@ -348,8 +290,6 @@ export const ICO_TIPO_SESSAO: Record<TipoSessao, string> = {
   mobilidade: "🧘",
 };
 
-// v11: split keys canônicos do programa (usados como `split` na tabela
-// treino_exercicios). Prefixados com "prog_" pra distinguir dos antigos.
 export const PROGRAMA_SPLIT_KEYS = [
   "prog_seg_push",
   "prog_ter_pull",
@@ -362,7 +302,6 @@ export const PROGRAMA_SPLIT_KEYS = [
 
 export type ProgramaSplitKey = (typeof PROGRAMA_SPLIT_KEYS)[number];
 
-/** Mapa dia da semana (0=Dom..6=Sab) → chave do split do programa. */
 export const DOW_TO_SPLIT_KEY: Record<number, ProgramaSplitKey> = {
   0: "prog_dom_yoga_danca",
   1: "prog_seg_push",
@@ -373,28 +312,17 @@ export const DOW_TO_SPLIT_KEY: Record<number, ProgramaSplitKey> = {
   6: "prog_sab_cardio_core",
 };
 
-/** Label amigável do split do programa (usa o título da sessão de musculação
- *  ou o título principal do dia). */
 export const LABEL_PROGRAMA_SPLIT: Record<ProgramaSplitKey, string> = {
-  prog_seg_push: "SEG · Push (peito + ombro + tríceps)",
-  prog_ter_pull: "TER · Pull (costas + bíceps)",
-  prog_qua_legs: "QUA · Legs (pernas + glúteo)",
-  prog_qui_upper2: "QUI · Upper 2 + core",
-  prog_sex_shoulders_arms: "SEX · Ombros + braços",
-  prog_sab_cardio_core: "SAB · Cardio + core (descanso em movimento)",
-  prog_dom_yoga_danca: "DOM · Yoga + dança longa (descanso em movimento)",
+  prog_seg_push: "SEG · A · Push #1 (peito↑ + ombro + tríceps)",
+  prog_ter_pull: "TER · B · Pull (costas + bíceps)",
+  prog_qua_legs: "QUA · C · Legs + core técnico (TKD noite)",
+  prog_qui_upper2: "QUI · D · Push #2 + ABS pesado",
+  prog_sex_shoulders_arms: "SEX · E · Arms leve + ABS #2",
+  prog_sab_cardio_core: "SÁB · F · Peito 3º + ombro + ABS #3",
+  prog_dom_yoga_danca: "DOM · G · Regen (cardio Z2 + core + mob)",
 };
 
-/** Gera as linhas de treino_exercicios pra sincronizar o /treino com o /plano.
- *  Cada exercício de musculação (+ cardio/mobilidade quando aplicável) vira
- *  uma linha com o split do dia. Sábado e domingo entram como referência —
- *  exercícios pequenos, mas ficam disponíveis pra logar. */
-export function exerciciosDoPrograma(): Array<{
-  nome: string;
-  grupo: string;
-  split: ProgramaSplitKey;
-  ordem: number;
-}> {
+export function exerciciosDoPrograma(): Array<{ nome: string; grupo: string; split: ProgramaSplitKey; ordem: number }> {
   const out: Array<{ nome: string; grupo: string; split: ProgramaSplitKey; ordem: number }> = [];
   for (const dow of [1, 2, 3, 4, 5, 6, 0]) {
     const key = DOW_TO_SPLIT_KEY[dow];
@@ -403,31 +331,25 @@ export function exerciciosDoPrograma(): Array<{
     for (const sessao of dia.sessoes) {
       if (!sessao.exercicios || sessao.exercicios.length === 0) continue;
       for (const ex of sessao.exercicios) {
-        out.push({
-          nome: ex.nome,
-          grupo: inferGrupo(ex.nome, sessao.tipo),
-          split: key,
-          ordem: ordem++,
-        });
+        out.push({ nome: ex.nome, grupo: inferGrupo(ex.nome, sessao.tipo), split: key, ordem: ordem++ });
       }
     }
   }
   return out;
 }
 
-/** Inferência simples de grupo muscular pelo nome do exercício. */
 function inferGrupo(nome: string, tipoSessao: string): string {
   const n = nome.toLowerCase();
   if (tipoSessao === "cardio") return "cardio";
   if (tipoSessao === "mobilidade") return "core";
-  if (n.includes("supino") || n.includes("crucifixo") || n.includes("crossover") || n.includes("peck")) return "peito";
-  if (n.includes("puxada") || n.includes("remada") || n.includes("barra fixa") || n.includes("pulldown") || n.includes("face pull")) return "costas";
-  if (n.includes("desenvolvimento") || n.includes("elevação lateral") || n.includes("elevação frontal") || n.includes("crucifixo invertido")) return "ombro";
+  if (n.includes("supino") || n.includes("crucifixo inclin") || n.includes("crossover") || n.includes("peck") || n.includes("mergulho")) return "peito";
+  if (n.includes("puxada") || n.includes("remada") || n.includes("barra fixa") || n.includes("pulldown") || n.includes("pullover")) return "costas";
+  if (n.includes("desenvolvimento") || n.includes("arnold") || n.includes("elevação lateral") || n.includes("elevação frontal") || n.includes("crucifixo invertido") || n.includes("face pull")) return "ombro";
   if (n.includes("rosca")) return "biceps";
-  if (n.includes("tríceps") || n.includes("mergulho")) return "triceps";
-  if (n.includes("agachamento") || n.includes("leg press") || n.includes("cadeira extensora") || n.includes("afundo") || n.includes("hack")) return "pernas";
-  if (n.includes("stiff") || n.includes("mesa flexora") || n.includes("cadeira flexora") || n.includes("terra") || n.includes("elevação de quadril")) return "posterior";
+  if (n.includes("tríceps")) return "triceps";
+  if (n.includes("agachamento") || n.includes("leg press") || n.includes("cadeira extensora") || n.includes("afundo") || n.includes("hack") || n.includes("búlgaro") || n.includes("bulgarian")) return "pernas";
+  if (n.includes("stiff") || n.includes("mesa flexora") || n.includes("cadeira flexora") || n.includes("terra") || n.includes("elevação de quadril") || n.includes("hip thrust") || n.includes("adução")) return "posterior";
   if (n.includes("panturrilha")) return "panturrilha";
-  if (n.includes("prancha") || n.includes("crunch") || n.includes("ab wheel") || n.includes("cable woodchopper") || n.includes("dead bug") || n.includes("bird dog") || n.includes("elevação de pernas") || n.includes("rotação russa") || n.includes("abdominal") || n.includes("alongamento")) return "core";
+  if (n.includes("prancha") || n.includes("crunch") || n.includes("ab wheel") || n.includes("woodchopper") || n.includes("dead bug") || n.includes("bird dog") || n.includes("hollow") || n.includes("elevação de pernas") || n.includes("rotação russa") || n.includes("abdominal") || n.includes("pallof") || n.includes("reverse crunch") || n.includes("mobilidade")) return "core";
   return "core";
 }

@@ -6,9 +6,24 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { PRESETS, variarExercicio, type Preset } from "@/lib/treino";
-import { hojeISO, aplicarMasteryPorSerie, concederHoloPorPr } from "@/lib/data";
+import {
+  hojeISO,
+  aplicarMasteryPorSerie,
+  concederHoloPorPr,
+  aplicarDanoBoss,
+} from "@/lib/data";
 import { distribuicaoDoExercicio, type GrupoMuscular } from "@/lib/engine/mastery";
 import type { PersonagemSlug } from "@/lib/photocards";
+
+// v12 PR3: dano ao boss semanal pelo tipo de evento. Bate 1:1 com o cap
+// que calcularBossProgresso aplica em cada meta (séries × 1, TKD × 3,
+// dança × 5), então bossProgressoDaSemana vira reconciliação silenciosa —
+// aqui a recompensa vem no mesmo POST que gerou o evento.
+const DANO_POR_SERIE = 1;
+// Bônus adicional ao fechar o split inteiro (independente das séries).
+const DANO_FECHAR_SESSAO = 3;
+const XP_FECHAR_SESSAO = 30;
+const SHARDS_FECHAR_SESSAO = 1;
 
 // v12: PR num grupo dispara HOLO do personagem responsável por aquele
 // grupo. Mapa curto — mestres continuam sendo o rosto do seu domínio.
@@ -256,12 +271,33 @@ export async function POST(request: Request) {
         }
       }
 
+      // v12 PR3: cada série real desce 1 no HP do boss semanal. Idempotente
+      // pra recompensa (aplicarDanoBoss só credita XP/shards/drop uma vez).
+      let bossRecompensa: {
+        derrotou: boolean;
+        xp?: number;
+        shards?: number;
+        photocardId?: string | null;
+      } = { derrotou: false };
+      try {
+        const r = await aplicarDanoBoss(user.id, DANO_POR_SERIE);
+        bossRecompensa = {
+          derrotou: r.derrotou,
+          xp: r.recompensa?.xp,
+          shards: r.recompensa?.shards,
+          photocardId: r.recompensa?.photocardId ?? null,
+        };
+      } catch {
+        /* boss é tooling; não pode quebrar o registro de série */
+      }
+
       return NextResponse.json({
         ok: true,
         is_pr: isPr,
         recorde,
         mastery: masteryGrupos,
         photocardId,
+        boss: bossRecompensa,
       });
     }
 
@@ -281,14 +317,68 @@ export async function POST(request: Request) {
       const split = String(body.split ?? "").trim();
       if (!split) return NextResponse.json({ error: "split" }, { status: 400 });
       const hoje = hojeISO();
+
+      // v12 PR3: recompensa idempotente por (user, data, split). Só credita
+      // XP/shards/dano de boss se treino_sessoes.xp_creditado ainda for false.
+      const { data: sessaoAtual } = await supabase
+        .from("treino_sessoes")
+        .select("xp_creditado")
+        .eq("user_id", user.id)
+        .eq("data", hoje)
+        .eq("split", split)
+        .maybeSingle();
+      const jaCreditou = Boolean(sessaoAtual?.xp_creditado);
+
       await supabase.from("treino_sessoes").upsert({
         user_id: user.id,
         data: hoje,
         split,
         finalizada: true,
+        xp_creditado: true,
         atualizado_em: new Date().toISOString(),
       });
-      return NextResponse.json({ ok: true });
+
+      let bonus: {
+        creditou: boolean;
+        xp: number;
+        shards: number;
+        boss: { derrotou: boolean; photocardId?: string | null };
+      } = {
+        creditou: false,
+        xp: 0,
+        shards: 0,
+        boss: { derrotou: false },
+      };
+      if (!jaCreditou) {
+        try {
+          const { data: attr } = await supabase
+            .from("atributos")
+            .select("xp, shards")
+            .eq("user_id", user.id)
+            .maybeSingle();
+          await supabase
+            .from("atributos")
+            .update({
+              xp: ((attr?.xp as number) ?? 0) + XP_FECHAR_SESSAO,
+              shards: ((attr?.shards as number) ?? 0) + SHARDS_FECHAR_SESSAO,
+            })
+            .eq("user_id", user.id);
+          const rBoss = await aplicarDanoBoss(user.id, DANO_FECHAR_SESSAO);
+          bonus = {
+            creditou: true,
+            xp: XP_FECHAR_SESSAO,
+            shards: SHARDS_FECHAR_SESSAO,
+            boss: {
+              derrotou: rBoss.derrotou,
+              photocardId: rBoss.recompensa?.photocardId ?? null,
+            },
+          };
+        } catch {
+          /* bonus é cosmético — não pode falhar o fechar_sessao */
+        }
+      }
+
+      return NextResponse.json({ ok: true, bonus });
     }
 
     default:

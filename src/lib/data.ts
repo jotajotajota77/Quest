@@ -1318,13 +1318,14 @@ export interface ItemColecao {
   quantidade: number;
   ganho_em: string;
   favorito: boolean;
+  visto: boolean;
 }
 
 export async function carregarColecao(userId: string): Promise<ItemColecao[]> {
   const supabase = createClient();
   const { data } = await supabase
     .from("colecao_item")
-    .select("item_id, tipo, meta, quantidade, ganho_em, favorito")
+    .select("item_id, tipo, meta, quantidade, ganho_em, favorito, visto")
     .eq("user_id", userId)
     .order("ganho_em", { ascending: false });
   return (data ?? []).map((r) => ({
@@ -1334,7 +1335,29 @@ export async function carregarColecao(userId: string): Promise<ItemColecao[]> {
     quantidade: (r.quantidade as number) ?? 1,
     ganho_em: r.ganho_em as string,
     favorito: Boolean(r.favorito),
+    // v12 PR3: fallback pra true — items antes da migration não são NEW.
+    visto: r.visto == null ? true : Boolean(r.visto),
   }));
+}
+
+/**
+ * v12 PR3: marca items da coleção como já vistos pelo usuário. Chamado da
+ * /colecao no primeiro render pra apagar o badge "NEW". Silencioso.
+ */
+export async function marcarColecaoVista(
+  userId: string,
+  itemIds?: string[],
+): Promise<void> {
+  const supabase = createClient();
+  let q = supabase
+    .from("colecao_item")
+    .update({ visto: true })
+    .eq("user_id", userId)
+    .eq("visto", false);
+  if (itemIds && itemIds.length > 0) {
+    q = q.in("item_id", itemIds);
+  }
+  await q;
 }
 
 /**
@@ -1362,6 +1385,9 @@ export async function concederItem(
       tipo,
       meta,
       quantidade: 1,
+      // v12 PR3: drop novo entra como "não visto" pra ativar badge NEW +
+      // overlay de unbox na próxima visita à /colecao.
+      visto: false,
     });
     return { novo: true, shardsGanhos: 0 };
   }
@@ -1455,6 +1481,7 @@ export async function garantirBossEstado(
     dano_carregado_anterior: carry,
     derrotado_em: null,
     recompensa_creditada: false,
+    photocard_drop_id: null,
   };
   await supabase.from("boss_estado").insert(novo);
   return novo;
@@ -1502,16 +1529,6 @@ export async function aplicarDanoBoss(
 
   // Derrotou — credita recompensa uma vez só
   const now = new Date().toISOString();
-  await supabase
-    .from("boss_estado")
-    .update({
-      dano_creditado: novoDano,
-      derrotado_em: now,
-      recompensa_creditada: true,
-      atualizado_em: now,
-    })
-    .eq("user_id", userId)
-    .eq("semana_iso", est.semana_iso);
 
   // Credita XP geral (Trainee Level) + shards
   const { data: attr } = await supabase
@@ -1545,6 +1562,20 @@ export async function aplicarDanoBoss(
     });
   }
 
+  // v12 PR3: persiste photocard_drop_id no boss_estado pra BossBattle
+  // mostrar a recompensa exata sem consultar o log de coleção.
+  await supabase
+    .from("boss_estado")
+    .update({
+      dano_creditado: novoDano,
+      derrotado_em: now,
+      recompensa_creditada: true,
+      photocard_drop_id: photocardId,
+      atualizado_em: now,
+    })
+    .eq("user_id", userId)
+    .eq("semana_iso", est.semana_iso);
+
   return {
     novoHp: 0,
     derrotou: true,
@@ -1554,6 +1585,39 @@ export async function aplicarDanoBoss(
       photocardId,
     },
   };
+}
+
+/**
+ * v12 PR3: aplica XP direto a um grupo de mastery (usado por atividades
+ * não-musculação: taekwondo / dança). Não roteia pros 5 eixos — atributos
+ * de TKD/dança são refletidos via tecnica/resistencia no logDeAtividade.
+ */
+export async function aplicarMasteryDireta(
+  userId: string,
+  grupo: GrupoMuscular,
+  xpAdd: number,
+): Promise<{ nivel: number; xp: number }> {
+  if (xpAdd <= 0) return { nivel: 1, xp: 0 };
+  const supabase = createClient();
+  const { data: existente } = await supabase
+    .from("mastery_musculo")
+    .select("xp, nivel")
+    .eq("user_id", userId)
+    .eq("grupo", grupo)
+    .maybeSingle();
+  const atual = {
+    xp: (existente?.xp as number) ?? 0,
+    nivel: (existente?.nivel as number) ?? 1,
+  };
+  const novo = aplicarXpMastery(atual, xpAdd);
+  await supabase.from("mastery_musculo").upsert({
+    user_id: userId,
+    grupo,
+    xp: novo.xp,
+    nivel: novo.nivel,
+    atualizado_em: new Date().toISOString(),
+  });
+  return novo;
 }
 
 /**

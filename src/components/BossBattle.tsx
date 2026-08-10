@@ -7,16 +7,52 @@ import type { BossProgresso } from "@/lib/boss";
 import type { Personagem } from "@/lib/types";
 import { imagemPose } from "@/lib/personagens";
 import CharacterImage from "@/components/CharacterImage";
+import type { BossEstadoDB } from "@/lib/engine/boss_persistente";
+import {
+  XP_RECOMPENSA_BOSS,
+  SHARDS_BONUS_BOSS,
+} from "@/lib/engine/boss_persistente";
+import { photocardPorId } from "@/lib/photocards";
+
+// v12 PR3: label curto do personagem pra recompensa do drop.
+const LABEL_PERSONAGEM: Record<string, string> = {
+  "ryuki-han":     "Ryuki",
+  "ji-seok-moon":  "Ji-seok",
+  "hujin-kim":     "Hujin",
+  "sanhee-park":   "Sanhee",
+  "chan-ho-lee":   "Chan-ho",
+  "sanha":         "Sanha",
+};
 
 export default function BossBattle({
   progresso,
   mestre,
+  estado,
 }: {
   progresso: BossProgresso;
   mestre: Personagem | null;
+  estado?: BossEstadoDB | null;
 }) {
   const { boss, hp_restante, pct_hp, derrotado } = progresso;
   const cor = derrotado ? "var(--good)" : boss.cor_tema;
+
+  // v12 PR3: descrição real da recompensa (XP + shards + photocard dropada).
+  // Antes de derrotar: mostra o QUE se ganhará. Depois: mostra o QUE foi ganho.
+  const dropId = estado?.photocard_drop_id ?? null;
+  const drop = dropId ? photocardPorId(dropId) : null;
+  const recompensaTexto = (() => {
+    const partes = [
+      `+${XP_RECOMPENSA_BOSS} XP`,
+      `+${SHARDS_BONUS_BOSS} shards`,
+    ];
+    if (derrotado && drop) {
+      const nome = LABEL_PERSONAGEM[drop.personagem] ?? drop.personagem;
+      partes.push(`photocard ${nome} (${drop.raridade})`);
+    } else if (!derrotado) {
+      partes.push("photocard da season");
+    }
+    return partes.join(" + ");
+  })();
 
   return (
     <div
@@ -165,8 +201,8 @@ export default function BossBattle({
           fontWeight: 700,
         }}
       >
-        {derrotado ? "✓ Recompensa: " : "Recompensa: "}
-        +{boss.xp_recompensa} XP + achievement
+        {derrotado ? "✓ Recompensa creditada: " : "Recompensa: "}
+        {recompensaTexto}
       </div>
     </div>
   );

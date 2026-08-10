@@ -144,8 +144,8 @@ export default function TrainingRaid({ plano, seriesHoje }: Props) {
         }}
       >
         {derrotado
-          ? "완벽! Boss derrotado — recompensas creditadas no PR #3."
-          : `Cada série registrada = ~20 dano. Complete o split pra derrotar ${bossMeta.nome}.`}
+          ? "완벽! Split fechado — sessão libera +30 XP + shard e desce HP no boss semanal."
+          : `Cada série registrada = ~20 dano local. Fechar o split desce o boss da semana e libera drop.`}
       </p>
     </div>
   );
