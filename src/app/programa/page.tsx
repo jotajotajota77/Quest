@@ -106,15 +106,6 @@ export default async function ProgramaPage() {
           {diasRestantes} dias · plano 7× — musculação diária + dança diária +
           TKD 20:00-22:00 (seg/qua/sex). Split A–G por dia da semana.
         </p>
-        <div style={{ marginTop: 10 }}>
-          <Link
-            href="/plano"
-            className="btn btn-primary"
-            style={{ padding: "8px 14px", fontSize: "0.86rem" }}
-          >
-            📖 Abrir plano completo 31 dias
-          </Link>
-        </div>
       </div>
 
       {/* HOJE em destaque */}

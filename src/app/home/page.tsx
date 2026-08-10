@@ -123,9 +123,6 @@ export default async function HomePage() {
         <Link href="/saga" className="chip" style={{ borderColor: "var(--kihap)", color: "var(--kihap)" }}>
           ⚔️ Saga · Ato + Boss da semana →
         </Link>
-        <Link href="/plano" className="chip" style={{ borderColor: "var(--gold)", color: "var(--gold)" }}>
-          📖 Plano 31 dias
-        </Link>
       </div>
 
       {/* Goal dashboard — o coração da home (TRAVA v9). Chama viva (streak)

@@ -17,6 +17,7 @@ import BehaviorTab from "@/components/BehaviorTab";
 import NutriDashboard from "@/components/NutriDashboard";
 import CoachTips from "@/components/CoachTips";
 import AtividadesStamina from "@/components/AtividadesStamina";
+import ModeloDoDiaCard from "@/components/ModeloDoDiaCard";
 
 // ids referenciados pelos modelos de dieta (carregados p/ exibir/registrar).
 const IDS_MODELO = [
@@ -62,8 +63,12 @@ export default async function NutriPage() {
     tips = gerarTips(logs30, peso, catMap);
   }
 
+  // v12.8: dia da semana pra puxar o modelo A-G do cutting 31 dias.
+  const dowHoje = new Date().getDay();
+
   return (
     <BehaviorTab familia="nutri" coachAtivo={ativo}>
+      <ModeloDoDiaCard dow={dowHoje} />
       {tips && <CoachTips tips={tips} />}
       <AtividadesStamina />
       <NutriDashboard
