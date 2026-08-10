@@ -9,7 +9,7 @@
 import type { Meta, Personagem } from "@/lib/types";
 import type { ProgressoMeta } from "@/lib/engine/meta";
 import type { StreakDetalhado } from "@/lib/engine/streak";
-import { imagemPose } from "@/lib/personagens";
+import { posesCascata } from "@/lib/personagens";
 import CharacterImage from "@/components/CharacterImage";
 
 function fmtData(iso: string): string {
@@ -59,7 +59,7 @@ function ChamaViva({
           }}
         >
           <CharacterImage
-            src={imagemPose(mestre.slug, "vitoria")}
+            srcs={posesCascata(mestre.slug, "vitoria")}
             nome={mestre.nome}
             className="roster-face"
           />

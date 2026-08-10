@@ -6,6 +6,7 @@
 // ============================================================
 
 const CHIPS: { href: string; label: string; hard?: boolean }[] = [
+  { href: "#glossario", label: "§0 Glossário" },
   { href: "#estrategia", label: "§1 Estratégia" },
   { href: "#calendario", label: "§2 Calendário" },
   { href: "#treino-a", label: "A · Push", hard: true },

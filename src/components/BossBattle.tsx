@@ -5,7 +5,7 @@
 // ============================================================
 import type { BossProgresso } from "@/lib/boss";
 import type { Personagem } from "@/lib/types";
-import { imagemPose } from "@/lib/personagens";
+import { posesCascata } from "@/lib/personagens";
 import CharacterImage from "@/components/CharacterImage";
 import type { BossEstadoDB } from "@/lib/engine/boss_persistente";
 import {
@@ -79,7 +79,7 @@ export default function BossBattle({
             }}
           >
             <CharacterImage
-              src={imagemPose(mestre.slug, "vitoria")}
+              srcs={posesCascata(mestre.slug, "vitoria")}
               nome={mestre.nome}
               className="roster-face"
             />

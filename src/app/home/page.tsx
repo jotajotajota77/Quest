@@ -50,11 +50,9 @@ import { candidatosHero } from "@/lib/heroi";
 import { dicaDoDia } from "@/lib/dicas";
 import FogButton from "@/components/FogButton";
 import DailySpin from "@/components/DailySpin";
-import AtoHeader from "@/components/AtoHeader";
-import BossBattle from "@/components/BossBattle";
-import { atoAtual } from "@/lib/ato";
-import { bossProgressoDaSemana, carregarBossEstado } from "@/lib/data";
-import { rosterDesbloqueado } from "@/lib/data";
+// v12.4: AtoHeader + BossBattle moveram pra /saga (rota nova) — /home tava
+// com 15+ blocos e o BossBattle competia com o Goal por atenção. Um chip
+// discreto "Saga" leva pra lá.
 import { carregarAtributosV2, seasonDoJogador } from "@/lib/data";
 import SeasonBadge from "@/components/SeasonBadge";
 import AtributosCard from "@/components/AtributosCard";
@@ -69,7 +67,7 @@ export default async function HomePage() {
   const personagem = await personagemDoDia(user.id);
   if (!personagem) redirect("/hub");
 
-  const [attr, dia, comLog, nevoa, nHoje, spin, semana, nucleo, trackers, finalizado, meta, corpoRecente, sanha, bossProg, roster] =
+  const [attr, dia, comLog, nevoa, nHoje, spin, semana, nucleo, trackers, finalizado, meta, corpoRecente, sanha] =
     await Promise.all([
       garantirAtributos(user.id),
       diaDeHoje(user.id),
@@ -86,20 +84,12 @@ export default async function HomePage() {
       // v10.2: Sanha (avatar) carregado inteiro — usado no hero, no dojang duo
       // (TKD) e como fallback de todas as abas.
       avatarJogador(),
-      // v11.3: boss da semana + roster pra achar o mestre-boss.
-      bossProgressoDaSemana(user.id),
-      rosterDesbloqueado(),
     ]);
   // v12: season + atributos v2 (5 eixos + build)
-  // v12 PR3: boss_estado persistente pra BossBattle mostrar a photocard
-  // dropada e o card "recompensa creditada" quando derrotado.
-  const [season, atributosV2, bossEstado] = await Promise.all([
+  const [season, atributosV2] = await Promise.all([
     seasonDoJogador(user.id),
     carregarAtributosV2(user.id),
-    carregarBossEstado(user.id),
   ]);
-  const bossMestre = roster.find((p) => p.slug === bossProg.boss.mestre_slug) ?? null;
-  const ato = atoAtual(hojeISO());
   const progresso = progressoMeta(meta, corpoRecente);
   const splitHoje = splitDeHoje();
   // v10: foco do dia derivado do domínio do mestre escolhido no hub.
@@ -127,12 +117,16 @@ export default async function HomePage() {
       {/* v10 direção D+A: mark do app + belt-bar TKD no topo. */}
       <AppHeader />
 
-      {/* v12: Season/era atual do jogador. */}
+      {/* v12: Season/era atual do jogador + chip da /saga (Ato + Boss). */}
       <SeasonBadge season={season} />
-
-      {/* v11.3 RPG: Ato atual (narrativa do cutting) + Boss da semana */}
-      <AtoHeader ato={ato} hojeISO={hojeISO()} />
-      <BossBattle progresso={bossProg} mestre={bossMestre} estado={bossEstado} />
+      <div style={{ marginTop: -6, marginBottom: 12, display: "flex", gap: 6, flexWrap: "wrap" }}>
+        <Link href="/saga" className="chip" style={{ borderColor: "var(--kihap)", color: "var(--kihap)" }}>
+          ⚔️ Saga · Ato + Boss da semana →
+        </Link>
+        <Link href="/plano" className="chip" style={{ borderColor: "var(--gold)", color: "var(--gold)" }}>
+          📖 Plano 31 dias
+        </Link>
+      </div>
 
       {/* Goal dashboard — o coração da home (TRAVA v9). Chama viva (streak)
           embutida no fim do card — v9.2 TRAVA 8 (gamificação da aderência). */}
@@ -149,36 +143,9 @@ export default async function HomePage() {
         altura={220}
       />
 
-      {/* Voz contextual / body-doubling — o protagonista fala. */}
-      <div
-        className="panel"
-        style={{
-          marginBottom: 16,
-          borderLeft: "3px solid var(--neon)",
-          display: "flex",
-          gap: 12,
-          alignItems: "center",
-        }}
-      >
-        <div style={{ fontSize: "1.4rem" }}>🗨️</div>
-        <div>
-          <div className="lbl">{personagem.nome}</div>
-          <div>{voz}</div>
-        </div>
-      </div>
-
-      <Scoreboard attr={attr} personagem={personagem} sanha={sanha} />
-
-      {/* v12: 5-eixos atributo + build + shards */}
-      <AtributosCard atributos={atributosV2} build={atributosV2.build} />
-
-      {/* Streak vive no GoalDashboard como Chama Viva. Botões de lore antigos
-          (Mundo VHYX / Lore do personagem) foram removidos na v10.1 — a
-          personalização agora é a faixa canônica de cada mestre. */}
-
-      {/* Foco do dia — UMA coisa (anti-paralisia). v10: o DOMÍNIO do mestre
-          escolhido no hub direciona o dia (braços, core, pernas, dança ou
-          taekwondo). O split do Apêndice A fica como contexto secundário. */}
+      {/* v12.4: Foco do dia moveu pra logo após o hero — antes ficava abaixo do
+          Scoreboard e do AtributosCard, exigindo scroll deep. Agora é a
+          primeira coisa "acionável" que aparece. */}
       <Link
         href={foco.href}
         className="panel"
@@ -224,6 +191,30 @@ export default async function HomePage() {
         </div>
         </div>
       </Link>
+
+      {/* Voz contextual / body-doubling — o protagonista fala. Agora depois do Foco. */}
+      <div
+        className="panel"
+        style={{
+          marginBottom: 16,
+          marginTop: 12,
+          borderLeft: "3px solid var(--neon)",
+          display: "flex",
+          gap: 12,
+          alignItems: "center",
+        }}
+      >
+        <div style={{ fontSize: "1.4rem" }}>🗨️</div>
+        <div>
+          <div className="lbl">{personagem.nome}</div>
+          <div>{voz}</div>
+        </div>
+      </div>
+
+      <Scoreboard attr={attr} personagem={personagem} sanha={sanha} />
+
+      {/* v12: 5-eixos atributo + build + shards */}
+      <AtributosCard atributos={atributosV2} build={atributosV2.build} />
 
       {/* v10.2: quando TKD é o foco, aparece o "Dojang" — mestre + Sanha lado a
           lado em pose de sparring. Presença dupla no dia de taekwondo. */}
