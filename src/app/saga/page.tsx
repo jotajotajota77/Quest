@@ -58,7 +58,6 @@ export default async function SagaPage() {
           <Link href="/home" className="chip">← Home</Link>
           <Link href="/treino" className="chip">Registrar série →</Link>
           <Link href="/colecao" className="chip">Coleção 🎴</Link>
-          <Link href="/plano" className="chip">Plano 31d 📖</Link>
         </div>
       </div>
 
