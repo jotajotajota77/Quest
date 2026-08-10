@@ -11,6 +11,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { photocardPorId } from "@/lib/photocards";
 import { seasonPorSlug } from "@/lib/seasons";
+import PhotocardArt from "@/components/PhotocardArt";
 
 interface DropPayload {
   photocardId: string;
@@ -32,6 +33,7 @@ const LABEL_PERSONAGEM: Record<string, string> = {
   "sanhee-park":   "Sanhee",
   "chan-ho-lee":   "Chan-ho",
   "sanha":         "Sanha",
+  "min":           "Min",
 };
 
 export function usePhotocardDrop() {
@@ -153,9 +155,10 @@ function DropCard({ photocardId, header, bonus }: DropPayload) {
             display: "grid",
             placeItems: "center",
             fontSize: "3.4rem",
+            overflow: "hidden",
           }}
         >
-          {emojiConceito(card.conceito)}
+          <PhotocardArt card={card} emojiSize="3.4rem" />
         </div>
 
         <div style={{ display: "grid", gap: 4 }}>
@@ -195,16 +198,4 @@ function DropCard({ photocardId, header, bonus }: DropPayload) {
   );
 }
 
-function emojiConceito(conceito: string): string {
-  switch (conceito) {
-    case "y2k": return "💿";
-    case "street": return "🌆";
-    case "dark": return "🌑";
-    case "fresh": return "🌱";
-    case "athlete": return "🏅";
-    case "retro": return "📼";
-    case "hiphop": return "🎧";
-    case "uniform": return "🎖️";
-    default: return "✦";
-  }
-}
+// emojiConceito foi movido pra PhotocardArt.tsx.

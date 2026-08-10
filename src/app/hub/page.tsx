@@ -13,16 +13,17 @@ export default async function HubPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  // v10: Hub em 2 fases (identidade → mestres). Sanha aparece na Fase 1
-  //   (identidade do jogador) e no Espelho; NÃO entra no grid de mestres.
-  // v10.2: também carregamos o progresso por domínio pra mostrar seu kup
-  //   atual vs a faixa canônica de cada mestre.
+  // v12.6: hub agora mostra TODOS os personagens jogáveis (jogavel=true) no
+  // grid — inclusive o Sanha (que continua também na Fase 1 como ritual de
+  // identidade). Isso permite selecionar Sanha como mestre do dia, além de
+  // Min e futuros novos personagens. Os 5 boss-conceito (jogavel=false via
+  // migration 0026) ficam de fora automaticamente.
   const [{ data: roster }, { data: avatar }, progressos] = await Promise.all([
     supabase
       .from("personagens")
       .select("*")
       .eq("ativo", true)
-      .eq("avatar_jogador", false)
+      .eq("jogavel", true)
       .order("ordem", { ascending: true }),
     supabase
       .from("personagens")
