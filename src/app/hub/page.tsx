@@ -13,23 +13,16 @@ export default async function HubPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  // v12.6: hub agora mostra TODOS os personagens jogáveis (jogavel=true) no
-  // grid — inclusive o Sanha (que continua também na Fase 1 como ritual de
-  // identidade). Isso permite selecionar Sanha como mestre do dia, além de
-  // Min e futuros novos personagens. Os 5 boss-conceito (jogavel=false via
-  // migration 0026) ficam de fora automaticamente.
-  const [{ data: roster }, { data: avatar }, progressos] = await Promise.all([
+  // v12.7: hub tem fase única. Sanha entra no roster (jogavel=true) e é
+  // selecionado como qualquer outro. A fase de identidade "Entrar no dojang"
+  // foi removida — passou a ser fricção desnecessária.
+  const [{ data: roster }, progressos] = await Promise.all([
     supabase
       .from("personagens")
       .select("*")
       .eq("ativo", true)
       .eq("jogavel", true)
       .order("ordem", { ascending: true }),
-    supabase
-      .from("personagens")
-      .select("*")
-      .eq("avatar_jogador", true)
-      .maybeSingle(),
     garantirProgressoDominio(user.id),
   ]);
 
@@ -37,7 +30,6 @@ export default async function HubPage() {
     <main className="app-shell">
       <CharacterSelect
         roster={(roster ?? []) as Personagem[]}
-        avatar={(avatar as Personagem | null) ?? null}
         progressos={progressos}
       />
     </main>

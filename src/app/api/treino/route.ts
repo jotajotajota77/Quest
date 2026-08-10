@@ -25,16 +25,20 @@ const DANO_FECHAR_SESSAO = 3;
 const XP_FECHAR_SESSAO = 30;
 const SHARDS_FECHAR_SESSAO = 1;
 
-// v12: PR num grupo dispara HOLO do personagem responsável por aquele
-// grupo. Mapa curto — mestres continuam sendo o rosto do seu domínio.
+// v12.7: rotas de HOLO por grupo — foco atualizado.
+//   chest    → min       (novo dominio 'peito')
+//   shoulders→ sanha     (novo dominio 'ombros')
+//   demais permanecem: back/biceps/triceps continuam com Hujin (upper),
+//   lower com Sanhee (lower), core com Ryuki (abs), taekwondo com
+//   Chan-ho, danca com Ji-seok.
 const PERSONAGEM_POR_GRUPO: Partial<Record<GrupoMuscular, PersonagemSlug>> = {
-  chest: "hujin-kim",      // Upper master
+  chest: "min",
   back: "hujin-kim",
-  shoulders: "hujin-kim",
+  shoulders: "sanha",
   biceps: "hujin-kim",
   triceps: "hujin-kim",
-  lower: "sanhee-park",    // Lower master
-  core: "ryuki-han",       // Abs master
+  lower: "sanhee-park",
+  core: "ryuki-han",
   taekwondo: "chan-ho-lee",
   danca: "ji-seok-moon",
 };

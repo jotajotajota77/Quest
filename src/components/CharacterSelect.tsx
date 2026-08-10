@@ -1,12 +1,9 @@
 "use client";
 
 // ============================================================
-// Hub de seleção — 2 fases (v10):
-//   Fase 1 (identidade): retrato do Sanha (avatar do jogador) + botão
-//     "Entrar no dojang". Ritual de auto-reconhecimento antes de agir.
-//   Fase 2 (mestres): grid dos 5 mestres + 1 slot bloqueado ("em breve").
-//     Escolher define o protagonista do dia e leva à home. O domínio do
-//     mestre escolhido direciona o foco do dia.
+// Hub de seleção (v12.7): fase única — grid direto dos personagens
+// jogáveis. Sanha entra no mesmo grid, sem o ritual de identidade
+// (que existia na v10 e virou passo desnecessário).
 // ============================================================
 
 import { useState } from "react";
@@ -22,19 +19,16 @@ import {
   type ProgressoDominio,
 } from "@/lib/engine/faixa";
 
-type Phase = "identidade" | "mestres";
-
 export default function CharacterSelect({
   roster,
-  avatar,
   progressos = [],
 }: {
   roster: Personagem[];
-  avatar: Personagem | null;
+  /** avatar mantido pra compat de API mas não usado — Sanha vem no roster. */
+  avatar?: Personagem | null;
   progressos?: ProgressoDominio[];
 }) {
   const router = useRouter();
-  const [phase, setPhase] = useState<Phase>(avatar ? "identidade" : "mestres");
   const [selId, setSelId] = useState<string | null>(
     roster.find((p) => p.desbloqueado)?.id ?? null,
   );
@@ -57,80 +51,7 @@ export default function CharacterSelect({
     }
   }
 
-  // ── Fase 1: identidade do jogador (Sanha) ─────────────────
-  if (phase === "identidade" && avatar) {
-    return (
-      <div style={{ display: "grid", gap: 20, placeItems: "center", padding: "24px 0" }}>
-        <div
-          className="panel"
-          style={{
-            maxWidth: 360,
-            width: "100%",
-            display: "grid",
-            gap: 14,
-            padding: 24,
-            borderColor: "var(--calm)",
-            textAlign: "center",
-          }}
-        >
-          <div
-            style={{
-              width: 160,
-              height: 200,
-              borderRadius: 12,
-              overflow: "hidden",
-              margin: "0 auto",
-              background: "linear-gradient(160deg, var(--lilac), var(--surface))",
-              border: "1px solid var(--hairline)",
-              boxShadow: "0 8px 30px var(--kihap-glow)",
-            }}
-          >
-            <CharacterImage
-              src={avatar.asset_corpo ?? avatar.asset_rosto ?? imagemPose(avatar.slug, "rosto")}
-              nome={avatar.nome}
-              className="roster-face"
-              fallbackSize="4rem"
-            />
-          </div>
-          <div>
-            <h2 className="title-fight" style={{ margin: "0 0 4px", fontSize: "2rem" }}>
-              {avatar.nome}
-            </h2>
-            {avatar.nome_kr && (
-              <div
-                className="subtle"
-                style={{ fontFamily: "var(--font-body)", fontSize: "1.1rem" }}
-              >
-                {avatar.nome_kr}
-              </div>
-            )}
-            {avatar.titulo && (
-              <div className="subtle" style={{ color: "var(--calm)", marginTop: 6 }}>
-                {avatar.titulo}
-              </div>
-            )}
-            {avatar.lore && (
-              <p
-                className="subtle"
-                style={{ margin: "12px 0 0", fontStyle: "italic", fontSize: "0.85rem" }}
-              >
-                {avatar.lore}
-              </p>
-            )}
-          </div>
-          <button
-            className="btn btn-primary"
-            style={{ width: "100%" }}
-            onClick={() => setPhase("mestres")}
-          >
-            Entrar no dojang · 시작
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // ── Fase 2: escolher o mestre do dia ──────────────────────
+  // v12.7: fase única — grid direto dos personagens jogáveis.
   return (
     <div>
       <h1 className="title-fight" style={{ fontSize: "2rem", margin: "0 0 4px" }}>

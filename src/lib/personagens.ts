@@ -56,6 +56,8 @@ export function poseParaDominio(dominio: string | null | undefined): PoseKey {
     case "upper":
     case "lower":
     case "abs":
+    case "peito":
+    case "ombros":
       return "treino";
     case "danca":
       return "palco";
@@ -70,6 +72,8 @@ export const LABEL_DOMINIO: Record<string, string> = {
   upper: "Upper",              // peito, costas, ombros, braços (prioridade peito superior)
   lower: "Lower",              // pernas, glúteo, posterior
   abs: "Abs / Core",
+  peito: "Peito",              // v12.7 — foco isolado
+  ombros: "Ombros",            // v12.7 — foco isolado
   danca: "Dança",
   taekwondo: "Taekwondo",
   avatar: "Trainee",
@@ -118,6 +122,20 @@ export function focoDoMestre(mestre: {
         dominio,
         titulo: "Upper · peito + costas + ombros",
         descricao: `${nome} te chama. Prioridade peito superior — supino inclinado, puxada aberta, elevação lateral.`,
+        href: "/treino",
+      };
+    case "peito":
+      return {
+        dominio,
+        titulo: "Peito · superior + fibras médias",
+        descricao: `${nome} te chama. Supino inclinado, crossover polia alta, peck deck — foco no peito superior.`,
+        href: "/treino",
+      };
+    case "ombros":
+      return {
+        dominio,
+        titulo: "Ombros · deltoide lateral + posterior",
+        descricao: `${nome} te chama. Elevação lateral (5 séries), desenvolvimento arnold, face pull — o V-taper mora aqui.`,
         href: "/treino",
       };
     case "abs":
