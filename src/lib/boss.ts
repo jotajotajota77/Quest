@@ -24,46 +24,50 @@ export interface Boss {
   cor_tema: string;
 }
 
+// v12.5: rotação de boss desacoplada dos mestres jogáveis. Os 5 abaixo
+// são antagonistas fictícios (personagens.jogavel=false via migration 0026).
+// Cada um tem uma estética / arco específico + ajuste nas metas semanais.
+// Arte NULL por enquanto — CharacterImage cai na letra inicial via cascata.
 const MESTRES_ROTA = [
   {
-    slug: "chan-ho-lee",
-    nome_boss: "Chan-ho, O Sabum",
-    emoji: "🥋",
-    arco: "O sabum quer ver kihap essa semana. Se você não aparece no dojang, ele te procura.",
-    cor_tema: "var(--kihap)",
-    ajuste: { series: 0, tkd: +2, danca: 0, nutri: 0 },
-  },
-  {
-    slug: "ryuki-han",
-    nome_boss: "Ryuki, O Núcleo",
-    emoji: "💪",
-    arco: "Ryuki bloqueia sua saída do dojang até você fechar 6 sessões de core.",
-    cor_tema: "var(--neon)",
-    ajuste: { series: +10, tkd: 0, danca: 0, nutri: 0 },
-  },
-  {
-    slug: "hujin-kim",
-    nome_boss: "Hujin, O Peito",
-    emoji: "🏋️",
-    arco: "Hujin te desafia — só passa da bench se acumular 8 sessões de push.",
-    cor_tema: "var(--neon-2)",
-    ajuste: { series: +10, tkd: 0, danca: 0, nutri: 0 },
-  },
-  {
-    slug: "sanhee-park",
-    nome_boss: "Sanhee, O Lower",
-    emoji: "🦵",
-    arco: "Legs day 3× essa semana. Sanhee não aceita menos.",
+    slug: "sombra-do-cardio",
+    nome_boss: "Sombra do Cardio",
+    emoji: "🌫",
+    arco: "Ela cresce nos dias parados. Ou você anda, ou ela toma tua sala.",
     cor_tema: "var(--calm)",
-    ajuste: { series: +5, tkd: 0, danca: 0, nutri: 0 },
+    ajuste: { series: 0, tkd: 0, danca: +2, nutri: +4 },
   },
   {
-    slug: "ji-seok-moon",
-    nome_boss: "Ji-seok, O Palco",
-    emoji: "💃",
-    arco: "Ji-seok exige presença no palco: 4 sessões de dança essa semana.",
+    slug: "escala-falsa",
+    nome_boss: "Escala Falsa",
+    emoji: "📉",
+    arco: "O peso oscila sem gordura mudar. Ela adora te tirar do foco na terça.",
+    cor_tema: "var(--belt-yellow)",
+    ajuste: { series: +5, tkd: 0, danca: 0, nutri: +2 },
+  },
+  {
+    slug: "sabum-da-meia-noite",
+    nome_boss: "Sabum da Meia-Noite",
+    emoji: "🌙",
+    arco: "Faixa preta rasgada, luz branca fria. Rouba sono, cobra performance de manhã.",
+    cor_tema: "var(--kihap)",
+    ajuste: { series: 0, tkd: +3, danca: 0, nutri: +1 },
+  },
+  {
+    slug: "halter-fantasma",
+    nome_boss: "Halter Fantasma",
+    emoji: "👻",
+    arco: "A barra fica leve mas você não cresce. Técnica quebrou — precisa ser confrontada.",
+    cor_tema: "var(--lilac)",
+    ajuste: { series: +12, tkd: 0, danca: 0, nutri: 0 },
+  },
+  {
+    slug: "ceia-do-prazer",
+    nome_boss: "Ceia do Prazer",
+    emoji: "🍷",
+    arco: "Mesa barroca de sabor. Cada colher a mais é vitória dela.",
     cor_tema: "var(--gold)",
-    ajuste: { series: 0, tkd: 0, danca: +2, nutri: 0 },
+    ajuste: { series: 0, tkd: 0, danca: 0, nutri: +6 },
   },
 ];
 
