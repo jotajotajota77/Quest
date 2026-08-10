@@ -14,18 +14,29 @@ import { createClient } from "@/lib/supabase/server";
 import BottomNav from "@/components/BottomNav";
 import PlanoJumpNav from "@/components/PlanoJumpNav";
 import { MODELOS_ALIMENTARES, METAS_CUTTING } from "@/lib/plano_alimentar";
+import { hojeISO } from "@/lib/data";
+
+/** v12.4: "10/08" (DD/MM) do dia atual — comparado com CAL[].data pra pintar
+ *  a célula de hoje no calendário. */
+function hojeDDMM(): string {
+  const iso = hojeISO(); // "YYYY-MM-DD"
+  return `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
+}
 
 export default async function PlanoPage() {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  const hoje = hojeDDMM();
+
   return (
     <main className="app-shell" style={{ paddingBottom: 120 }}>
       <PlanoHeader />
       <PlanoJumpNav />
+      <Glossario />
       <Estrategia />
-      <Calendario />
+      <Calendario hoje={hoje} />
       {TREINOS.map((t) => <TreinoCard key={t.slug} treino={t} />)}
       <Volume />
       <Progressao />
@@ -65,6 +76,19 @@ function PlanoHeader() {
         <StatChip label="alvo 09/09" val={`~${METAS_CUTTING.peso_alvo_kg} kg`} />
         <StatChip label="BF proj." val={`~${METAS_CUTTING.bf_alvo_pct}%`} />
       </div>
+      {/* v12.4: CTA no topo — antes só existia no rodapé, longe de todo o scroll. */}
+      <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+        <Link
+          href="/treino"
+          className="btn btn-primary"
+          style={{ padding: "8px 14px", fontSize: "0.86rem" }}
+        >
+          🏋️ Registrar treino de hoje
+        </Link>
+        <a href="#calendario" className="chip">
+          Ver hoje no calendário ↓
+        </a>
+      </div>
     </div>
   );
 }
@@ -75,6 +99,39 @@ function StatChip({ label, val }: { label: string; val: string }) {
       <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.82rem", color: "var(--ink)" }}>{val}</div>
       <div style={{ fontSize: "0.58rem", color: "var(--ink-dim)", letterSpacing: "0.14em", textTransform: "uppercase" }}>{label}</div>
     </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────
+// §0 GLOSSÁRIO — jargão de musculação/cutting explicado
+// ────────────────────────────────────────────────────────
+const GLOSSARIO_ROWS: { termo: string; def: string }[] = [
+  { termo: "RIR (Reps in Reserve)", def: "Quantas repetições você guarda antes da falha. RIR 2 = pararia 2 reps antes de falhar. RIR 0 = falha real. Peso deve ser calibrado pra bater a faixa de reps com o RIR indicado." },
+  { termo: "AMRAP", def: "As Many Reps As Possible — faz o máximo de reps limpas na série. Usado em barra fixa quando a carga é o peso corporal." },
+  { termo: "V-taper", def: "Silhueta em V — ombros largos + cintura estreita. Meta estética dessa periodização (prioridade em deltoide lateral + dorsal)." },
+  { termo: "Composto vs isolador", def: "Composto = mais de um grupo (agacho, supino, remada). Isolador = um grupo só (rosca, elevação lateral, extensora). Composto = base, isolador = detalhe." },
+  { termo: "Double progression", def: "Sobe reps até bater o teto da faixa em todas as séries → só então sobe carga e volta pro meio-baixo da faixa. Progresso mensurável sem trocar exercício." },
+  { termo: "Deload", def: "Semana de volume/intensidade reduzidos pra deixar a fadiga acumulada baixar. Aqui é interno: -1 série por exercício na S4." },
+  { termo: "Z2 (Zona 2)", def: "Cardio leve — ainda dá pra conversar em frases. Queima gordura com pouco impacto na recuperação de força." },
+  { termo: "Shards", def: "Moeda de duplicata de photocard. Card repetido = +N shards. 10 shards trocam por 1 card aleatório da season." },
+  { termo: "Mastery", def: "XP por grupo muscular. Cada série registrada distribui XP nos grupos ativados. Nível alto = você tocou muito naquele músculo." },
+];
+
+function Glossario() {
+  return (
+    <SecaoWrap id="glossario" num="§0" titulo="Glossário — termos que aparecem aqui">
+      <p className="subtle" style={{ fontSize: "0.8rem", margin: "0 0 8px" }}>
+        Se algum termo abaixo aparecer na tabela de treino e você não lembrar, volta aqui.
+      </p>
+      <dl style={{ margin: 0, display: "grid", gap: 6 }}>
+        {GLOSSARIO_ROWS.map((r) => (
+          <div key={r.termo} className="panel" style={{ padding: "8px 12px", margin: 0 }}>
+            <dt style={{ fontWeight: 800, fontSize: "0.82rem", color: "var(--gold)" }}>{r.termo}</dt>
+            <dd style={{ margin: "2px 0 0", fontSize: "0.78rem", color: "var(--ink-dim)" }}>{r.def}</dd>
+          </div>
+        ))}
+      </dl>
+    </SecaoWrap>
   );
 }
 
@@ -140,36 +197,48 @@ const CAL: { data: string; split: string; tag: string; tkd?: boolean; regen?: bo
   { data: "09/09", split: "C · Legs (leve)", tag: "TKD 20h · FOTO FINAL", tkd: true },
 ];
 
-function Calendario() {
+function Calendario({ hoje }: { hoje: string }) {
   return (
     <SecaoWrap id="calendario" num="§2" titulo="Calendário — 4 semanas + 2 dias">
       <p className="subtle" style={{ fontSize: "0.8rem", margin: "0 0 8px", maxWidth: 520 }}>
         Rotação fixa por dia da semana. Barra dourada = TKD à noite. Cor esmaecida = domingo regenerativo.
+        <br />
+        <span style={{ color: "var(--kihap)", fontWeight: 700 }}>Célula em kihap-glow = hoje.</span>
       </p>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 3, fontSize: "0.6rem" }}>
         {["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"].map((d) => (
           <div key={d} style={{ textAlign: "center", color: "var(--ink-dim)", fontFamily: "var(--font-mono)", fontSize: "0.58rem", letterSpacing: "0.14em", textTransform: "uppercase", padding: "4px 0" }}>{d}</div>
         ))}
-        {CAL.map((c) => (
-          <div
-            key={c.data}
-            style={{
-              padding: "4px 3px",
-              minHeight: 60,
-              border: "1px solid var(--hairline)",
-              borderLeft: c.tkd ? "3px solid var(--gold)" : "1px solid var(--hairline)",
-              borderRadius: 4,
-              background: c.regen ? "color-mix(in srgb, var(--surface) 40%, transparent)" : "var(--surface)",
-              display: "flex",
-              flexDirection: "column",
-              gap: 1,
-            }}
-          >
-            <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: "0.72rem", color: "var(--ink)" }}>{c.data}</span>
-            <span style={{ fontWeight: 700, fontSize: "0.56rem", color: "var(--kihap)", lineHeight: 1.15 }}>{c.split}</span>
-            <span style={{ fontSize: "0.52rem", color: "var(--ink-dim)", lineHeight: 1.15 }}>{c.tag}</span>
-          </div>
-        ))}
+        {CAL.map((c) => {
+          const eHoje = c.data === hoje;
+          return (
+            <div
+              key={c.data}
+              style={{
+                padding: "4px 3px",
+                minHeight: 60,
+                border: eHoje ? "2px solid var(--kihap)" : "1px solid var(--hairline)",
+                borderLeft: eHoje ? "2px solid var(--kihap)" : c.tkd ? "3px solid var(--gold)" : "1px solid var(--hairline)",
+                borderRadius: 4,
+                background: eHoje
+                  ? "color-mix(in srgb, var(--kihap) 12%, var(--surface))"
+                  : c.regen
+                    ? "color-mix(in srgb, var(--surface) 40%, transparent)"
+                    : "var(--surface)",
+                display: "flex",
+                flexDirection: "column",
+                gap: 1,
+                boxShadow: eHoje ? "0 0 12px var(--kihap-glow)" : undefined,
+              }}
+            >
+              <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: "0.72rem", color: eHoje ? "var(--kihap)" : "var(--ink)" }}>
+                {c.data}{eHoje && " ⬅"}
+              </span>
+              <span style={{ fontWeight: 700, fontSize: "0.56rem", color: "var(--kihap)", lineHeight: 1.15 }}>{c.split}</span>
+              <span style={{ fontSize: "0.52rem", color: "var(--ink-dim)", lineHeight: 1.15 }}>{c.tag}</span>
+            </div>
+          );
+        })}
       </div>
     </SecaoWrap>
   );

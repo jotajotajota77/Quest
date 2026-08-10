@@ -2,16 +2,17 @@
 // Server component; recebe carregarMasteryMusculo() já resolvido.
 import type { MasteryResolvida } from "@/lib/engine/mastery";
 
+// v12.4: labels em PT — consistente com o resto do app.
 const LABEL_GRUPO: Record<string, { rotulo: string; icon: string }> = {
-  chest:     { rotulo: "Chest",     icon: "🫁" },
-  back:      { rotulo: "Back",      icon: "🌿" },
-  shoulders: { rotulo: "Shoulders", icon: "💠" },
-  biceps:    { rotulo: "Biceps",    icon: "💪" },
-  triceps:   { rotulo: "Triceps",   icon: "🦾" },
-  lower:     { rotulo: "Lower",     icon: "🦵" },
-  core:      { rotulo: "Core",      icon: "🔥" },
-  taekwondo: { rotulo: "TKD",       icon: "🥋" },
-  danca:     { rotulo: "Dance",     icon: "💃" },
+  chest:     { rotulo: "Peito",      icon: "🫁" },
+  back:      { rotulo: "Costas",     icon: "🌿" },
+  shoulders: { rotulo: "Ombros",     icon: "💠" },
+  biceps:    { rotulo: "Bíceps",     icon: "💪" },
+  triceps:   { rotulo: "Tríceps",    icon: "🦾" },
+  lower:     { rotulo: "Pernas",     icon: "🦵" },
+  core:      { rotulo: "Core",       icon: "🔥" },
+  taekwondo: { rotulo: "Taekwondo",  icon: "🥋" },
+  danca:     { rotulo: "Dança",      icon: "💃" },
 };
 
 export default function MasteryCard({ masteries }: { masteries: MasteryResolvida[] }) {

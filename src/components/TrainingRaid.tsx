@@ -56,7 +56,41 @@ export default function TrainingRaid({ plano, seriesHoje }: Props) {
     };
   }, [plano, seriesHoje, splitHoje]);
 
-  if (exerciciosDoSplit.length === 0) return null;
+  if (exerciciosDoSplit.length === 0) {
+    // v12.4: empty state — antes retornava null silencioso e o usuário achava
+    // que o Training Raid tinha sumido. Agora explica o motivo (split sem
+    // exercícios) e aponta pro botão de sync do /treino.
+    return (
+      <div
+        className="panel"
+        style={{
+          marginTop: 12,
+          marginBottom: 12,
+          borderLeft: `3px solid var(--hairline)`,
+          padding: "12px 14px",
+        }}
+      >
+        <span
+          className="subtle"
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: "0.62rem",
+            letterSpacing: "0.16em",
+            textTransform: "uppercase",
+            color: "var(--ink-dim)",
+            display: "block",
+            marginBottom: 4,
+          }}
+        >
+          training raid · sem boss hoje
+        </span>
+        <p style={{ margin: 0, fontSize: "0.82rem", color: "var(--ink-dim)" }}>
+          O split de hoje ainda não tem exercícios. Rola o <em>Sincronizar com /plano</em>
+          abaixo pra popular a semana — o boss aparece automaticamente.
+        </p>
+      </div>
+    );
+  }
 
   const derrotado = danoAtual >= hpTotal;
   const pct = Math.min(100, (danoAtual / hpTotal) * 100);

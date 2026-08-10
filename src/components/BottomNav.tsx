@@ -4,20 +4,24 @@
 // utilidades (Trocar, Espelho). A aba atual fica MARCADA (cor + fundo).
 // Espelho é discreto — nunca convoca (TRAVA). Vira tab bar de app, não
 // pílulas soltas.
+//
+// v12.4: emojis substituídos por SVGs stroke-based (NavIcons). currentColor
+// pega a cor da tab automaticamente (ativo = kihap, dim = ink-dim).
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import NavIcon, { type NavIconKey } from "@/components/NavIcons";
 
-const LINKS: { href: string; label: string; ico: string; dim?: boolean }[] = [
-  { href: "/home", label: "Home", ico: "🏠" },
-  { href: "/programa", label: "Plano", ico: "📅" },
-  { href: "/treino", label: "Treino", ico: "🏋️" },
-  { href: "/nutri", label: "Nutri", ico: "🍎" },
-  { href: "/taekwondo", label: "TKD", ico: "🥋" },
-  { href: "/danca", label: "Dança", ico: "💃" },
-  { href: "/quests", label: "Quests", ico: "⚔️" },
-  { href: "/colecao", label: "Deck", ico: "🎴" },
-  { href: "/hub", label: "Trocar", ico: "🔄", dim: true },
-  { href: "/espelho", label: "Espelho", ico: "🪞", dim: true },
+const LINKS: { href: string; label: string; ico: NavIconKey; dim?: boolean }[] = [
+  { href: "/home", label: "Home", ico: "home" },
+  { href: "/programa", label: "Plano", ico: "plano" },
+  { href: "/treino", label: "Treino", ico: "treino" },
+  { href: "/nutri", label: "Nutri", ico: "nutri" },
+  { href: "/taekwondo", label: "TKD", ico: "tkd" },
+  { href: "/danca", label: "Dança", ico: "danca" },
+  { href: "/quests", label: "Quests", ico: "quests" },
+  { href: "/colecao", label: "Deck", ico: "deck" },
+  { href: "/hub", label: "Trocar", ico: "trocar", dim: true },
+  { href: "/espelho", label: "Espelho", ico: "espelho", dim: true },
 ];
 
 export default function BottomNav() {
@@ -32,7 +36,9 @@ export default function BottomNav() {
             className={`tab${ativo ? " active" : ""}${l.dim ? " dim" : ""}`}
             href={l.href}
           >
-            <span className="tab-ico">{l.ico}</span>
+            <span className="tab-ico" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+              <NavIcon ico={l.ico} />
+            </span>
             <span className="tab-lbl">{l.label}</span>
           </Link>
         );

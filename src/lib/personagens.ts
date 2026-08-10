@@ -33,6 +33,23 @@ export function imagemPose(slug: string, pose: PoseKey): string {
   return `/personagens/${slug}/${NOMES_ARQUIVO[pose]}`;
 }
 
+/**
+ * v12.4: cascata pra <CharacterImage srcs>. Se a pose preferida não existir
+ * (ex: pose_vitoria ainda não desenhada), cai em kihap → treino → corpo →
+ * rosto antes de mostrar a letra inicial. Uso: srcs={posesCascata(slug, "vitoria")}.
+ */
+export function posesCascata(slug: string, preferida: PoseKey): string[] {
+  const ordem: PoseKey[] = [preferida, "kihap", "treino", "corpo", "rosto"];
+  const visto = new Set<PoseKey>();
+  return ordem
+    .filter((p) => {
+      if (visto.has(p)) return false;
+      visto.add(p);
+      return true;
+    })
+    .map((p) => imagemPose(slug, p));
+}
+
 /** Pose que combina com o domínio do mestre — usada no hero da home. */
 export function poseParaDominio(dominio: string | null | undefined): PoseKey {
   switch (dominio) {
