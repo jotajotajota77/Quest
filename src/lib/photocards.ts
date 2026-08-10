@@ -11,7 +11,8 @@
 
 import { SEASONS, type ConceitoPersonagem, type Raridade } from "./seasons";
 
-/** Slug dos personagens jogáveis. Bate com personagens.slug no DB. */
+/** Slug dos personagens jogáveis. Bate com personagens.slug no DB.
+ *  v12.6: incluído "min" (personagem-teste com arte real). */
 export const PERSONAGENS_JOGAVEIS = [
   "ryuki-han",
   "ji-seok-moon",
@@ -19,6 +20,7 @@ export const PERSONAGENS_JOGAVEIS = [
   "sanhee-park",
   "chan-ho-lee",
   "sanha",
+  "min",
 ] as const;
 
 export type PersonagemSlug = (typeof PERSONAGENS_JOGAVEIS)[number];

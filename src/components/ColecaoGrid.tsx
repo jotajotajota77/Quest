@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { PHOTOCARDS, SHARDS_POR_DUPLICATA, SHARDS_PARA_TROCA, type Photocard } from "@/lib/photocards";
 import { SEASONS, seasonPorSlug } from "@/lib/seasons";
 import { usePhotocardDrop } from "@/components/PhotocardDropToast";
+import PhotocardArt from "@/components/PhotocardArt";
 
 interface Props {
   itens: {
@@ -47,6 +48,7 @@ const LABEL_PERSONAGEM: Record<string, string> = {
   "sanhee-park":   "Sanhee",
   "chan-ho-lee":   "Chan-ho",
   "sanha":         "Sanha",
+  "min":           "Min",
 };
 
 interface CardEstado {
@@ -359,10 +361,11 @@ function PhotocardTile({
 
       <div style={{
         flex: 1, display: "grid", placeItems: "center",
+        overflow: "hidden",
         fontSize: possui ? "1.8rem" : "3rem",
         color: possui ? "var(--text)" : "var(--text-dim)",
       }}>
-        {possui ? emojiConceito(card.conceito) : "?"}
+        {possui ? <PhotocardArt card={card} emojiSize="1.8rem" /> : "?"}
       </div>
 
       <div style={{ display: "grid", gap: 2 }}>
@@ -471,8 +474,8 @@ function CardDetalheModal({
             fontFamily: "var(--font-mono)", fontSize: "0.55rem", letterSpacing: "0.16em",
             textTransform: "uppercase", color: season?.cor_primaria ?? "var(--text-dim)",
           }}>{season?.nome ?? card.season}</div>
-          <div style={{ flex: 1, display: "grid", placeItems: "center", fontSize: "2.8rem" }}>
-            {possui ? emojiConceito(card.conceito) : "?"}
+          <div style={{ flex: 1, display: "grid", placeItems: "center", fontSize: "2.8rem", overflow: "hidden" }}>
+            {possui ? <PhotocardArt card={card} emojiSize="2.8rem" /> : "?"}
           </div>
           <div style={{ display: "grid", gap: 3 }}>
             <div style={{ fontSize: "0.9rem", fontWeight: 800 }}>
@@ -536,16 +539,5 @@ function CardDetalheModal({
   );
 }
 
-function emojiConceito(conceito: string): string {
-  switch (conceito) {
-    case "y2k": return "💿";
-    case "street": return "🌆";
-    case "dark": return "🌑";
-    case "fresh": return "🌱";
-    case "athlete": return "🏅";
-    case "retro": return "📼";
-    case "hiphop": return "🎧";
-    case "uniform": return "🎖️";
-    default: return "✦";
-  }
-}
+// emojiConceito foi movido pra PhotocardArt.tsx e usado pelo fallback do
+// componente. Este arquivo não usa mais diretamente.
