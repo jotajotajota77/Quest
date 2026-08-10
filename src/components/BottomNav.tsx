@@ -11,6 +11,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import NavIcon, { type NavIconKey } from "@/components/NavIcons";
 
+// v12.5: /quests saiu do BottomNav — QuestsCard na /home vira o único
+// ponto de acesso primário. Rota /quests continua funcional pra links
+// antigos, só perdeu a aba fixa.
 const LINKS: { href: string; label: string; ico: NavIconKey; dim?: boolean }[] = [
   { href: "/home", label: "Home", ico: "home" },
   { href: "/programa", label: "Plano", ico: "plano" },
@@ -18,7 +21,6 @@ const LINKS: { href: string; label: string; ico: NavIconKey; dim?: boolean }[] =
   { href: "/nutri", label: "Nutri", ico: "nutri" },
   { href: "/taekwondo", label: "TKD", ico: "tkd" },
   { href: "/danca", label: "Dança", ico: "danca" },
-  { href: "/quests", label: "Quests", ico: "quests" },
   { href: "/colecao", label: "Deck", ico: "deck" },
   { href: "/hub", label: "Trocar", ico: "trocar", dim: true },
   { href: "/espelho", label: "Espelho", ico: "espelho", dim: true },
