@@ -1,18 +1,20 @@
 // ============================================================
-// Adaptive Physique RPG — POST /api/phase (PR 4).
+// Adaptive Physique RPG — POST /api/phase (PR 4 + PR 5).
 // ------------------------------------------------------------
 // Ações:
 //   - avaliar: roda o engine e grava nova decisão (physique_engine_decision).
 //   - decidir: usuário marca uma decisão como aceito/adiado/ignorado.
-//
-// PR4 NÃO aplica automaticamente mudanças em nutrition_target. O engine
-// propõe, o usuário decide (§88). Se aceito = 'aceito', PR5 vai
-// materializar a mudança (fora do escopo aqui).
+//     PR5: quando aceito, materializa `nutrition_target` novo se o engine
+//     sugeriu kcal diferente do atual. Preserva piso §72.
 // ============================================================
 
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { avaliarFaseCut, marcarDecisao } from "@/lib/physique/data";
+import {
+  aplicarDecisaoEmTarget,
+  avaliarFaseCut,
+  marcarDecisao,
+} from "@/lib/physique/data";
 
 interface AvaliarBody {
   action: "avaliar";
@@ -54,5 +56,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "aceito inválido" }, { status: 400 });
   }
   await marcarDecisao(user.id, id, raw.aceito);
-  return NextResponse.json({ ok: true });
+
+  // PR5 §20-24: aceito → materializa nutrition_target novo se o engine
+  // propôs mudança de kcal. adiado/ignorado NÃO mexem no target.
+  let targetAplicado: { id: number; kcal: number } | null = null;
+  if (raw.aceito === "aceito") {
+    try {
+      targetAplicado = await aplicarDecisaoEmTarget(user.id, id);
+    } catch {
+      /* materialização é tooling — não falha o marcarDecisao */
+    }
+  }
+  return NextResponse.json({ ok: true, target_aplicado: targetAplicado });
 }
