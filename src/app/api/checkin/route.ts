@@ -16,6 +16,8 @@ import {
   salvarCheckinSemanal,
   garantirFaseAtiva,
   recalcularReadinessDoDia,
+  recalcularMomentumDoDia,
+  gerarQuestsContextuais,
 } from "@/lib/physique/data";
 import type {
   DailyCheckinInput,
@@ -100,7 +102,22 @@ export async function POST(request: Request) {
     } catch {
       /* readiness é tooling — não pode falhar o checkin */
     }
-    return NextResponse.json({ ok: true, checkin: row, readiness });
+    // PR7 §31-33: momentum + quests contextuais. Silencioso em erro.
+    let momentum = null;
+    let quests_novas: string[] = [];
+    try {
+      momentum = await recalcularMomentumDoDia(user.id, row.data);
+    } catch { /* tooling */ }
+    try {
+      quests_novas = await gerarQuestsContextuais(user.id);
+    } catch { /* tooling */ }
+    return NextResponse.json({
+      ok: true,
+      checkin: row,
+      readiness,
+      momentum,
+      quests_novas,
+    });
   }
 
   const entrada: WeeklyCheckinInput = {
