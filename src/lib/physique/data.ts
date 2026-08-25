@@ -22,6 +22,13 @@ import type {
 } from "./tipos";
 import { mediaCintura, mediaMovel, semanaISO, type Ponto } from "./math";
 import { decideCut, type CutInput, type DecisionResult } from "./engine";
+import {
+  calcReadiness,
+  sinalSonoRuim,
+  type ReadinessInput,
+  type ReadinessResult,
+  type Veredicto,
+} from "./readiness";
 
 // ---------- physique_phase ----------
 
@@ -604,6 +611,154 @@ async function performanceDeltaSimples(userId: string): Promise<number | null> {
   if (recentes == null || anteriores == null) return null;
   if (anteriores === 0) return recentes > 0 ? 5 : 0;
   return Number((((recentes - anteriores) / Math.max(anteriores, 1)) * 100).toFixed(1));
+}
+
+// ---------- readiness_snapshot (PR6) ----------
+
+export interface ReadinessRow {
+  id: number;
+  data: string;
+  score: number;
+  componentes: ReadinessResult["componentes"];
+  veredicto: Veredicto;
+  criado_em: string;
+  atualizado_em: string;
+}
+
+export async function ultimoReadiness(userId: string): Promise<ReadinessRow | null> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("readiness_snapshot")
+    .select("id, data, score, componentes, veredicto, criado_em, atualizado_em")
+    .eq("user_id", userId)
+    .order("data", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return (data as ReadinessRow | null) ?? null;
+}
+
+export async function historicoReadiness(userId: string, dias = 14): Promise<ReadinessRow[]> {
+  const supabase = createClient();
+  const desde = new Date();
+  desde.setDate(desde.getDate() - dias);
+  const { data } = await supabase
+    .from("readiness_snapshot")
+    .select("id, data, score, componentes, veredicto, criado_em, atualizado_em")
+    .eq("user_id", userId)
+    .gte("data", desde.toISOString().slice(0, 10))
+    .order("data", { ascending: true });
+  return (data ?? []) as ReadinessRow[];
+}
+
+/**
+ * Retorna as horas de sono dos últimos 7 dias (ordenado do mais recente
+ * pro mais antigo). Usado por `sinalSonoRuim` pra decidir banner na home.
+ */
+export async function sonoUltimos7(userId: string): Promise<(number | null)[]> {
+  const supabase = createClient();
+  const desde = new Date();
+  desde.setDate(desde.getDate() - 7);
+  const { data } = await supabase
+    .from("daily_checkin")
+    .select("data, sono_h")
+    .eq("user_id", userId)
+    .gte("data", desde.toISOString().slice(0, 10))
+    .order("data", { ascending: false });
+  return (data ?? []).map((r) => (r.sono_h as number | null) ?? null);
+}
+
+/**
+ * Monta o input de readiness a partir do daily_checkin de hoje +
+ * proxies de performance/carga. Upsert em readiness_snapshot
+ * (unique user + data). Chamado por POST /api/checkin daily.
+ */
+export async function recalcularReadinessDoDia(
+  userId: string,
+  dia?: string,
+): Promise<ReadinessRow | null> {
+  const supabase = createClient();
+  const data = dia ?? new Date().toISOString().slice(0, 10);
+  const daily = await checkinDoDia(userId, data);
+  // Sem daily do dia? Nada a gravar.
+  if (!daily) return null;
+
+  // Fadiga subjetiva = ponderado de humor + stress (10 = destruído).
+  const fadigaFromHumor = ({
+    otimo: 1,
+    normal: 4,
+    cansado: 7,
+    destruido: 10,
+  } as const)[daily.humor ?? "normal"] ?? 4;
+  const fadiga = daily.stress != null
+    ? Math.round((fadigaFromHumor + daily.stress) / 2)
+    : fadigaFromHumor;
+
+  // Performance recente: reaproveita a heurística do engine CUT.
+  const performance_pct = await performanceDeltaSimples(userId);
+
+  // Carga semana atual: aproximação simples = nº de séries últimos 7d
+  // dividido por 50 (proxy do teto saudável). Capado em 1.
+  const desde = new Date();
+  desde.setDate(desde.getDate() - 7);
+  const { count: seriesSemana } = await supabase
+    .from("treino_series")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .gte("ts", desde.toISOString());
+  const carga_semana_pct = seriesSemana == null ? null : Math.min(1, seriesSemana / 50);
+
+  const input: ReadinessInput = {
+    sono_h: daily.sono_h,
+    sono_qualidade: daily.sono_qualidade,
+    fome: daily.fome,
+    dor: daily.dor,
+    performance_pct,
+    carga_semana_pct,
+    fadiga_subjetiva: fadiga,
+  };
+
+  const r = calcReadiness(input);
+
+  const { data: row, error } = await supabase
+    .from("readiness_snapshot")
+    .upsert(
+      {
+        user_id: userId,
+        data,
+        score: r.score,
+        componentes: r.componentes as unknown as Record<string, unknown>,
+        veredicto: r.veredicto,
+        atualizado_em: new Date().toISOString(),
+      },
+      { onConflict: "user_id,data" },
+    )
+    .select("id, data, score, componentes, veredicto, criado_em, atualizado_em")
+    .single();
+  if (error) throw error;
+  return row as ReadinessRow;
+}
+
+/**
+ * Sinal composto pra banner de home: "recovery advised" se
+ *   - último readiness < 50, OU
+ *   - >=3 noites de sono <5h nos últimos 7 dias (§17).
+ */
+export async function precisaRecoveryBanner(userId: string): Promise<{
+  precisa: boolean;
+  motivo: string | null;
+  score: number | null;
+}> {
+  const [ult, sonos] = await Promise.all([
+    ultimoReadiness(userId),
+    sonoUltimos7(userId),
+  ]);
+  if (ult && ult.score < 50) {
+    return { precisa: true, motivo: `readiness ${ult.score}`, score: ult.score };
+  }
+  if (sinalSonoRuim(sonos)) {
+    return { precisa: true, motivo: "3+ noites <5h", score: ult?.score ?? null };
+  }
+  return { precisa: false, motivo: null, score: ult?.score ?? null };
 }
 
 // ---------- helpers ----------

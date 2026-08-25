@@ -15,6 +15,7 @@ import {
   salvarCheckinDiario,
   salvarCheckinSemanal,
   garantirFaseAtiva,
+  recalcularReadinessDoDia,
 } from "@/lib/physique/data";
 import type {
   DailyCheckinInput,
@@ -92,7 +93,14 @@ export async function POST(request: Request) {
       nota: raw.nota ?? null,
     };
     const row = await salvarCheckinDiario(user.id, entrada);
-    return NextResponse.json({ ok: true, checkin: row });
+    // PR6 §17: readiness_snapshot recalculado após cada check-in diário.
+    let readiness = null;
+    try {
+      readiness = await recalcularReadinessDoDia(user.id, row.data);
+    } catch {
+      /* readiness é tooling — não pode falhar o checkin */
+    }
+    return NextResponse.json({ ok: true, checkin: row, readiness });
   }
 
   const entrada: WeeklyCheckinInput = {

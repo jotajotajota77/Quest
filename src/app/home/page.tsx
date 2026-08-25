@@ -54,6 +54,7 @@ import DailySpin from "@/components/DailySpin";
 // com 15+ blocos e o BossBattle competia com o Goal por atenção. Um chip
 // discreto "Saga" leva pra lá.
 import { carregarAtributosV2, seasonDoJogador } from "@/lib/data";
+import { precisaRecoveryBanner } from "@/lib/physique/data";
 import SeasonBadge from "@/components/SeasonBadge";
 import AtributosCard from "@/components/AtributosCard";
 
@@ -86,9 +87,10 @@ export default async function HomePage() {
       avatarJogador(),
     ]);
   // v12: season + atributos v2 (5 eixos + build)
-  const [season, atributosV2] = await Promise.all([
+  const [season, atributosV2, recoveryBanner] = await Promise.all([
     seasonDoJogador(user.id),
     carregarAtributosV2(user.id),
+    precisaRecoveryBanner(user.id),
   ]);
   const progresso = progressoMeta(meta, corpoRecente);
   const splitHoje = splitDeHoje();
@@ -116,6 +118,29 @@ export default async function HomePage() {
     <main className="app-shell">
       {/* v10 direção D+A: mark do app + belt-bar TKD no topo. */}
       <AppHeader />
+
+      {/* PR6 §17: recovery advised — banner destacado quando readiness cai
+          ou quando 3 noites <5h em 7 dias. Link direto pra /recovery. */}
+      {recoveryBanner.precisa && (
+        <Link
+          href="/recovery"
+          style={{
+            display: "block",
+            marginBottom: 10,
+            padding: 10,
+            borderRadius: 12,
+            background: "color-mix(in srgb, var(--kihap) 15%, var(--surface))",
+            borderLeft: "4px solid var(--kihap)",
+            textDecoration: "none",
+            color: "var(--ink)",
+          }}
+        >
+          <strong style={{ color: "var(--kihap)", fontSize: 13 }}>⚠ Recovery advised</strong>
+          <span style={{ marginLeft: 8, fontSize: 12, color: "var(--ink-dim)" }}>
+            {recoveryBanner.motivo} · abrir /recovery
+          </span>
+        </Link>
+      )}
 
       {/* v12: Season/era atual do jogador + chip da /saga (Ato + Boss). */}
       <SeasonBadge season={season} />
