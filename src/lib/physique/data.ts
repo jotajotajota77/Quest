@@ -20,7 +20,8 @@ import type {
   WeeklyCheckin,
   WeeklyCheckinInput,
 } from "./tipos";
-import { mediaCintura, semanaISO } from "./math";
+import { mediaCintura, mediaMovel, semanaISO, type Ponto } from "./math";
+import { decideCut, type CutInput, type DecisionResult } from "./engine";
 
 // ---------- physique_phase ----------
 
@@ -289,6 +290,255 @@ export async function fotosRecentes(userId: string, limit = 12): Promise<Progres
     .order("taken_at", { ascending: false })
     .limit(limit);
   return (data ?? []) as ProgressPhoto[];
+}
+
+// ---------- physique_engine_decision + nutrition_target (PR4) ----------
+
+export interface EngineDecisionRow {
+  id: number;
+  criado_em: string;
+  decision: DecisionResult["decision"];
+  reason: string | null;
+  confidence: number | null;
+  signals: DecisionResult["signals"];
+  aceito: "pendente" | "aceito" | "adiado" | "ignorado" | "expirado";
+  decidido_em: string | null;
+}
+
+export async function ultimaDecisaoEngine(userId: string): Promise<EngineDecisionRow | null> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("physique_engine_decision")
+    .select("id, criado_em, decision, reason, confidence, signals, aceito, decidido_em")
+    .eq("user_id", userId)
+    .order("criado_em", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return (data as EngineDecisionRow | null) ?? null;
+}
+
+export async function targetVigente(userId: string): Promise<{
+  id: number;
+  kcal: number;
+  kcal_range_min: number;
+  kcal_range_max: number;
+  protein_g: number;
+  origem: string | null;
+} | null> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("nutrition_target")
+    .select("id, kcal, kcal_range_min, kcal_range_max, protein_g, origem")
+    .eq("user_id", userId)
+    .eq("ativo", true)
+    .maybeSingle();
+  return (data as {
+    id: number;
+    kcal: number;
+    kcal_range_min: number;
+    kcal_range_max: number;
+    protein_g: number;
+    origem: string | null;
+  } | null) ?? null;
+}
+
+/**
+ * Se ainda não existe nutrition_target ativo, cria um a partir da fase
+ * ativa (calorie_target / protein_target). Idempotente.
+ */
+export async function garantirTargetAtivo(userId: string) {
+  const existente = await targetVigente(userId);
+  if (existente) return existente;
+  const supabase = createClient();
+  const fase = await garantirFaseAtiva(userId);
+  const kcal = fase.calorie_target ?? 1900;
+  const protein = fase.protein_target ?? 135;
+  const { data, error } = await supabase
+    .from("nutrition_target")
+    .insert({
+      user_id: userId,
+      phase_id: fase.id,
+      kcal,
+      kcal_range_min: fase.calorie_range_min ?? Math.round(kcal * 0.95),
+      kcal_range_max: fase.calorie_range_max ?? Math.round(kcal * 1.05),
+      protein_g: protein,
+      protein_range_min: fase.protein_range_min ?? Math.round(protein * 0.9),
+      protein_range_max: fase.protein_range_max ?? Math.round(protein * 1.15),
+      origem: "inicial",
+      ativo: true,
+    })
+    .select("id, kcal, kcal_range_min, kcal_range_max, protein_g, origem")
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Monta o CutInput a partir do estado atual do usuário, roda o engine
+ * e grava a decisão. NÃO aplica mudanças em nutrition_target — só
+ * registra a proposta (§88: usuário aceita/adia/ignora).
+ */
+export async function avaliarFaseCut(userId: string): Promise<{
+  fase: PhysiquePhase;
+  input: CutInput;
+  resultado: DecisionResult;
+  decisaoId: number;
+}> {
+  const supabase = createClient();
+  const fase = await garantirFaseAtiva(userId);
+  const target = await garantirTargetAtivo(userId);
+
+  // Peso: pontos das últimas 21 medições pra montar 2 janelas de 7d.
+  const pesos = await ultimasMedicoes(userId, "weight", 30);
+  const pontos: Ponto[] = pesos.map((m) => ({ ts: m.taken_at, valor: Number(m.value_numeric) }));
+  const hoje = new Date();
+  const semanaPassada = new Date(hoje);
+  semanaPassada.setDate(semanaPassada.getDate() - 7);
+  const media7d_atual = mediaMovel(pontos, 7, hoje);
+  const media7d_passada = mediaMovel(pontos, 7, semanaPassada);
+
+  // Cintura: últimos 2 weekly_checkin.
+  const { data: weeklyLast } = await supabase
+    .from("weekly_checkin")
+    .select("cintura_media_cm, sono_h_medio, fome_media")
+    .eq("user_id", userId)
+    .order("semana_iso", { ascending: false })
+    .limit(2);
+  const wArr = (weeklyLast ?? []) as {
+    cintura_media_cm: number | null;
+    sono_h_medio: number | null;
+    fome_media: number | null;
+  }[];
+  const cinturaAtual = wArr[0]?.cintura_media_cm ?? null;
+  const cinturaPassada = wArr[1]?.cintura_media_cm ?? null;
+  const cintura_delta_cm =
+    cinturaAtual != null && cinturaPassada != null
+      ? Number((cinturaAtual - cinturaPassada).toFixed(1))
+      : null;
+
+  // Daily checkins últimos 7d — média sono + fome (fallback do weekly).
+  const { data: dailies } = await supabase
+    .from("daily_checkin")
+    .select("data, sono_h, fome, treino_previsto")
+    .eq("user_id", userId)
+    .gte("data", isoDaysAgo(7))
+    .order("data", { ascending: false });
+  const arr = (dailies ?? []) as {
+    data: string;
+    sono_h: number | null;
+    fome: number | null;
+    treino_previsto: boolean;
+  }[];
+  const sono_h_medio =
+    wArr[0]?.sono_h_medio ?? mediaDe(arr.map((d) => d.sono_h));
+  const fome_media =
+    wArr[0]?.fome_media ?? mediaDe(arr.map((d) => d.fome));
+
+  // Aderência: % dias com daily_checkin registrado nos últimos 14 dias.
+  const { count: countCheckins } = await supabase
+    .from("daily_checkin")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .gte("data", isoDaysAgo(14));
+  const aderencia_pct = countCheckins != null ? Math.min(100, (countCheckins / 14) * 100) : null;
+
+  // Performance delta: comparação leve de PRs vigentes vs semana passada.
+  // Como PR3 acaba de entrar, aqui usa uma heurística: nº de PRs batidos
+  // nas últimas 2 sem vs. as 2 sem anteriores. Positivo = melhorando.
+  const performance_delta_pct = await performanceDeltaSimples(userId);
+
+  // Dias na fase.
+  const dias_na_fase = Math.max(
+    0,
+    Math.floor((hoje.getTime() - new Date(fase.started_at).getTime()) / 86400000),
+  );
+
+  const input: CutInput = {
+    media7d_atual,
+    media7d_passada,
+    cintura_delta_cm,
+    performance_delta_pct,
+    sono_h_medio,
+    fome_media,
+    aderencia_pct,
+    dias_na_fase,
+    kcal_min_floor: fase.calorie_target_min_floor ?? null,
+    kcal_target_atual: target?.kcal ?? fase.calorie_target ?? null,
+    bf_estimado_pct: null,
+    bf_target_pct: fase.target_bf_optional ?? null,
+    cintura_delta_total_cm: null,
+  };
+
+  const resultado = decideCut(input);
+
+  const { data: inserted, error } = await supabase
+    .from("physique_engine_decision")
+    .insert({
+      user_id: userId,
+      phase_id: fase.id,
+      decision: resultado.decision,
+      signals: resultado.signals as unknown as Record<string, unknown>,
+      reason: resultado.reason,
+      confidence: resultado.confidence,
+    })
+    .select("id")
+    .single();
+  if (error) throw error;
+
+  return {
+    fase,
+    input,
+    resultado,
+    decisaoId: (inserted?.id as number) ?? 0,
+  };
+}
+
+export async function marcarDecisao(
+  userId: string,
+  id: number,
+  aceito: "aceito" | "adiado" | "ignorado",
+): Promise<void> {
+  const supabase = createClient();
+  await supabase
+    .from("physique_engine_decision")
+    .update({ aceito, decidido_em: new Date().toISOString() })
+    .eq("id", id)
+    .eq("user_id", userId);
+}
+
+// ---------- helpers internos ao módulo ----------
+
+function isoDaysAgo(n: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return d.toISOString().slice(0, 10);
+}
+
+function mediaDe(vals: (number | null)[]): number | null {
+  const nums = vals.filter((v): v is number => typeof v === "number");
+  if (nums.length === 0) return null;
+  return Number((nums.reduce((a, b) => a + b, 0) / nums.length).toFixed(2));
+}
+
+async function performanceDeltaSimples(userId: string): Promise<number | null> {
+  const supabase = createClient();
+  const now = new Date();
+  const cut2sem = new Date(now); cut2sem.setDate(cut2sem.getDate() - 14);
+  const cut4sem = new Date(now); cut4sem.setDate(cut4sem.getDate() - 28);
+  const { count: recentes } = await supabase
+    .from("personal_record")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .gte("batido_em", cut2sem.toISOString());
+  const { count: anteriores } = await supabase
+    .from("personal_record")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .gte("batido_em", cut4sem.toISOString())
+    .lt("batido_em", cut2sem.toISOString());
+  if (recentes == null || anteriores == null) return null;
+  if (anteriores === 0) return recentes > 0 ? 5 : 0;
+  return Number((((recentes - anteriores) / Math.max(anteriores, 1)) * 100).toFixed(1));
 }
 
 // ---------- helpers ----------
