@@ -11,7 +11,9 @@ import {
   nutriHoje,
   pesoAtual,
 } from "@/lib/data";
+import { garantirTargetAtivo, garantirFaseAtiva } from "@/lib/physique/data";
 import { MODELOS_DIETA } from "@/lib/dietas";
+import type { NutriTarget } from "@/components/NutriDashboard";
 import { gerarTips } from "@/lib/coach_tips";
 import BehaviorTab from "@/components/BehaviorTab";
 import NutriDashboard from "@/components/NutriDashboard";
@@ -35,10 +37,28 @@ export default async function NutriPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [ativo, refeicoes] = await Promise.all([
+  const [ativo, refeicoes, target, fase] = await Promise.all([
     coachNutriAtivo(user.id),
     nutriHoje(user.id),
+    garantirTargetAtivo(user.id),
+    garantirFaseAtiva(user.id),
   ]);
+
+  // PR5 §20-24: zonas de kcal em vez de meta rígida. Se target não vier
+  // preenchido, /nutri roda no fallback (constants antigas).
+  const nutriTarget: NutriTarget | null = target
+    ? {
+        kcal: target.kcal,
+        kcal_range: [target.kcal_range_min, target.kcal_range_max],
+        protein_g: target.protein_g,
+        protein_range: [
+          Math.round(target.protein_g * 0.9),
+          Math.round(target.protein_g * 1.15),
+        ],
+        origem: target.origem,
+        fase_type: fase.type,
+      }
+    : null;
 
   // Catálogo grande é por busca server-side: aqui só os foods dos modelos +
   // os nomes dos alimentos registrados hoje.
@@ -75,6 +95,7 @@ export default async function NutriPage() {
         refeicoes={refeicoes}
         alimentosModelo={alimentosModelo}
         nomesHoje={nomesHoje}
+        target={nutriTarget}
       />
     </BehaviorTab>
   );

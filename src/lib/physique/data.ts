@@ -506,6 +506,71 @@ export async function marcarDecisao(
     .eq("user_id", userId);
 }
 
+/**
+ * PR5 §20-24. Se a decisão sugere kcal diferente do target atual,
+ * desativa o atual e cria um novo `nutrition_target` com o kcal proposto.
+ * O piso §72 já foi respeitado pelo engine (ajustarComPiso).
+ *
+ * Retorna null quando a decisão não muda kcal (ex.: keep_course).
+ */
+export async function aplicarDecisaoEmTarget(
+  userId: string,
+  decisaoId: number,
+): Promise<{ id: number; kcal: number } | null> {
+  const supabase = createClient();
+  const { data: dec } = await supabase
+    .from("physique_engine_decision")
+    .select("id, decision, signals")
+    .eq("id", decisaoId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (!dec) return null;
+  const signals = (dec.signals ?? {}) as Record<string, number | null>;
+
+  // Só small_adjustment altera kcal em PR5. Outras decisões (keep, watch,
+  // recovery, phase_review, recovery_check) mantêm target atual.
+  if (dec.decision !== "small_adjustment") return null;
+
+  const atual = await targetVigente(userId);
+  if (!atual) return null;
+
+  // O engine sugere -125 kcal em small_adjustment. Vale reler o signal
+  // e aplicar o mesmo delta respeitando piso — mais barato do que
+  // persistir o kcal_target_sugerido na linha.
+  const piso = signals.kcal_min_floor;
+  const novoKcal = piso != null && atual.kcal - 125 < piso ? piso : atual.kcal - 125;
+  if (novoKcal >= atual.kcal) return null;
+
+  const fase = await faseAtiva(userId);
+
+  // Desativa target atual.
+  await supabase
+    .from("nutrition_target")
+    .update({ ativo: false, encerrado_em: new Date().toISOString() })
+    .eq("id", atual.id)
+    .eq("user_id", userId);
+
+  // Insere novo. Mantém proteína e ranges proporcionais.
+  const { data: novo, error } = await supabase
+    .from("nutrition_target")
+    .insert({
+      user_id: userId,
+      phase_id: fase?.id ?? null,
+      kcal: Math.round(novoKcal),
+      kcal_range_min: Math.round(novoKcal * 0.97),
+      kcal_range_max: Math.round(novoKcal * 1.03),
+      protein_g: atual.protein_g,
+      protein_range_min: Math.round(atual.protein_g * 0.9),
+      protein_range_max: Math.round(atual.protein_g * 1.15),
+      origem: "engine",
+      ativo: true,
+    })
+    .select("id, kcal")
+    .single();
+  if (error) throw error;
+  return { id: novo.id as number, kcal: novo.kcal as number };
+}
+
 // ---------- helpers internos ao módulo ----------
 
 function isoDaysAgo(n: number): string {

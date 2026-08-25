@@ -24,10 +24,26 @@ import { useHitConfirm } from "@/components/HitConfirm";
 import { tocarUri } from "@/lib/spotify/playback";
 import { somComida } from "@/lib/som";
 
+export interface NutriTarget {
+  /** kcal alvo central. */
+  kcal: number;
+  /** faixa saudável [min, max] — banda em vez de meta rígida (§20). */
+  kcal_range: [number, number];
+  /** proteína g/dia alvo. */
+  protein_g: number;
+  /** proteína faixa saudável [min, max]. */
+  protein_range: [number, number];
+  /** origem do target: 'inicial' | 'engine' | 'manual' | 'phase_change'. */
+  origem: string | null;
+  /** tipo da fase ativa — afeta "Travel Mode" banner (§23). */
+  fase_type: string;
+}
+
 export default function NutriDashboard({
   refeicoes,
   alimentosModelo,
   nomesHoje,
+  target,
 }: {
   refeicoes: LogRow[];
   // Só os alimentos referenciados pelos modelos de dieta (catálogo cheio é
@@ -35,7 +51,18 @@ export default function NutriDashboard({
   alimentosModelo: Alimento[];
   // food_id → nome dos registros de hoje (p/ a lista "Hoje").
   nomesHoje: Record<string, string>;
+  /**
+   * Target vigente vindo de nutrition_target (PR5, §20-24). Zonas em vez
+   * de metas rígidas. Opcional pra não quebrar callsites; fallback usa
+   * as constantes antigas.
+   */
+  target?: NutriTarget | null;
 }) {
+  const zonaKcal: [number, number] = target?.kcal_range ?? [META_KCAL, META_KCAL];
+  const alvoKcal = target?.kcal ?? META_KCAL;
+  const zonaProt: [number, number] = target?.protein_range ?? [META_PROTEINA, META_PROTEINA];
+  const alvoProt = target?.protein_g ?? META_PROTEINA;
+  const travelAtivo = target?.fase_type === "travel";
   const router = useRouter();
   const { fire, overlay } = useHitConfirm();
   const [busca, setBusca] = useState("");
@@ -276,15 +303,36 @@ export default function NutriDashboard({
         </div>
       )}
 
-      {/* Topo: anel de kcal + barras de macro */}
+      {travelAtivo && (
+        <div
+          className="panel"
+          style={{ marginBottom: 10, borderColor: "var(--belt-gold)", padding: "8px 12px" }}
+        >
+          <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--belt-gold)" }}>
+            ✈ Travel Mode ativo
+          </div>
+          <div className="subtle" style={{ fontSize: "0.68rem", marginTop: 2 }}>
+            Proteína piso: <strong>{zonaProt[0]}g</strong>. Kcal em zona ampla.
+            Logging simplificado — sem estresse §23.
+          </div>
+        </div>
+      )}
+
+      {/* Topo: anel de kcal (zona) + barras de macro */}
       <div className="panel" style={{ display: "flex", gap: 16, alignItems: "center" }}>
-        <KcalRing consumido={totais.kcal} meta={META_KCAL} />
+        <KcalRing consumido={totais.kcal} alvo={alvoKcal} zona={zonaKcal} />
         <div style={{ flex: 1 }}>
-          <MacroBar rotulo="Proteína" v={totais.p} meta={META_PROTEINA} cor="#4dd0e1" />
+          <MacroBar rotulo="Proteína" v={totais.p} meta={alvoProt} zona={zonaProt} cor="#4dd0e1" />
           <MacroBar rotulo="Carbo" v={totais.c} meta={META_CARBO} cor="#ffb74d" />
           <MacroBar rotulo="Gordura" v={totais.g} meta={META_GORDURA} cor="#fff176" />
         </div>
       </div>
+      {target && (
+        <div className="subtle" style={{ fontSize: "0.65rem", marginTop: 4, marginBottom: 8, textAlign: "center" }}>
+          zona {zonaKcal[0]}–{zonaKcal[1]} kcal · proteína {zonaProt[0]}–{zonaProt[1]}g
+          {target.origem && target.origem !== "inicial" && ` · fonte: ${target.origem}`}
+        </div>
+      )}
 
       {/* Modelos de dieta prontos — só ajustar as gramas e registrar. */}
       <div className="panel" style={{ marginTop: 12 }}>
@@ -480,15 +528,31 @@ export default function NutriDashboard({
   );
 }
 
-function KcalRing({ consumido, meta }: { consumido: number; meta: number }) {
-  const pct = Math.min(100, (consumido / meta) * 100);
+function KcalRing({
+  consumido,
+  alvo,
+  zona,
+}: {
+  consumido: number;
+  alvo: number;
+  zona: [number, number];
+}) {
+  // §20: zona, não meta rígida. Anel usa o TETO da zona pra escala; a
+  // parte "dentro da zona" fica verde-chama, "abaixo" ou "acima" fica
+  // dim. Nenhuma penalidade — só sinalização.
+  const [min, max] = zona;
+  const escala = Math.max(max, 1);
+  const pct = Math.min(100, (consumido / escala) * 100);
+  const dentro = consumido >= min && consumido <= max;
+  const acima = consumido > max;
+  const cor = dentro ? "var(--chama)" : acima ? "var(--kihap)" : "var(--calm)";
   return (
     <div
       style={{
         width: 96,
         height: 96,
         borderRadius: "50%",
-        background: `conic-gradient(var(--neon) ${pct * 3.6}deg, rgba(255,255,255,0.08) 0deg)`,
+        background: `conic-gradient(${cor} ${pct * 3.6}deg, rgba(255,255,255,0.08) 0deg)`,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -508,7 +572,9 @@ function KcalRing({ consumido, meta }: { consumido: number; meta: number }) {
         }}
       >
         <div style={{ fontWeight: 900, fontSize: "1.1rem" }}>{consumido}</div>
-        <div className="subtle" style={{ fontSize: "0.6rem" }}>/ {meta} kcal</div>
+        <div className="subtle" style={{ fontSize: "0.55rem", textAlign: "center" }}>
+          / {alvo} kcal
+        </div>
       </div>
     </div>
   );
@@ -519,13 +585,19 @@ function MacroBar({
   v,
   meta,
   cor,
+  zona,
 }: {
   rotulo: string;
   v: number;
   meta: number;
   cor: string;
+  /** Se dado, mostra faixa saudável [min, max] em vez de meta fixa (§20). */
+  zona?: [number, number];
 }) {
-  const pct = Math.min(100, (v / meta) * 100);
+  const escala = Math.max(zona?.[1] ?? meta, 1);
+  const pct = Math.min(100, (v / escala) * 100);
+  // Marker do piso (proteína piso §96-97 — importante em Travel Mode).
+  const pisoPct = zona ? Math.min(100, (zona[0] / escala) * 100) : null;
   return (
     <div style={{ marginBottom: 8 }}>
       <div
@@ -538,10 +610,28 @@ function MacroBar({
         <span className="subtle">{rotulo}</span>
         <span className="subtle">
           {v}/{meta}g
+          {zona && (
+            <span style={{ marginLeft: 4, opacity: 0.7 }}>
+              · zona {zona[0]}–{zona[1]}
+            </span>
+          )}
         </span>
       </div>
-      <div className="xp-bar" style={{ height: 8, marginTop: 2 }}>
+      <div className="xp-bar" style={{ height: 8, marginTop: 2, position: "relative" }}>
         <div style={{ height: "100%", width: `${pct}%`, background: cor }} />
+        {pisoPct != null && (
+          <div
+            style={{
+              position: "absolute",
+              left: `${pisoPct}%`,
+              top: -2,
+              bottom: -2,
+              width: 2,
+              background: "var(--belt-gold)",
+            }}
+            title={`piso ${zona![0]}g`}
+          />
+        )}
       </div>
     </div>
   );
