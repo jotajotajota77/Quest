@@ -33,9 +33,14 @@ export type Eixo = (typeof EIXOS_ATRIBUTO)[number];
  * - danca: mobilidade dominante + resistência + tecnica.
  */
 const MAPA_GRUPO_EIXO: Record<GrupoMuscular, Partial<Record<Eixo, number>>> = {
-  chest:      { forca: 0.6, potencia: 0.3, resistencia: 0.1 },
-  back:       { forca: 0.6, potencia: 0.25, resistencia: 0.15 },
-  shoulders:  { forca: 0.5, mobilidade: 0.3, potencia: 0.2 },
+  chest:           { forca: 0.6, potencia: 0.3, resistencia: 0.1 },
+  upper_chest:     { forca: 0.55, potencia: 0.35, resistencia: 0.1 },
+  back:            { forca: 0.6, potencia: 0.25, resistencia: 0.15 },
+  back_width:      { forca: 0.5, potencia: 0.3, resistencia: 0.2 },
+  back_thickness:  { forca: 0.65, potencia: 0.25, resistencia: 0.1 },
+  shoulders:       { forca: 0.5, mobilidade: 0.3, potencia: 0.2 },
+  shoulders_side:  { forca: 0.45, mobilidade: 0.35, potencia: 0.2 },
+  shoulders_rear:  { forca: 0.5, mobilidade: 0.25, potencia: 0.25 },
   biceps:     { forca: 0.6, potencia: 0.4 },
   triceps:    { forca: 0.55, potencia: 0.45 },
   lower:      { forca: 0.4, potencia: 0.35, resistencia: 0.25 },

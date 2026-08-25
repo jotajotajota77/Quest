@@ -1053,6 +1053,49 @@ function tierOfSlug(slug: string): "daily" | "weekly" | "arc" | "season" {
   return "season";
 }
 
+// ---------- physique_priority (PR8) ----------
+
+export type PriorityTier = "s" | "a" | "b" | "c";
+
+export interface PriorityRow {
+  muscle_group: string;
+  tier: PriorityTier;
+  ordem: number;
+  atualizado_em: string;
+}
+
+export async function prioritiesDe(userId: string): Promise<PriorityRow[]> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("physique_priority")
+    .select("muscle_group, tier, ordem, atualizado_em")
+    .eq("user_id", userId)
+    .order("tier", { ascending: true })
+    .order("ordem", { ascending: true });
+  return (data ?? []) as PriorityRow[];
+}
+
+export async function definirPriority(
+  userId: string,
+  muscle_group: string,
+  tier: PriorityTier,
+  ordem = 0,
+): Promise<void> {
+  const supabase = createClient();
+  await supabase
+    .from("physique_priority")
+    .upsert(
+      {
+        user_id: userId,
+        muscle_group,
+        tier,
+        ordem,
+        atualizado_em: new Date().toISOString(),
+      },
+      { onConflict: "user_id,muscle_group" },
+    );
+}
+
 // ---------- helpers ----------
 
 function unidadeDefault(kind: BodyMeasurementKind): string {
