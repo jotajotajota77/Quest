@@ -23,6 +23,19 @@ import RestTimer from "@/components/RestTimer";
 import BibliotecaExercicios from "@/components/BibliotecaExercicios";
 import { FichaCompleta, ProgramaLinha } from "@/components/FichaExercicio";
 import { somPr, somSerie } from "@/lib/som";
+import {
+  METRIC_LABEL,
+  formatarSerie,
+  metricTypeDe,
+  type MetricType,
+  type SerieCampos,
+} from "@/lib/physique/exercicios";
+
+type Entrada = Partial<Record<
+  "peso" | "reps" | "seconds" | "assist_kg" | "distance_m",
+  string
+>>;
+const ENTRADA_VAZIA: Entrada = {};
 
 const ORDEM_SPLIT_SEMANA = SPLIT_SEMANA.map((s) => s.key);
 
@@ -51,7 +64,7 @@ export default function TrainingModule({
   const [fechadas, setFechadas] = useState<Set<string>>(
     new Set(sessoesHoje.filter((s) => s.finalizada).map((s) => s.split)),
   );
-  const [entradas, setEntradas] = useState<Record<string, { peso: string; reps: string }>>({});
+  const [entradas, setEntradas] = useState<Record<string, Entrada>>({});
   const [glossarioAberto, setGlossario] = useState(false);
   const [catalogoAberto, setCatalogo] = useState(false);
   const [iaAberta, setIa] = useState(false);
@@ -130,13 +143,19 @@ export default function TrainingModule({
   }
 
   async function registrarSerie(ex: TreinoExercicio) {
-    const e = entradas[ex.id] ?? { peso: "", reps: "" };
+    const e = entradas[ex.id] ?? ENTRADA_VAZIA;
+    const metric = metricTypeDe(ex.nome);
+    const numOr = (s: string | undefined) => (s ? Number(s) : null);
     const r = await api({
       action: "serie",
       exercicio_id: ex.id,
       nome: ex.nome,
-      peso: e.peso ? Number(e.peso) : null,
-      reps: e.reps ? Number(e.reps) : null,
+      metric_type: metric,
+      peso: numOr(e.peso),
+      reps: numOr(e.reps),
+      seconds: numOr(e.seconds),
+      assist_kg: numOr(e.assist_kg),
+      distance_m: numOr(e.distance_m),
     });
     if (r.is_pr) {
       somPr();
@@ -160,7 +179,7 @@ export default function TrainingModule({
         bonus: `+${r.boss.xp ?? 0} XP · +${r.boss.shards ?? 0} shards`,
       });
     }
-    setEntradas((s) => ({ ...s, [ex.id]: { peso: "", reps: "" } }));
+    setEntradas((s) => ({ ...s, [ex.id]: ENTRADA_VAZIA }));
   }
 
   if (plano.length === 0) {
@@ -345,10 +364,11 @@ export default function TrainingModule({
       </div>
 
       {exercicios.map((ex) => {
-        const e = entradas[ex.id] ?? { peso: "", reps: "" };
+        const e = entradas[ex.id] ?? ENTRADA_VAZIA;
+        const metric = metricTypeDe(ex.nome);
         const hist = (histPorNome.get(ex.nome) ?? []).slice(0, 3);
         const hoje = hojePorNome.get(ex.nome) ?? [];
-        const pr = (histPorNome.get(ex.nome) ?? []).reduce((mx, s) => Math.max(mx, s.peso ?? 0), 0);
+        const pr = melhorLegado(metric, histPorNome.get(ex.nome) ?? []);
         const catalogo = ex.exercicio_id ? bibPorId.get(ex.exercicio_id) : undefined;
         const fichaAbertaAqui = fichaAberta === ex.id;
         return (
@@ -365,7 +385,7 @@ export default function TrainingModule({
                 {ex.nome}
               </button>
               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                {pr > 0 && <span className="pr-badge">PR {pr}kg</span>}
+                {pr && <span className="pr-badge">PR {pr}</span>}
                 <button className="nav-link" style={smallBtn} disabled={ocupado} onClick={() => api({ action: "variar", id: ex.id })}>
                   Variar
                 </button>
@@ -405,7 +425,7 @@ export default function TrainingModule({
               <div className="set-row" key={s.id}>
                 <span className="subtle" style={{ width: 22 }}>{i + 1}.</span>
                 <span style={{ flex: 1 }}>
-                  {s.peso ?? "–"}kg × {s.reps ?? "–"}
+                  {formatarSerie(metricDeSerie(metric, s), s as SerieCampos)}
                   {s.is_pr ? " ⭐" : ""}
                 </span>
                 <button className="nav-link" style={{ ...smallBtn, color: "var(--neon)" }} onClick={() => api({ action: "remover_serie", id: s.id })}>
@@ -414,23 +434,29 @@ export default function TrainingModule({
               </div>
             ))}
 
-            {/* Adicionar série */}
+            {/* Adicionar série — inputs mudam por metric_type */}
             <div className="set-row">
-              <input type="number" placeholder="kg" value={e.peso}
-                onChange={(ev) => setEntradas((s) => ({ ...s, [ex.id]: { ...e, peso: ev.target.value } }))}
-                style={inputMini} />
-              <span className="subtle">×</span>
-              <input type="number" placeholder="reps" value={e.reps}
-                onChange={(ev) => setEntradas((s) => ({ ...s, [ex.id]: { ...e, reps: ev.target.value } }))}
-                style={inputMini} />
+              <InputsPorTipo
+                metric={metric}
+                e={e}
+                onChange={(patch) =>
+                  setEntradas((prev) => ({ ...prev, [ex.id]: { ...(prev[ex.id] ?? {}), ...patch } }))
+                }
+              />
               <button className="btn btn-primary" style={{ padding: "8px 14px" }} disabled={ocupado} onClick={() => registrarSerie(ex)}>
                 ✓
               </button>
             </div>
 
+            {metric !== "weight_reps" && (
+              <div className="subtle" style={{ fontSize: "0.65rem", marginTop: 4 }}>
+                {METRIC_LABEL[metric]}
+              </div>
+            )}
+
             {hist.length > 0 && (
               <div className="subtle" style={{ fontSize: "0.7rem", marginTop: 6 }}>
-                histórico: {hist.map((s) => `${s.peso ?? "–"}×${s.reps ?? "–"}`).join(" · ")}
+                histórico: {hist.map((s) => formatarSerie(metricDeSerie(metric, s), s as SerieCampos)).join(" · ")}
               </div>
             )}
           </div>
@@ -639,3 +665,119 @@ const inputMini: React.CSSProperties = {
   background: "rgba(0,0,0,0.25)",
   color: "var(--text)",
 };
+
+// PR2: se a série antiga não tem metric_type gravado (linha pré-0035),
+// usa o metric_type padrão do exercício. Preserva histórico sem migrar.
+function metricDeSerie(fallback: MetricType, s: TreinoSerie): MetricType {
+  const m = (s.metric_type ?? null) as MetricType | null;
+  return m ?? fallback;
+}
+
+// Melhor série do histórico p/ mostrar como "PR X" na badge. Dimensão
+// escolhida pelo metric_type. Retorna string formatada ou "".
+function melhorLegado(metric: MetricType, series: TreinoSerie[]): string {
+  if (!series.length) return "";
+  switch (metric) {
+    case "weight_reps":
+    case "bw_weighted": {
+      const kg = series.reduce((mx, s) => Math.max(mx, s.peso ?? 0), 0);
+      return kg > 0 ? `${kg}kg` : "";
+    }
+    case "bw_reps": {
+      const reps = series.reduce((mx, s) => Math.max(mx, s.reps ?? 0), 0);
+      return reps > 0 ? `${reps} reps` : "";
+    }
+    case "time":
+    case "duration": {
+      const sec = series.reduce((mx, s) => Math.max(mx, s.seconds ?? 0), 0);
+      return sec > 0 ? `${sec}s` : "";
+    }
+    case "distance": {
+      const d = series.reduce((mx, s) => Math.max(mx, s.distance_m ?? 0), 0);
+      return d > 0 ? `${d}m` : "";
+    }
+    default:
+      return "";
+  }
+}
+
+// PR2: inputs por metric_type. Cada tipo mostra os campos relevantes;
+// os outros ficam ocultos pra evitar registrar "prancha 5kg × 8".
+function InputsPorTipo({
+  metric,
+  e,
+  onChange,
+}: {
+  metric: MetricType;
+  e: Entrada;
+  onChange: (patch: Entrada) => void;
+}) {
+  const input = (
+    field: keyof Entrada,
+    placeholder: string,
+    width = 70,
+  ) => (
+    <input
+      key={field}
+      type="number"
+      inputMode="decimal"
+      placeholder={placeholder}
+      value={e[field] ?? ""}
+      onChange={(ev) => onChange({ [field]: ev.target.value } as Entrada)}
+      style={{ ...inputMini, width }}
+    />
+  );
+
+  switch (metric) {
+    case "weight_reps":
+      return (
+        <>
+          {input("peso", "kg")}
+          <span className="subtle">×</span>
+          {input("reps", "reps")}
+        </>
+      );
+    case "bw_weighted":
+      return (
+        <>
+          <span className="subtle" style={{ fontSize: "0.7rem" }}>+</span>
+          {input("peso", "kg")}
+          <span className="subtle">×</span>
+          {input("reps", "reps")}
+        </>
+      );
+    case "bw_assisted":
+      return (
+        <>
+          <span className="subtle" style={{ fontSize: "0.7rem" }}>−</span>
+          {input("assist_kg", "assist")}
+          <span className="subtle">×</span>
+          {input("reps", "reps")}
+        </>
+      );
+    case "bw_reps":
+      return <>{input("reps", "reps", 90)}</>;
+    case "time":
+      return <>{input("seconds", "segundos", 100)}</>;
+    case "duration":
+      return <>{input("seconds", "duração (s)", 110)}</>;
+    case "distance":
+      return <>{input("distance_m", "metros", 100)}</>;
+    case "interval":
+      return (
+        <>
+          {input("reps", "rounds")}
+          <span className="subtle">×</span>
+          {input("seconds", "s/round")}
+        </>
+      );
+    case "custom":
+      return (
+        <>
+          {input("peso", "kg?")}
+          <span className="subtle">×</span>
+          {input("reps", "reps?")}
+        </>
+      );
+  }
+}

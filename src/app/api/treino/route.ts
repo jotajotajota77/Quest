@@ -14,6 +14,50 @@ import {
 } from "@/lib/data";
 import { distribuicaoDoExercicio, type GrupoMuscular } from "@/lib/engine/mastery";
 import type { PersonagemSlug } from "@/lib/photocards";
+import {
+  ehPr,
+  formatarSerie,
+  metricTypeDe,
+  type MetricType,
+  type SerieCampos,
+} from "@/lib/physique/exercicios";
+
+const METRIC_TYPES: MetricType[] = [
+  "weight_reps",
+  "bw_reps",
+  "bw_assisted",
+  "bw_weighted",
+  "time",
+  "distance",
+  "duration",
+  "interval",
+  "custom",
+];
+
+function numOrNull(v: unknown): number | null {
+  if (v === null || v === undefined || v === "") return null;
+  const n = typeof v === "string" ? Number(v) : (v as number);
+  return Number.isFinite(n) ? n : null;
+}
+
+// Escolhe a melhor série histórica pra dimensão do metric_type.
+function pickMelhor(metric: MetricType, historico: SerieCampos[]): SerieCampos | null {
+  if (!historico.length) return null;
+  const cmp: Partial<Record<MetricType, (a: SerieCampos, b: SerieCampos) => number>> = {
+    weight_reps: (a, b) => (b.peso ?? -Infinity) - (a.peso ?? -Infinity),
+    bw_weighted: (a, b) => (b.peso ?? -Infinity) - (a.peso ?? -Infinity),
+    bw_reps: (a, b) => (b.reps ?? -Infinity) - (a.reps ?? -Infinity),
+    time: (a, b) => (b.seconds ?? -Infinity) - (a.seconds ?? -Infinity),
+    duration: (a, b) => (b.seconds ?? -Infinity) - (a.seconds ?? -Infinity),
+    distance: (a, b) => (b.distance_m ?? -Infinity) - (a.distance_m ?? -Infinity),
+    bw_assisted: (a, b) =>
+      (a.assist_kg ?? Infinity) - (b.assist_kg ?? Infinity) ||
+      (b.reps ?? -Infinity) - (a.reps ?? -Infinity),
+  };
+  const fn = cmp[metric];
+  if (!fn) return historico[0] ?? null;
+  return [...historico].sort(fn)[0] ?? null;
+}
 
 // v12 PR3: dano ao boss semanal pelo tipo de evento. Bate 1:1 com o cap
 // que calcularBossProgresso aplica em cada meta (séries × 1, TKD × 3,
@@ -207,40 +251,63 @@ export async function POST(request: Request) {
 
     case "serie": {
       const nome = String(body.nome ?? "").trim();
-      const peso = body.peso != null ? Number(body.peso) : null;
-      const reps = body.reps != null ? Number(body.reps) : null;
       const exercicioId = body.exercicio_id ? String(body.exercicio_id) : null;
       if (!nome) return NextResponse.json({ error: "nome vazio" }, { status: 400 });
 
-      // Top set: maior peso anterior para o mesmo exercício.
-      // is_pr = igualou OU superou o recorde (>=) → estrela + som.
-      // recorde = superou de fato (>) → muda o flavor pra "PR!".
-      let isPr = false;
-      let recorde = false;
-      if (peso != null) {
-        const { data: prev } = await supabase
-          .from("treino_series")
-          .select("peso")
-          .eq("user_id", user.id)
-          .eq("nome", nome)
-          .not("peso", "is", null)
-          .order("peso", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        const melhor = prev?.peso != null ? Number(prev.peso) : -Infinity;
-        isPr = peso >= melhor;
-        recorde = peso > melhor;
-      }
+      const requested = String(body.metric_type ?? "").trim();
+      const metric: MetricType = METRIC_TYPES.includes(requested as MetricType)
+        ? (requested as MetricType)
+        : metricTypeDe(nome);
+
+      const campos: SerieCampos = {
+        peso: numOrNull(body.peso),
+        reps: numOrNull(body.reps),
+        seconds: numOrNull(body.seconds),
+        assist_kg: numOrNull(body.assist_kg),
+        bodyweight_used_kg: numOrNull(body.bodyweight_used_kg),
+        distance_m: numOrNull(body.distance_m),
+        intensity: numOrNull(body.intensity),
+        rir: numOrNull(body.rir),
+        rpe: numOrNull(body.rpe),
+      };
+
+      // Melhor histórico pra dimensão relevante do metric_type. PR2 mantém
+      // a heurística simples de ehPr (PR3 traz PRs multidimensionais).
+      const { data: prev } = await supabase
+        .from("treino_series")
+        .select("peso, reps, seconds, distance_m, assist_kg")
+        .eq("user_id", user.id)
+        .eq("nome", nome)
+        .eq("metric_type", metric)
+        .order("ts", { ascending: false })
+        .limit(50);
+
+      const melhor: SerieCampos | null = pickMelhor(metric, (prev ?? []) as SerieCampos[]);
+      const isPr = ehPr(metric, campos, melhor);
+      const recorde = isPr && melhor !== null;
 
       const { error } = await supabase.from("treino_series").insert({
         user_id: user.id,
         exercicio_id: exercicioId,
         nome,
-        peso,
-        reps,
+        peso: campos.peso,
+        reps: campos.reps,
+        seconds: campos.seconds,
+        assist_kg: campos.assist_kg,
+        bodyweight_used_kg: campos.bodyweight_used_kg,
+        distance_m: campos.distance_m,
+        intensity: campos.intensity,
+        rir: campos.rir,
+        rpe: campos.rpe,
+        metric_type: metric,
         is_pr: isPr,
       });
       if (error) return NextResponse.json({ error: "falha série" }, { status: 500 });
+
+      // Só o legado (peso × reps) vai pro mastery — o restante entra
+      // na modelagem do PR3.
+      const peso = campos.peso ?? null;
+      const reps = campos.reps ?? null;
 
       // v12: fan-out RPG — Muscle Mastery + 5 eixos de atributo. Silencioso
       // se der erro (não queremos que uma falha aqui derrube o registro).
@@ -299,6 +366,8 @@ export async function POST(request: Request) {
         ok: true,
         is_pr: isPr,
         recorde,
+        metric_type: metric,
+        formatado: formatarSerie(metric, campos),
         mastery: masteryGrupos,
         photocardId,
         boss: bossRecompensa,

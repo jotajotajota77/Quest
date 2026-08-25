@@ -162,6 +162,15 @@ export interface TreinoSerie {
   reps: number | null;
   ts: string;
   is_pr: boolean;
+  /** PR2 (§12-13): tipo métrico da série. Migration 0035 default 'weight_reps'. */
+  metric_type?: string | null;
+  seconds?: number | null;
+  assist_kg?: number | null;
+  bodyweight_used_kg?: number | null;
+  distance_m?: number | null;
+  intensity?: number | null;
+  rir?: number | null;
+  rpe?: number | null;
 }
 
 /** Como o áudio entra para este comportamento (assimetria de reforço). Só Nutri. */
