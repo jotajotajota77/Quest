@@ -7,7 +7,7 @@
 // do catálogo e timer de descanso flutuante. Tooling, não reforço.
 // ============================================================
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { TreinoExercicio, TreinoSerie } from "@/lib/types";
 import type { ExercicioBib } from "@/lib/data";
@@ -110,6 +110,29 @@ export default function TrainingModule({
   const histPorNome = useMemo(() => agruparPorNome(series), [series]);
   const hojePorNome = useMemo(() => agruparPorNome(seriesHoje), [seriesHoje]);
 
+  // PR3 §14: pre-preencher entradas com a última série do dia por exercício.
+  // Só na primeira renderização — se o user editar depois, mantém o dele.
+  useEffect(() => {
+    setEntradas((prev) => {
+      const next = { ...prev };
+      for (const ex of plano) {
+        if (next[ex.id]) continue; // já editado nesta sessão
+        const hoje = hojePorNome.get(ex.nome);
+        if (!hoje || hoje.length === 0) continue;
+        const ult = hoje[hoje.length - 1];
+        next[ex.id] = {
+          peso: ult.peso != null ? String(ult.peso) : "",
+          reps: ult.reps != null ? String(ult.reps) : "",
+          seconds: ult.seconds != null ? String(ult.seconds) : "",
+          assist_kg: ult.assist_kg != null ? String(ult.assist_kg) : "",
+          distance_m: ult.distance_m != null ? String(ult.distance_m) : "",
+        };
+      }
+      return next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plano.length]);
+
   async function api(body: Record<string, unknown>) {
     setOcupado(true);
     try {
@@ -122,6 +145,7 @@ export default function TrainingModule({
         is_pr?: boolean;
         recorde?: boolean;
         photocardId?: string | null;
+        prs_batidos?: string[];
         boss?: {
           derrotou?: boolean;
           xp?: number;
@@ -163,6 +187,11 @@ export default function TrainingModule({
     } else {
       somSerie(); // tom curto de confirmação em toda série
     }
+    // PR3 §54-57: PRs multidimensionais. Se vieram tipos, mostra flair curto.
+    if (r.prs_batidos && r.prs_batidos.length > 0) {
+      const labels = r.prs_batidos.map(labelDePr).filter(Boolean).join(" · ");
+      if (labels) fire(labels);
+    }
     // v12 PR3: HOLO por PR real → mostra unbox da photocard.
     if (r.photocardId) {
       showDrop({
@@ -179,7 +208,22 @@ export default function TrainingModule({
         bonus: `+${r.boss.xp ?? 0} XP · +${r.boss.shards ?? 0} shards`,
       });
     }
-    setEntradas((s) => ({ ...s, [ex.id]: ENTRADA_VAZIA }));
+    // PR3 §14: set-N pré-preenchido. Mantém os valores da última série
+    // gravada (peso/reps/seconds/etc) pra próxima. Só zera se o registro
+    // falhou (ok:false vira r.is_pr undefined + prs_batidos undefined,
+    // aí a gente prefere manter o que estava — sem penalizar).
+    // Nada a fazer: o objeto `entradas[ex.id]` já contém os valores.
+  }
+
+  function labelDePr(tipo: string): string {
+    switch (tipo) {
+      case "carga": return "PR carga";
+      case "reps": return "PR reps";
+      case "volume": return "PR volume";
+      case "tempo": return "PR tempo";
+      case "distancia": return "PR distância";
+      default: return "";
+    }
   }
 
   if (plano.length === 0) {

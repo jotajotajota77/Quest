@@ -21,6 +21,11 @@ import {
   type MetricType,
   type SerieCampos,
 } from "@/lib/physique/exercicios";
+import {
+  candidatosDeSerie,
+  registrarPrs,
+  type TipoPr,
+} from "@/lib/physique/prs";
 
 const METRIC_TYPES: MetricType[] = [
   "weight_reps",
@@ -286,23 +291,39 @@ export async function POST(request: Request) {
       const isPr = ehPr(metric, campos, melhor);
       const recorde = isPr && melhor !== null;
 
-      const { error } = await supabase.from("treino_series").insert({
-        user_id: user.id,
-        exercicio_id: exercicioId,
-        nome,
-        peso: campos.peso,
-        reps: campos.reps,
-        seconds: campos.seconds,
-        assist_kg: campos.assist_kg,
-        bodyweight_used_kg: campos.bodyweight_used_kg,
-        distance_m: campos.distance_m,
-        intensity: campos.intensity,
-        rir: campos.rir,
-        rpe: campos.rpe,
-        metric_type: metric,
-        is_pr: isPr,
-      });
+      const { data: serieRow, error } = await supabase
+        .from("treino_series")
+        .insert({
+          user_id: user.id,
+          exercicio_id: exercicioId,
+          nome,
+          peso: campos.peso,
+          reps: campos.reps,
+          seconds: campos.seconds,
+          assist_kg: campos.assist_kg,
+          bodyweight_used_kg: campos.bodyweight_used_kg,
+          distance_m: campos.distance_m,
+          intensity: campos.intensity,
+          rir: campos.rir,
+          rpe: campos.rpe,
+          metric_type: metric,
+          is_pr: isPr,
+        })
+        .select("id")
+        .single();
       if (error) return NextResponse.json({ error: "falha série" }, { status: 500 });
+      const serieId = (serieRow?.id as string | undefined) ?? null;
+
+      // PR3 §54-57: PR engine multidimensional. Uma série pode bater
+      // vários PRs ao mesmo tempo (carga + volume + reps). Cada tipo
+      // vira uma linha em personal_record com deposed_by_id encadeado.
+      let prsBatidos: TipoPr[] = [];
+      try {
+        const candidatos = candidatosDeSerie(metric, campos);
+        prsBatidos = await registrarPrs(user.id, nome, metric, candidatos, serieId);
+      } catch {
+        /* engine de PR é tooling — não pode falhar o registro */
+      }
 
       // Só o legado (peso × reps) vai pro mastery — o restante entra
       // na modelagem do PR3.
@@ -368,6 +389,7 @@ export async function POST(request: Request) {
         recorde,
         metric_type: metric,
         formatado: formatarSerie(metric, campos),
+        prs_batidos: prsBatidos,
         mastery: masteryGrupos,
         photocardId,
         boss: bossRecompensa,
