@@ -29,6 +29,13 @@ import {
   type ReadinessResult,
   type Veredicto,
 } from "./readiness";
+import {
+  calcMomentum,
+  trendMomentum,
+  welcomeBackAtivo,
+  type MomentumInput,
+  type MomentumResult,
+} from "./momentum";
 
 // ---------- physique_phase ----------
 
@@ -759,6 +766,291 @@ export async function precisaRecoveryBanner(userId: string): Promise<{
     return { precisa: true, motivo: "3+ noites <5h", score: ult?.score ?? null };
   }
   return { precisa: false, motivo: null, score: ult?.score ?? null };
+}
+
+// ---------- momentum_snapshot (PR7) ----------
+
+export interface MomentumRow {
+  id: number;
+  data: string;
+  janela_dias: number;
+  score: number;
+  adherence_pct: number | null;
+  componentes: MomentumResult["componentes"];
+  criado_em: string;
+  atualizado_em: string;
+}
+
+export async function ultimoMomentum(userId: string): Promise<MomentumRow | null> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("momentum_snapshot")
+    .select("id, data, janela_dias, score, adherence_pct, componentes, criado_em, atualizado_em")
+    .eq("user_id", userId)
+    .order("data", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return (data as MomentumRow | null) ?? null;
+}
+
+export async function historicoMomentum(userId: string, dias = 14): Promise<MomentumRow[]> {
+  const supabase = createClient();
+  const desde = new Date();
+  desde.setDate(desde.getDate() - dias);
+  const { data } = await supabase
+    .from("momentum_snapshot")
+    .select("id, data, janela_dias, score, adherence_pct, componentes, criado_em, atualizado_em")
+    .eq("user_id", userId)
+    .gte("data", desde.toISOString().slice(0, 10))
+    .order("data", { ascending: true });
+  return (data ?? []) as MomentumRow[];
+}
+
+/**
+ * Monta o input de momentum a partir dos últimos 14 dias. Chamado por
+ * POST /api/checkin daily (após readiness). Upsert por (user, data).
+ */
+export async function recalcularMomentumDoDia(
+  userId: string,
+  dia?: string,
+): Promise<MomentumRow | null> {
+  const supabase = createClient();
+  const data = dia ?? new Date().toISOString().slice(0, 10);
+  const janela = 14;
+
+  const desde = new Date();
+  desde.setDate(desde.getDate() - janela);
+  const desdeIso = desde.toISOString().slice(0, 10);
+
+  const [checkinCount, sonoPctSet, treinoPlanejadoSet, atividadeSet, readinessSet] = await Promise.all([
+    supabase
+      .from("daily_checkin")
+      .select("data, sono_h, treino_previsto")
+      .eq("user_id", userId)
+      .gte("data", desdeIso),
+    supabase
+      .from("daily_checkin")
+      .select("data, sono_h")
+      .eq("user_id", userId)
+      .gte("data", desdeIso)
+      .not("sono_h", "is", null),
+    supabase
+      .from("daily_checkin")
+      .select("data, treino_previsto")
+      .eq("user_id", userId)
+      .gte("data", desdeIso)
+      .eq("treino_previsto", true),
+    supabase
+      .from("treino_sessoes")
+      .select("data")
+      .eq("user_id", userId)
+      .gte("data", desdeIso),
+    supabase
+      .from("readiness_snapshot")
+      .select("data, score")
+      .eq("user_id", userId)
+      .gte("data", desdeIso),
+  ]);
+
+  const totalDias = janela;
+  const dailies = (checkinCount.data ?? []) as { data: string; sono_h: number | null; treino_previsto: boolean }[];
+  const checkin_pct = (dailies.length / totalDias) * 100;
+
+  const sonos = (sonoPctSet.data ?? []) as { sono_h: number | null }[];
+  const sonoBons = sonos.filter((s) => s.sono_h != null && s.sono_h! >= 6.5).length;
+  const sono_pct = sonos.length > 0 ? (sonoBons / sonos.length) * 100 : null;
+
+  // Treino planejado: dias em que o daily marcou treino_previsto E houve
+  // sessão real em treino_sessoes na mesma data.
+  const planejadas = (treinoPlanejadoSet.data ?? []) as { data: string }[];
+  const sessoesPorData = new Set(
+    ((atividadeSet.data ?? []) as { data: string }[]).map((r) => r.data),
+  );
+  const cumpridas = planejadas.filter((p) => sessoesPorData.has(p.data)).length;
+  const treino_planejado_pct = planejadas.length > 0
+    ? (cumpridas / planejadas.length) * 100
+    : null;
+
+  // Recovery respeitado: dias com readiness < 50 SEM sessão pesada
+  // (treino_sessoes existente); aproximação sem carga de exercício.
+  const readiness = (readinessSet.data ?? []) as { data: string; score: number }[];
+  const readinessBaixo = readiness.filter((r) => r.score < 50);
+  const respeitou = readinessBaixo.filter((r) => !sessoesPorData.has(r.data)).length;
+  const recovery_respeitado_pct = readinessBaixo.length > 0
+    ? (respeitou / readinessBaixo.length) * 100
+    : null;
+
+  // Atividade relevante: qualquer sessão de treino no dia.
+  const atividade_relevante_pct = (sessoesPorData.size / totalDias) * 100;
+
+  // Proteína dentro da zona: sem histórico de macros por dia ainda no
+  // schema — deixa null. PR seguinte (nutrition daily aggregation) preenche.
+  const proteina_pct: number | null = null;
+
+  const input: MomentumInput = {
+    treino_planejado_pct,
+    proteina_pct,
+    sono_pct,
+    checkin_pct,
+    recovery_respeitado_pct,
+    atividade_relevante_pct,
+  };
+
+  const r = calcMomentum(input, checkin_pct);
+
+  // Trend vs 7 dias antes: pega scores anteriores em memória.
+  const { data: histAntes } = await supabase
+    .from("momentum_snapshot")
+    .select("score")
+    .eq("user_id", userId)
+    .lt("data", data)
+    .order("data", { ascending: false })
+    .limit(7);
+  const trend = trendMomentum(
+    r.score,
+    ((histAntes ?? []) as { score: number }[]).map((x) => Number(x.score)),
+  );
+
+  const { data: row, error } = await supabase
+    .from("momentum_snapshot")
+    .upsert(
+      {
+        user_id: userId,
+        data,
+        janela_dias: janela,
+        score: r.score,
+        adherence_pct: r.adherence_pct,
+        componentes: { ...r.componentes, trend } as unknown as Record<string, unknown>,
+        atualizado_em: new Date().toISOString(),
+      },
+      { onConflict: "user_id,data" },
+    )
+    .select("id, data, janela_dias, score, adherence_pct, componentes, criado_em, atualizado_em")
+    .single();
+  if (error) throw error;
+  return row as MomentumRow;
+}
+
+// ---------- quest_definition + quest_instance (PR7) ----------
+
+export interface QuestDefinition {
+  slug: string;
+  nome: string;
+  descricao: string | null;
+  tier: "daily" | "weekly" | "arc" | "season";
+  criterio: Record<string, unknown>;
+  reforcador: Record<string, unknown>;
+  contexto_gatilho: Record<string, unknown>;
+}
+
+export interface QuestInstance {
+  id: number;
+  slug: string;
+  tier: "daily" | "weekly" | "arc" | "season";
+  estado: "ativa" | "completa" | "expirada" | "abandonada";
+  gerada_em: string;
+  vence_em: string | null;
+  progresso: Record<string, unknown>;
+  completa_em: string | null;
+  ligada_phase_id: number | null;
+}
+
+export async function questsAtivas(userId: string): Promise<
+  (QuestInstance & { def: QuestDefinition })[]
+> {
+  const supabase = createClient();
+  const { data: inst } = await supabase
+    .from("quest_instance")
+    .select("id, slug, tier, estado, gerada_em, vence_em, progresso, completa_em, ligada_phase_id")
+    .eq("user_id", userId)
+    .eq("estado", "ativa");
+  const instances = (inst ?? []) as QuestInstance[];
+  if (instances.length === 0) return [];
+  const slugs = [...new Set(instances.map((i) => i.slug))];
+  const { data: defs } = await supabase
+    .from("quest_definition")
+    .select("slug, nome, descricao, tier, criterio, reforcador, contexto_gatilho")
+    .in("slug", slugs);
+  const defBySlug = new Map(
+    ((defs ?? []) as QuestDefinition[]).map((d) => [d.slug, d]),
+  );
+  return instances
+    .map((i) => {
+      const def = defBySlug.get(i.slug);
+      return def ? { ...i, def } : null;
+    })
+    .filter((x): x is QuestInstance & { def: QuestDefinition } => x !== null);
+}
+
+/**
+ * Escolhe quests contextuais baseadas em readiness + padrão de log +
+ * fase ativa, e insere quest_instance ativas idempotentemente.
+ *
+ * Retorna a lista de slugs que foram geradas nesta chamada (não as que
+ * já estavam ativas — unique index parcial garante).
+ */
+export async function gerarQuestsContextuais(userId: string): Promise<string[]> {
+  const supabase = createClient();
+  const fase = await faseAtiva(userId);
+  const readiness = await ultimoReadiness(userId);
+  const sonos = await sonoUltimos7(userId);
+  const padraoSonoRuim = sinalSonoRuim(sonos);
+
+  // Dias com log (any daily_checkin) últimos 30 dias.
+  const desde30 = new Date(); desde30.setDate(desde30.getDate() - 30);
+  const { data: logs } = await supabase
+    .from("daily_checkin")
+    .select("data")
+    .eq("user_id", userId)
+    .gte("data", desde30.toISOString().slice(0, 10))
+    .order("data", { ascending: false });
+  const datas = ((logs ?? []) as { data: string }[]).map((r) => r.data);
+  const welcomeBack = welcomeBackAtivo(datas);
+
+  // Sempre gera: daily_checkin, daily_sleep_7h, daily_protein_zone,
+  //   daily_train_planned, weekly_train_3x, weekly_review.
+  const slugsBase = [
+    "daily_checkin",
+    "daily_protein_zone",
+    "daily_sleep_7h",
+    "daily_train_planned",
+    "weekly_train_3x",
+    "weekly_review",
+  ];
+
+  // Condicionais contextuais.
+  const contextuais: string[] = [];
+  if (readiness && readiness.score < 50) contextuais.push("recovery_easy_day");
+  if (padraoSonoRuim) contextuais.push("recovery_sleep_priority");
+  if (welcomeBack) contextuais.push("welcome_back");
+
+  const alvos = [...slugsBase, ...contextuais];
+  if (alvos.length === 0) return [];
+
+  const criadas: string[] = [];
+  for (const slug of alvos) {
+    const { data, error } = await supabase
+      .from("quest_instance")
+      .insert({
+        user_id: userId,
+        slug,
+        tier: tierOfSlug(slug),
+        vence_em: null,
+        estado: "ativa",
+        ligada_phase_id: fase?.id ?? null,
+      })
+      .select("id");
+    // Erro esperado: unique violation quando já ativa (23505). Silencia.
+    if (!error && data && data.length > 0) criadas.push(slug);
+  }
+  return criadas;
+}
+
+function tierOfSlug(slug: string): "daily" | "weekly" | "arc" | "season" {
+  if (slug.startsWith("daily_") || slug.startsWith("recovery_") || slug === "welcome_back") return "daily";
+  if (slug.startsWith("weekly_")) return "weekly";
+  if (slug.startsWith("arc_")) return "arc";
+  return "season";
 }
 
 // ---------- helpers ----------

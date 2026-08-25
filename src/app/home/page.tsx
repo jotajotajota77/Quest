@@ -54,9 +54,11 @@ import DailySpin from "@/components/DailySpin";
 // com 15+ blocos e o BossBattle competia com o Goal por atenção. Um chip
 // discreto "Saga" leva pra lá.
 import { carregarAtributosV2, seasonDoJogador } from "@/lib/data";
-import { precisaRecoveryBanner } from "@/lib/physique/data";
+import { precisaRecoveryBanner, ultimoMomentum, questsAtivas } from "@/lib/physique/data";
 import SeasonBadge from "@/components/SeasonBadge";
 import AtributosCard from "@/components/AtributosCard";
+import MomentumCard from "@/components/MomentumCard";
+import QuestsAdaptativasCard from "@/components/QuestsAdaptativasCard";
 
 export default async function HomePage() {
   const supabase = createClient();
@@ -87,10 +89,12 @@ export default async function HomePage() {
       avatarJogador(),
     ]);
   // v12: season + atributos v2 (5 eixos + build)
-  const [season, atributosV2, recoveryBanner] = await Promise.all([
+  const [season, atributosV2, recoveryBanner, momentum, questsAdapt] = await Promise.all([
     seasonDoJogador(user.id),
     carregarAtributosV2(user.id),
     precisaRecoveryBanner(user.id),
+    ultimoMomentum(user.id),
+    questsAtivas(user.id),
   ]);
   const progresso = progressoMeta(meta, corpoRecente);
   const splitHoje = splitDeHoje();
@@ -141,6 +145,14 @@ export default async function HomePage() {
           </span>
         </Link>
       )}
+
+      {/* PR7 §31-33: Momentum é o primeiro card do dashboard. Barra
+          horizontal com trend + link pra /recovery pra ver detalhes. */}
+      <MomentumCard momentum={momentum} />
+
+      {/* PR7 §32: Quests filtradas por contexto (readiness ruim → recovery,
+          welcome_back se voltou depois de 2+ dias). */}
+      <QuestsAdaptativasCard quests={questsAdapt} />
 
       {/* v12: Season/era atual do jogador + chip da /saga (Ato + Boss). */}
       <SeasonBadge season={season} />
