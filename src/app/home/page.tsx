@@ -163,6 +163,21 @@ export default async function HomePage() {
         <Link href="/saber" className="chip" style={{ borderColor: "var(--gold)", color: "var(--gold)" }}>
           📚 Saber · estudos
         </Link>
+        <Link href="/checkin" className="chip" style={{ borderColor: "var(--calm)", color: "var(--calm)" }}>
+          📓 Check-in
+        </Link>
+        <Link href="/phase" className="chip" style={{ borderColor: "var(--belt-gold)", color: "var(--belt-gold)" }}>
+          🎯 Fase
+        </Link>
+        <Link href="/recovery" className="chip" style={{ borderColor: "var(--chama)", color: "var(--chama)" }}>
+          🌿 Recovery
+        </Link>
+        <Link href="/progress/vtaper" className="chip" style={{ borderColor: "var(--belt-gold)", color: "var(--belt-gold)" }}>
+          🧬 V-Taper
+        </Link>
+        <Link href="/achievements" className="chip" style={{ borderColor: "var(--gold)", color: "var(--gold)" }}>
+          🏆 Conquistas
+        </Link>
       </div>
 
       {/* Goal dashboard — o coração da home (TRAVA v9). Chama viva (streak)
