@@ -96,7 +96,23 @@ const METRIC_POR_NOME: Record<string, MetricType> = {
 
 export function metricTypeDe(nomeExercicio: string): MetricType {
   const k = normalizar(nomeExercicio);
-  return METRIC_POR_NOME[k] ?? "weight_reps";
+  // 1) match exato.
+  const exato = METRIC_POR_NOME[k];
+  if (exato) return exato;
+  // 2) contains — cobre "Supino inclinado (halter, 30°)" → "supino inclinado",
+  //    "Barra fixa pronada" → "barra fixa", "Prancha lateral" → "prancha".
+  //    Ordena por chave mais longa primeiro pra evitar match parcial ruim
+  //    ("supino" bateria antes de "supino inclinado").
+  const chaves = Object.keys(METRIC_POR_NOME).sort((a, b) => b.length - a.length);
+  for (const key of chaves) {
+    if (k.includes(key)) return METRIC_POR_NOME[key];
+  }
+  // 3) heurísticas por palavra-chave em nomes NÃO cadastrados.
+  if (/\b(prancha|plank)\b/.test(k)) return "time";
+  if (/\b(pallof|dead bug|hollow hold|wall sit)\b/.test(k)) return "time";
+  if (/\b(esteira|bike|corda|eliptico|hiit|caminhada|corrida)\b/.test(k)) return "duration";
+  if (/\b(barra fixa|pull[- ]?up|chin[- ]?up|dip|paralel|flexao|push[- ]?up|abdominal|crunch|leg raise|eleva.*pernas|hip thrust|glute bridge|ab wheel)\b/.test(k)) return "bw_reps";
+  return "weight_reps";
 }
 
 /** Rótulo humano curto do tipo. */

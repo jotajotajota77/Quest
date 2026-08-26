@@ -39,6 +39,31 @@ const ENTRADA_VAZIA: Entrada = {};
 
 const ORDEM_SPLIT_SEMANA = SPLIT_SEMANA.map((s) => s.key);
 
+// v13: dow → sigla. index 0=domingo.
+const SIGLAS_DIA = ["dom", "seg", "ter", "qua", "qui", "sex", "sab"] as const;
+// Ordem visual das pills: SEG-DOM.
+const SIGLAS_DIA_ORDEM = ["seg", "ter", "qua", "qui", "sex", "sab", "dom"] as const;
+const LABEL_DIA: Record<string, string> = {
+  seg: "segunda",
+  ter: "terça",
+  qua: "quarta",
+  qui: "quinta",
+  sex: "sexta",
+  sab: "sábado",
+  dom: "domingo",
+  extras: "extras",
+};
+
+// Extrai o dia-da-semana a partir do split key (prog_seg_push → 'seg',
+// seg_pull → 'seg', dom_pump_cardio → 'dom'). Fallback = 'extras'.
+function diaDoSplit(split: string): string {
+  const s = split.replace(/^prog_/, "").toLowerCase();
+  for (const dia of SIGLAS_DIA_ORDEM) {
+    if (s.startsWith(`${dia}_`)) return dia;
+  }
+  return "extras";
+}
+
 export default function TrainingModule({
   plano,
   series,
@@ -109,6 +134,29 @@ export default function TrainingModule({
   }, [plano]);
   const histPorNome = useMemo(() => agruparPorNome(series), [series]);
   const hojePorNome = useMemo(() => agruparPorNome(seriesHoje), [seriesHoje]);
+
+  // v13 §85: seletor por dia da semana. Extrai dow do split key
+  // (prog_seg_push → 'seg', seg_pull → 'seg'). Agrupa todos os splits do
+  // plano por dia e mostra 7 pills SEG-DOM. Splits sem dia claro
+  // (core_cardio, custom) vão pro grupo "Extras".
+  const splitPorDia = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const s of splits) {
+      const dia = diaDoSplit(s);
+      const arr = map.get(dia) ?? [];
+      if (!arr.includes(s)) arr.push(s);
+      map.set(dia, arr);
+    }
+    return map;
+  }, [splits]);
+  const [diaAtivo, setDiaAtivo] = useState<string>(() => {
+    const hoje = SIGLAS_DIA[new Date().getDay()];
+    if (splitPorDia.has(hoje)) return hoje;
+    for (const dia of SIGLAS_DIA) {
+      if (splitPorDia.has(dia)) return dia;
+    }
+    return hoje;
+  });
 
   // PR3 §14: pre-preencher entradas com a última série do dia por exercício.
   // Só na primeira renderização — se o user editar depois, mantém o dele.
@@ -248,7 +296,12 @@ export default function TrainingModule({
     );
   }
 
-  const splitAlvo = splitAtivo ?? splits[0];
+  // splitAlvo: se o user clicou explicitamente um split, respeita. Senão,
+  // pega o primeiro split do dia ativo (default = split do plano pro dia).
+  const splitsDoDia = splitPorDia.get(diaAtivo) ?? [];
+  const splitAlvo = splitAtivo && splitsDoDia.includes(splitAtivo)
+    ? splitAtivo
+    : (splitsDoDia[0] ?? splitAtivo ?? splits[0]);
   const exercicios = plano.filter((e) => (e.split ?? "—") === splitAlvo);
 
   // Sessão do dia: exercícios com pelo menos uma série hoje / total no split.
@@ -353,24 +406,100 @@ export default function TrainingModule({
         </div>
       )}
 
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", margin: "10px 0" }}>
-        {splits.map((s) => {
-          const grupos = gruposPorSplit.get(s);
+      {/* v13: seletor por dia da semana. Sempre mostra SEG-DOM.
+          Sugere o split do plano pro dia. Se dia tem múltiplos splits
+          (ex: user adicionou um custom), lista todos abaixo dos dias. */}
+      <div style={{ display: "flex", gap: 4, flexWrap: "wrap", margin: "12px 0 6px" }}>
+        {SIGLAS_DIA_ORDEM.map((dia) => {
+          const temSplit = splitPorDia.has(dia);
+          const eHoje = dia === SIGLAS_DIA[new Date().getDay()];
+          const ativo = dia === diaAtivo;
           return (
             <button
-              key={s}
+              key={dia}
+              type="button"
+              onClick={() => {
+                setDiaAtivo(dia);
+                setSplitAtivo(null); // reset seleção manual pra usar default do dia
+              }}
               className="chip"
-              style={{ borderColor: s === splitAlvo ? "var(--neon)" : "var(--panel-border)" }}
-              onClick={() => setSplitAtivo(s)}
+              style={{
+                padding: "6px 10px",
+                fontSize: "0.75rem",
+                minWidth: 42,
+                fontWeight: 800,
+                borderColor: ativo ? "var(--neon)" : eHoje ? "var(--gold)" : "var(--panel-border)",
+                background: ativo ? "color-mix(in srgb, var(--neon) 15%, transparent)" : "transparent",
+                color: ativo ? "var(--neon)" : temSplit ? "var(--text)" : "var(--text-dim)",
+                opacity: temSplit ? 1 : 0.6,
+              }}
+              title={temSplit ? `${splitPorDia.get(dia)!.length} split(s) no plano` : "sem treino no plano"}
             >
-              <span style={{ fontWeight: 800 }}>
-                {LABEL_PROGRAMA_SPLIT[s as never] ?? SPLIT_LABEL[s] ?? s.toUpperCase()}
-              </span>
-              {grupos && <span style={{ color: "var(--text-dim)" }}> · {grupos}</span>}
+              {dia.toUpperCase()}
+              {eHoje && <span style={{ marginLeft: 3, fontSize: 8 }}>●</span>}
             </button>
           );
         })}
+        {splitPorDia.has("extras") && (
+          <button
+            key="extras"
+            type="button"
+            onClick={() => { setDiaAtivo("extras"); setSplitAtivo(null); }}
+            className="chip"
+            style={{
+              padding: "6px 10px",
+              fontSize: "0.7rem",
+              borderColor: diaAtivo === "extras" ? "var(--neon)" : "var(--panel-border)",
+              color: diaAtivo === "extras" ? "var(--neon)" : "var(--text-dim)",
+            }}
+          >
+            +
+          </button>
+        )}
       </div>
+
+      {/* Se o dia tem mais de 1 split (raro — user adicionou um custom no
+          mesmo dia), mostra as opções pra escolher. Se só 1, esconde. */}
+      {splitsDoDia.length > 1 && (
+        <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 6 }}>
+          {splitsDoDia.map((s) => {
+            const grupos = gruposPorSplit.get(s);
+            return (
+              <button
+                key={s}
+                type="button"
+                className="chip"
+                style={{
+                  padding: "4px 8px",
+                  fontSize: "0.7rem",
+                  borderColor: s === splitAlvo ? "var(--neon)" : "var(--panel-border)",
+                }}
+                onClick={() => setSplitAtivo(s)}
+              >
+                {LABEL_PROGRAMA_SPLIT[s as never] ?? SPLIT_LABEL[s] ?? s.toUpperCase()}
+                {grupos && <span style={{ color: "var(--text-dim)" }}> · {grupos}</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Label completo do split ativo (o que ANTES aparecia como tab longa). */}
+      {splitAlvo && (
+        <div className="subtle" style={{ fontSize: "0.72rem", marginBottom: 8 }}>
+          {LABEL_PROGRAMA_SPLIT[splitAlvo as never] ?? SPLIT_LABEL[splitAlvo] ?? splitAlvo}
+          {gruposPorSplit.get(splitAlvo) ? ` · ${gruposPorSplit.get(splitAlvo)}` : ""}
+        </div>
+      )}
+
+      {/* Empty state se o dia escolhido não tem split no plano. */}
+      {splitsDoDia.length === 0 && (
+        <div className="panel" style={{ padding: 12, marginBottom: 10, textAlign: "center" }}>
+          <div className="subtle" style={{ fontSize: "0.75rem" }}>
+            Sem treino previsto pra {LABEL_DIA[diaAtivo]}.
+          </div>
+        </div>
+      )}
 
       {/* Sessão do dia — invólucro com encerramento explícito. */}
       <div
