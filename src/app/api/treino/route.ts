@@ -26,6 +26,7 @@ import {
   registrarPrs,
   type TipoPr,
 } from "@/lib/physique/prs";
+import { ganharBond } from "@/lib/physique/data";
 
 const METRIC_TYPES: MetricType[] = [
   "weight_reps",
@@ -329,6 +330,25 @@ export async function POST(request: Request) {
       } catch {
         /* engine de PR é tooling — não pode falhar o registro */
       }
+
+      // PR11 §91: bond XP com o personagem responsável pelo grupo
+      // principal da série. Silencioso em erro. Bond desbloqueia
+      // cosmetics/frases, nunca eficácia.
+      try {
+        const distrib = distribuicaoDoExercicio(nome);
+        if (distrib) {
+          const grupoPrincipal = Object.entries(distrib).sort(
+            (a, b) => (b[1] as number) - (a[1] as number),
+          )[0]?.[0] as GrupoMuscular | undefined;
+          if (grupoPrincipal) {
+            const personagem = PERSONAGEM_POR_GRUPO[grupoPrincipal];
+            if (personagem) {
+              const xpBond = isPr ? 15 : 3;
+              await ganharBond(user.id, personagem, xpBond);
+            }
+          }
+        }
+      } catch { /* bond é cosmético */ }
 
       // Só o legado (peso × reps) vai pro mastery — o restante entra
       // na modelagem do PR3.

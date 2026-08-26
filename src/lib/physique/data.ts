@@ -1096,6 +1096,446 @@ export async function definirPriority(
     );
 }
 
+// ---------- phase transitions (PR9) ----------
+
+export async function historicoFases(userId: string): Promise<PhysiquePhase[]> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("physique_phase")
+    .select("*")
+    .eq("user_id", userId)
+    .order("started_at", { ascending: false });
+  return (data ?? []) as PhysiquePhase[];
+}
+
+export async function transicoesPendentes(userId: string): Promise<{
+  id: number;
+  proposto_em: string;
+  to_type: string;
+  reason: string | null;
+  confidence: number | null;
+  signals: Record<string, unknown>;
+  from_phase_id: number | null;
+}[]> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("phase_transition")
+    .select("id, proposto_em, to_type, reason, confidence, signals, from_phase_id")
+    .eq("user_id", userId)
+    .eq("estado", "pendente")
+    .order("proposto_em", { ascending: false });
+  return (data ?? []) as {
+    id: number;
+    proposto_em: string;
+    to_type: string;
+    reason: string | null;
+    confidence: number | null;
+    signals: Record<string, unknown>;
+    from_phase_id: number | null;
+  }[];
+}
+
+/**
+ * Encerra a fase ativa e cria uma nova. Idempotência via unique index
+ * partial em physique_phase (user_id) where status='ativa'.
+ * `motivo_encerramento` guarda auditoria mínima em decision_notes.
+ */
+export async function trocarFase(
+  userId: string,
+  novoTipo: PhysiquePhase["type"],
+  opcoes: { calorie_target?: number; protein_target?: number; goal?: string } = {},
+): Promise<PhysiquePhase> {
+  const supabase = createClient();
+  const atual = await faseAtiva(userId);
+  const now = new Date().toISOString();
+
+  if (atual) {
+    await supabase
+      .from("physique_phase")
+      .update({
+        status: "concluida",
+        ended_at: now.slice(0, 10),
+        atualizado_em: now,
+      })
+      .eq("id", atual.id)
+      .eq("user_id", userId);
+
+    // Desativa target vigente (novo target vem inicial pra nova fase).
+    await supabase
+      .from("nutrition_target")
+      .update({ ativo: false, encerrado_em: now })
+      .eq("user_id", userId)
+      .eq("ativo", true);
+  }
+
+  const kcal = opcoes.calorie_target ?? atual?.calorie_target ?? 1900;
+  const prot = opcoes.protein_target ?? atual?.protein_target ?? 135;
+
+  const { data: nova, error } = await supabase
+    .from("physique_phase")
+    .insert({
+      user_id: userId,
+      type: novoTipo,
+      status: "ativa",
+      calorie_target: kcal,
+      calorie_range_min: Math.round(kcal * 0.95),
+      calorie_range_max: Math.round(kcal * 1.05),
+      calorie_target_min_floor: Math.round(kcal * 0.85),
+      protein_target: prot,
+      protein_range_min: Math.round(prot * 0.9),
+      protein_range_max: Math.round(prot * 1.15),
+      target_rate:
+        novoTipo === "cut" ? 0.6 :
+        novoTipo === "build" ? -0.3 :
+        novoTipo === "mini_cut" ? 1.0 :
+        0,
+      goal_description: opcoes.goal ?? `Fase ${novoTipo} iniciada.`,
+      decision_notes: atual
+        ? `Sucessora de ${atual.type} #${atual.id} (${atual.started_at} → ${now.slice(0, 10)}).`
+        : null,
+    })
+    .select("*")
+    .single();
+  if (error) throw error;
+  return nova as PhysiquePhase;
+}
+
+/**
+ * Marca uma phase_transition (proposta) como aceito/adiado/ignorado.
+ * Se aceito, chama trocarFase.
+ */
+export async function decidirTransicao(
+  userId: string,
+  transicaoId: number,
+  decisao: "aceito" | "adiado" | "ignorado",
+): Promise<{ fase_nova: PhysiquePhase | null }> {
+  const supabase = createClient();
+  const { data: t } = await supabase
+    .from("phase_transition")
+    .select("id, to_type")
+    .eq("id", transicaoId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (!t) return { fase_nova: null };
+  await supabase
+    .from("phase_transition")
+    .update({ estado: decisao, decidido_em: new Date().toISOString() })
+    .eq("id", transicaoId)
+    .eq("user_id", userId);
+  if (decisao === "aceito") {
+    const fase_nova = await trocarFase(userId, t.to_type as PhysiquePhase["type"]);
+    return { fase_nova };
+  }
+  return { fase_nova: null };
+}
+
+// ---------- travel_period (PR10) ----------
+
+export interface TravelPeriod {
+  id: number;
+  iniciado_em: string;
+  termina_em: string | null;
+  reentry_ate: string | null;
+  config: {
+    proteina_min?: number;
+    logs_simplificados?: boolean;
+    quests_reduzidas?: boolean;
+  };
+  ativo: boolean;
+}
+
+export async function travelAtivo(userId: string): Promise<TravelPeriod | null> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("travel_period")
+    .select("id, iniciado_em, termina_em, reentry_ate, config, ativo")
+    .eq("user_id", userId)
+    .eq("ativo", true)
+    .maybeSingle();
+  return (data as TravelPeriod | null) ?? null;
+}
+
+/**
+ * Inicia viagem. Se já tem um ativo, é no-op idempotente (retorna o
+ * atual). Cria também phase 'travel' se ainda não é a fase ativa —
+ * assim /nutri já pega o Travel Mode banner automático.
+ */
+export async function iniciarTravel(
+  userId: string,
+  opcoes: { termina_em?: string; proteina_min?: number } = {},
+): Promise<TravelPeriod> {
+  const supabase = createClient();
+  const existente = await travelAtivo(userId);
+  if (existente) return existente;
+
+  const fase = await faseAtiva(userId);
+  const proteinaMin = opcoes.proteina_min ?? (fase?.protein_target ?? 130);
+
+  const { data, error } = await supabase
+    .from("travel_period")
+    .insert({
+      user_id: userId,
+      termina_em: opcoes.termina_em ?? null,
+      config: {
+        proteina_min: proteinaMin,
+        logs_simplificados: true,
+        quests_reduzidas: true,
+      },
+      ativo: true,
+    })
+    .select("id, iniciado_em, termina_em, reentry_ate, config, ativo")
+    .single();
+  if (error) throw error;
+
+  // Se a fase ativa não é 'travel', muda pra travel automaticamente.
+  if (fase && fase.type !== "travel") {
+    await trocarFase(userId, "travel", {
+      calorie_target: Math.round((fase.calorie_target ?? 1900) * 1.05),
+      protein_target: proteinaMin,
+      goal: `Travel mode (viagem iniciada em ${new Date().toISOString().slice(0, 10)}).`,
+    });
+  }
+  return data as TravelPeriod;
+}
+
+export async function encerrarTravel(userId: string, reentryDias = 3): Promise<void> {
+  const supabase = createClient();
+  const existente = await travelAtivo(userId);
+  if (!existente) return;
+  const reentry = new Date();
+  reentry.setDate(reentry.getDate() + reentryDias);
+  await supabase
+    .from("travel_period")
+    .update({
+      ativo: false,
+      termina_em: new Date().toISOString().slice(0, 10),
+      reentry_ate: reentry.toISOString().slice(0, 10),
+    })
+    .eq("id", existente.id)
+    .eq("user_id", userId);
+}
+
+// ---------- achievements v2 (PR11) ----------
+
+export interface AchievementDef {
+  slug: string;
+  categoria: string;
+  nome: string;
+  descricao: string | null;
+  criterio: Record<string, unknown>;
+  raridade: "comum" | "raro" | "epico" | "lendario";
+  cosmetic_slug: string | null;
+}
+
+export interface UserAchievement {
+  slug: string;
+  unlocked_em: string;
+  contexto: Record<string, unknown>;
+}
+
+export async function catalogoAchievements(): Promise<AchievementDef[]> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("achievement_def")
+    .select("slug, categoria, nome, descricao, criterio, raridade, cosmetic_slug")
+    .eq("ativo", true);
+  return (data ?? []) as AchievementDef[];
+}
+
+export async function achievementsDeUser(userId: string): Promise<UserAchievement[]> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("user_achievement")
+    .select("slug, unlocked_em, contexto")
+    .eq("user_id", userId)
+    .order("unlocked_em", { ascending: false });
+  return (data ?? []) as UserAchievement[];
+}
+
+/**
+ * Avalia critérios e desbloqueia achievements que ainda não foram
+ * desbloqueados. Idempotente pelo primary key (user_id, slug).
+ *
+ * Cada critério = query específica. Mantém as fórmulas simples porque
+ * o motor de achievement pode evoluir num PR de manutenção.
+ */
+export async function reavaliarAchievements(userId: string): Promise<string[]> {
+  const supabase = createClient();
+  const [catalogo, jaTem] = await Promise.all([
+    catalogoAchievements(),
+    achievementsDeUser(userId),
+  ]);
+  const desbloqueados = new Set(jaTem.map((a) => a.slug));
+  const novos: string[] = [];
+
+  for (const a of catalogo) {
+    if (desbloqueados.has(a.slug)) continue;
+    const c = a.criterio as { acao?: string; valor?: number | string };
+    if (!c.acao) continue;
+    let bateu = false;
+    switch (c.acao) {
+      case "daily_checkin_count_min": {
+        const { count } = await supabase.from("daily_checkin").select("id", { count: "exact", head: true }).eq("user_id", userId);
+        bateu = (count ?? 0) >= Number(c.valor ?? 1);
+        break;
+      }
+      case "weekly_checkin_full_count_min": {
+        const { count } = await supabase
+          .from("weekly_checkin")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", userId)
+          .not("cintura_media_cm", "is", null);
+        bateu = (count ?? 0) >= Number(c.valor ?? 1);
+        break;
+      }
+      case "personal_record_count_min": {
+        const { count } = await supabase.from("personal_record").select("id", { count: "exact", head: true }).eq("user_id", userId);
+        bateu = (count ?? 0) >= Number(c.valor ?? 1);
+        break;
+      }
+      case "treino_sessao_count_min": {
+        const { count } = await supabase.from("treino_sessoes").select("user_id", { count: "exact", head: true }).eq("user_id", userId).eq("finalizada", true);
+        bateu = (count ?? 0) >= Number(c.valor ?? 1);
+        break;
+      }
+      case "phase_completed_count_min": {
+        const { count } = await supabase.from("physique_phase").select("id", { count: "exact", head: true }).eq("user_id", userId).eq("status", "concluida");
+        bateu = (count ?? 0) >= Number(c.valor ?? 1);
+        break;
+      }
+      case "phase_completed_type": {
+        const { count } = await supabase
+          .from("physique_phase")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", userId)
+          .eq("status", "concluida")
+          .eq("type", String(c.valor));
+        bateu = (count ?? 0) >= 1;
+        break;
+      }
+      case "transition_aceito_count_min": {
+        const { count } = await supabase.from("phase_transition").select("id", { count: "exact", head: true }).eq("user_id", userId).eq("estado", "aceito");
+        bateu = (count ?? 0) >= Number(c.valor ?? 1);
+        break;
+      }
+      case "priority_s_min": {
+        const { count } = await supabase.from("physique_priority").select("user_id", { count: "exact", head: true }).eq("user_id", userId).eq("tier", "s");
+        bateu = (count ?? 0) >= Number(c.valor ?? 1);
+        break;
+      }
+      case "checkin_streak": {
+        // Streak simplificado: nº de dias consecutivos com check-in
+        // contando pra trás desde hoje. Se today missing, começa em 0.
+        const { data: linhas } = await supabase
+          .from("daily_checkin")
+          .select("data")
+          .eq("user_id", userId)
+          .order("data", { ascending: false })
+          .limit(60);
+        const set = new Set(((linhas ?? []) as { data: string }[]).map((r) => r.data));
+        let streak = 0;
+        for (let i = 0; i < 60; i++) {
+          const d = new Date();
+          d.setDate(d.getDate() - i);
+          const iso = d.toISOString().slice(0, 10);
+          if (set.has(iso)) streak++;
+          else break;
+        }
+        bateu = streak >= Number(c.valor ?? 7);
+        break;
+      }
+      case "sono_7h_last14_min": {
+        const desde = new Date(); desde.setDate(desde.getDate() - 14);
+        const { data } = await supabase.from("daily_checkin").select("sono_h").eq("user_id", userId).gte("data", desde.toISOString().slice(0, 10));
+        const n = ((data ?? []) as { sono_h: number | null }[]).filter((r) => r.sono_h != null && r.sono_h! >= 7).length;
+        bateu = n >= Number(c.valor ?? 7);
+        break;
+      }
+      case "saber_sessao_count_min": {
+        const { count } = await supabase.from("saber_sessoes").select("id", { count: "exact", head: true }).eq("user_id", userId);
+        bateu = (count ?? 0) >= Number(c.valor ?? 1);
+        break;
+      }
+    }
+    if (bateu) {
+      const { error } = await supabase.from("user_achievement").insert({
+        user_id: userId,
+        slug: a.slug,
+        contexto: { criterio: c },
+      });
+      if (!error) novos.push(a.slug);
+    }
+  }
+  return novos;
+}
+
+// ---------- personagem_bond (PR11 §91) ----------
+
+export interface BondRow {
+  personagem_slug: string;
+  xp: number;
+  nivel: number;
+  atualizado_em: string;
+}
+
+const BOND_CURVA = [0, 100, 250, 500, 900, 1500, 2500, 4000, 6500, 10000];
+
+function nivelDeBond(xp: number): number {
+  for (let i = BOND_CURVA.length - 1; i >= 0; i--) {
+    if (xp >= BOND_CURVA[i]) return i + 1;
+  }
+  return 1;
+}
+
+export async function bondsDeUser(userId: string): Promise<BondRow[]> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("personagem_bond")
+    .select("personagem_slug, xp, nivel, atualizado_em")
+    .eq("user_id", userId)
+    .order("xp", { ascending: false });
+  return (data ?? []) as BondRow[];
+}
+
+/**
+ * Ganha XP de bond por personagem. Idempotente-ish: cada log é único
+ * na chamada. Chamado pelo POST /api/log (fan-out) no futuro; por
+ * enquanto, exposto pra ser plugado por callers específicos.
+ */
+export async function ganharBond(
+  userId: string,
+  personagemSlug: string,
+  xp: number,
+): Promise<BondRow> {
+  const supabase = createClient();
+  const { data: atual } = await supabase
+    .from("personagem_bond")
+    .select("xp, nivel")
+    .eq("user_id", userId)
+    .eq("personagem_slug", personagemSlug)
+    .maybeSingle();
+  const xpAtual = (atual?.xp as number | null) ?? 0;
+  const novoXp = xpAtual + Math.max(0, Math.round(xp));
+  const novoNivel = nivelDeBond(novoXp);
+
+  const { data: row, error } = await supabase
+    .from("personagem_bond")
+    .upsert(
+      {
+        user_id: userId,
+        personagem_slug: personagemSlug,
+        xp: novoXp,
+        nivel: novoNivel,
+        atualizado_em: new Date().toISOString(),
+      },
+      { onConflict: "user_id,personagem_slug" },
+    )
+    .select("personagem_slug, xp, nivel, atualizado_em")
+    .single();
+  if (error) throw error;
+  return row as BondRow;
+}
+
 // ---------- helpers ----------
 
 function unidadeDefault(kind: BodyMeasurementKind): string {
