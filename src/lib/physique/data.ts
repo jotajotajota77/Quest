@@ -1229,6 +1229,92 @@ export async function decidirTransicao(
   return { fase_nova: null };
 }
 
+// ---------- travel_period (PR10) ----------
+
+export interface TravelPeriod {
+  id: number;
+  iniciado_em: string;
+  termina_em: string | null;
+  reentry_ate: string | null;
+  config: {
+    proteina_min?: number;
+    logs_simplificados?: boolean;
+    quests_reduzidas?: boolean;
+  };
+  ativo: boolean;
+}
+
+export async function travelAtivo(userId: string): Promise<TravelPeriod | null> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("travel_period")
+    .select("id, iniciado_em, termina_em, reentry_ate, config, ativo")
+    .eq("user_id", userId)
+    .eq("ativo", true)
+    .maybeSingle();
+  return (data as TravelPeriod | null) ?? null;
+}
+
+/**
+ * Inicia viagem. Se já tem um ativo, é no-op idempotente (retorna o
+ * atual). Cria também phase 'travel' se ainda não é a fase ativa —
+ * assim /nutri já pega o Travel Mode banner automático.
+ */
+export async function iniciarTravel(
+  userId: string,
+  opcoes: { termina_em?: string; proteina_min?: number } = {},
+): Promise<TravelPeriod> {
+  const supabase = createClient();
+  const existente = await travelAtivo(userId);
+  if (existente) return existente;
+
+  const fase = await faseAtiva(userId);
+  const proteinaMin = opcoes.proteina_min ?? (fase?.protein_target ?? 130);
+
+  const { data, error } = await supabase
+    .from("travel_period")
+    .insert({
+      user_id: userId,
+      termina_em: opcoes.termina_em ?? null,
+      config: {
+        proteina_min: proteinaMin,
+        logs_simplificados: true,
+        quests_reduzidas: true,
+      },
+      ativo: true,
+    })
+    .select("id, iniciado_em, termina_em, reentry_ate, config, ativo")
+    .single();
+  if (error) throw error;
+
+  // Se a fase ativa não é 'travel', muda pra travel automaticamente.
+  if (fase && fase.type !== "travel") {
+    await trocarFase(userId, "travel", {
+      calorie_target: Math.round((fase.calorie_target ?? 1900) * 1.05),
+      protein_target: proteinaMin,
+      goal: `Travel mode (viagem iniciada em ${new Date().toISOString().slice(0, 10)}).`,
+    });
+  }
+  return data as TravelPeriod;
+}
+
+export async function encerrarTravel(userId: string, reentryDias = 3): Promise<void> {
+  const supabase = createClient();
+  const existente = await travelAtivo(userId);
+  if (!existente) return;
+  const reentry = new Date();
+  reentry.setDate(reentry.getDate() + reentryDias);
+  await supabase
+    .from("travel_period")
+    .update({
+      ativo: false,
+      termina_em: new Date().toISOString().slice(0, 10),
+      reentry_ate: reentry.toISOString().slice(0, 10),
+    })
+    .eq("id", existente.id)
+    .eq("user_id", userId);
+}
+
 // ---------- helpers ----------
 
 function unidadeDefault(kind: BodyMeasurementKind): string {

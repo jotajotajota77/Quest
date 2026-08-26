@@ -12,11 +12,13 @@ import {
   garantirTargetAtivo,
   historicoFases,
   transicoesPendentes,
+  travelAtivo,
   ultimaDecisaoEngine,
 } from "@/lib/physique/data";
 import PhaseDashboard from "@/components/PhaseDashboard";
 import PhaseTimeline from "@/components/PhaseTimeline";
 import PhaseTransitions from "@/components/PhaseTransitions";
+import TravelToggle from "@/components/TravelToggle";
 import BottomNav from "@/components/BottomNav";
 
 export default async function PhasePage() {
@@ -26,12 +28,13 @@ export default async function PhasePage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [fase, target, decisao, historico, transicoes] = await Promise.all([
+  const [fase, target, decisao, historico, transicoes, travel] = await Promise.all([
     garantirFaseAtiva(user.id),
     garantirTargetAtivo(user.id),
     ultimaDecisaoEngine(user.id),
     historicoFases(user.id),
     transicoesPendentes(user.id),
+    travelAtivo(user.id),
   ]);
 
   return (
@@ -49,6 +52,8 @@ export default async function PhasePage() {
         target={target}
         decisao={decisao}
       />
+
+      <TravelToggle travel={travel} />
 
       {transicoes.length > 0 && (
         <PhaseTransitions transicoes={transicoes} />
