@@ -1096,6 +1096,139 @@ export async function definirPriority(
     );
 }
 
+// ---------- phase transitions (PR9) ----------
+
+export async function historicoFases(userId: string): Promise<PhysiquePhase[]> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("physique_phase")
+    .select("*")
+    .eq("user_id", userId)
+    .order("started_at", { ascending: false });
+  return (data ?? []) as PhysiquePhase[];
+}
+
+export async function transicoesPendentes(userId: string): Promise<{
+  id: number;
+  proposto_em: string;
+  to_type: string;
+  reason: string | null;
+  confidence: number | null;
+  signals: Record<string, unknown>;
+  from_phase_id: number | null;
+}[]> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("phase_transition")
+    .select("id, proposto_em, to_type, reason, confidence, signals, from_phase_id")
+    .eq("user_id", userId)
+    .eq("estado", "pendente")
+    .order("proposto_em", { ascending: false });
+  return (data ?? []) as {
+    id: number;
+    proposto_em: string;
+    to_type: string;
+    reason: string | null;
+    confidence: number | null;
+    signals: Record<string, unknown>;
+    from_phase_id: number | null;
+  }[];
+}
+
+/**
+ * Encerra a fase ativa e cria uma nova. Idempotência via unique index
+ * partial em physique_phase (user_id) where status='ativa'.
+ * `motivo_encerramento` guarda auditoria mínima em decision_notes.
+ */
+export async function trocarFase(
+  userId: string,
+  novoTipo: PhysiquePhase["type"],
+  opcoes: { calorie_target?: number; protein_target?: number; goal?: string } = {},
+): Promise<PhysiquePhase> {
+  const supabase = createClient();
+  const atual = await faseAtiva(userId);
+  const now = new Date().toISOString();
+
+  if (atual) {
+    await supabase
+      .from("physique_phase")
+      .update({
+        status: "concluida",
+        ended_at: now.slice(0, 10),
+        atualizado_em: now,
+      })
+      .eq("id", atual.id)
+      .eq("user_id", userId);
+
+    // Desativa target vigente (novo target vem inicial pra nova fase).
+    await supabase
+      .from("nutrition_target")
+      .update({ ativo: false, encerrado_em: now })
+      .eq("user_id", userId)
+      .eq("ativo", true);
+  }
+
+  const kcal = opcoes.calorie_target ?? atual?.calorie_target ?? 1900;
+  const prot = opcoes.protein_target ?? atual?.protein_target ?? 135;
+
+  const { data: nova, error } = await supabase
+    .from("physique_phase")
+    .insert({
+      user_id: userId,
+      type: novoTipo,
+      status: "ativa",
+      calorie_target: kcal,
+      calorie_range_min: Math.round(kcal * 0.95),
+      calorie_range_max: Math.round(kcal * 1.05),
+      calorie_target_min_floor: Math.round(kcal * 0.85),
+      protein_target: prot,
+      protein_range_min: Math.round(prot * 0.9),
+      protein_range_max: Math.round(prot * 1.15),
+      target_rate:
+        novoTipo === "cut" ? 0.6 :
+        novoTipo === "build" ? -0.3 :
+        novoTipo === "mini_cut" ? 1.0 :
+        0,
+      goal_description: opcoes.goal ?? `Fase ${novoTipo} iniciada.`,
+      decision_notes: atual
+        ? `Sucessora de ${atual.type} #${atual.id} (${atual.started_at} → ${now.slice(0, 10)}).`
+        : null,
+    })
+    .select("*")
+    .single();
+  if (error) throw error;
+  return nova as PhysiquePhase;
+}
+
+/**
+ * Marca uma phase_transition (proposta) como aceito/adiado/ignorado.
+ * Se aceito, chama trocarFase.
+ */
+export async function decidirTransicao(
+  userId: string,
+  transicaoId: number,
+  decisao: "aceito" | "adiado" | "ignorado",
+): Promise<{ fase_nova: PhysiquePhase | null }> {
+  const supabase = createClient();
+  const { data: t } = await supabase
+    .from("phase_transition")
+    .select("id, to_type")
+    .eq("id", transicaoId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (!t) return { fase_nova: null };
+  await supabase
+    .from("phase_transition")
+    .update({ estado: decisao, decidido_em: new Date().toISOString() })
+    .eq("id", transicaoId)
+    .eq("user_id", userId);
+  if (decisao === "aceito") {
+    const fase_nova = await trocarFase(userId, t.to_type as PhysiquePhase["type"]);
+    return { fase_nova };
+  }
+  return { fase_nova: null };
+}
+
 // ---------- helpers ----------
 
 function unidadeDefault(kind: BodyMeasurementKind): string {

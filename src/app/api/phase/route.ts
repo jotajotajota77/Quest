@@ -13,8 +13,16 @@ import { createClient } from "@/lib/supabase/server";
 import {
   aplicarDecisaoEmTarget,
   avaliarFaseCut,
+  decidirTransicao,
   marcarDecisao,
+  trocarFase,
 } from "@/lib/physique/data";
+import type { PhysiquePhase } from "@/lib/physique/tipos";
+
+const TIPOS_FASE: PhysiquePhase["type"][] = [
+  "cut", "maintenance", "build", "specialization",
+  "mini_cut", "recovery", "travel", "custom",
+];
 
 interface AvaliarBody {
   action: "avaliar";
@@ -24,7 +32,19 @@ interface DecidirBody {
   id: number;
   aceito: "aceito" | "adiado" | "ignorado";
 }
-type Body = AvaliarBody | DecidirBody;
+interface TrocarBody {
+  action: "trocar_fase";
+  tipo: PhysiquePhase["type"];
+  calorie_target?: number;
+  protein_target?: number;
+  goal?: string;
+}
+interface DecidirTransicaoBody {
+  action: "decidir_transicao";
+  transicao_id: number;
+  decisao: "aceito" | "adiado" | "ignorado";
+}
+type Body = AvaliarBody | DecidirBody | TrocarBody | DecidirTransicaoBody;
 
 export async function POST(request: Request) {
   const supabase = createClient();
@@ -32,8 +52,29 @@ export async function POST(request: Request) {
   if (!user) return NextResponse.json({ error: "não autenticado" }, { status: 401 });
 
   const raw = (await request.json().catch(() => null)) as Body | null;
-  if (!raw || (raw.action !== "avaliar" && raw.action !== "decidir")) {
+  const validas = ["avaliar", "decidir", "trocar_fase", "decidir_transicao"];
+  if (!raw || !validas.includes(raw.action)) {
     return NextResponse.json({ error: "action inválido" }, { status: 400 });
+  }
+
+  if (raw.action === "trocar_fase") {
+    if (!TIPOS_FASE.includes(raw.tipo)) {
+      return NextResponse.json({ error: "tipo inválido" }, { status: 400 });
+    }
+    const nova = await trocarFase(user.id, raw.tipo, {
+      calorie_target: raw.calorie_target,
+      protein_target: raw.protein_target,
+      goal: raw.goal,
+    });
+    return NextResponse.json({ ok: true, fase: nova });
+  }
+
+  if (raw.action === "decidir_transicao") {
+    if (!["aceito", "adiado", "ignorado"].includes(raw.decisao)) {
+      return NextResponse.json({ error: "decisao" }, { status: 400 });
+    }
+    const r = await decidirTransicao(user.id, Number(raw.transicao_id), raw.decisao);
+    return NextResponse.json({ ok: true, ...r });
   }
 
   if (raw.action === "avaliar") {
