@@ -3,23 +3,38 @@
 import type { MasteryResolvida } from "@/lib/engine/mastery";
 
 // v12.4: labels em PT — consistente com o resto do app.
-const LABEL_GRUPO: Record<string, { rotulo: string; icon: string }> = {
-  chest:     { rotulo: "Peito",      icon: "🫁" },
-  back:      { rotulo: "Costas",     icon: "🌿" },
-  shoulders: { rotulo: "Ombros",     icon: "💠" },
-  biceps:    { rotulo: "Bíceps",     icon: "💪" },
-  triceps:   { rotulo: "Tríceps",    icon: "🦾" },
-  lower:     { rotulo: "Pernas",     icon: "🦵" },
-  core:      { rotulo: "Core",       icon: "🔥" },
-  taekwondo: { rotulo: "Taekwondo",  icon: "🥋" },
-  danca:     { rotulo: "Dança",      icon: "💃" },
+// PR8 adicionou 5 grupos V-Taper granulares. Os antigos back/shoulders
+// continuam declarados p/ back-compat (aparecem só se ainda tem XP legado).
+const LABEL_GRUPO: Record<string, { rotulo: string; icon: string; vtaper?: boolean }> = {
+  chest:          { rotulo: "Peito",              icon: "🫁" },
+  upper_chest:    { rotulo: "Peito superior",     icon: "🫁", vtaper: true },
+  back:           { rotulo: "Costas (legado)",    icon: "🌿" },
+  back_width:     { rotulo: "Dorsal · largura",   icon: "🕊️", vtaper: true },
+  back_thickness: { rotulo: "Dorsal · espessura", icon: "🪨", vtaper: true },
+  shoulders:      { rotulo: "Ombros (legado)",    icon: "💠" },
+  shoulders_side: { rotulo: "Ombro lateral",      icon: "◆", vtaper: true },
+  shoulders_rear: { rotulo: "Ombro posterior",    icon: "◇", vtaper: true },
+  biceps:         { rotulo: "Bíceps",             icon: "💪" },
+  triceps:        { rotulo: "Tríceps",            icon: "🦾" },
+  lower:          { rotulo: "Pernas",             icon: "🦵" },
+  core:           { rotulo: "Core",               icon: "🔥" },
+  taekwondo:      { rotulo: "Taekwondo",          icon: "🥋" },
+  danca:          { rotulo: "Dança",              icon: "💃" },
 };
 
+// PR8: grupos legados só aparecem se AINDA têm XP (usuário pré-0044
+// que rodou migração; ou algum erro de mapeamento).
+const GRUPOS_LEGADOS = new Set(["back", "shoulders"]);
+
 export default function MasteryCard({ masteries }: { masteries: MasteryResolvida[] }) {
-  const totalNivel = masteries.reduce((s, m) => s + m.nivel, 0);
-  const maxGrupo = masteries.reduce(
+  // PR8: esconde back/shoulders legados quando XP = 0 (pós-migração normal).
+  const visiveis = masteries.filter(
+    (m) => !GRUPOS_LEGADOS.has(m.grupo) || m.xp > 0,
+  );
+  const totalNivel = visiveis.reduce((s, m) => s + m.nivel, 0);
+  const maxGrupo = visiveis.reduce(
     (best, m) => (m.nivel > best.nivel ? m : best),
-    masteries[0],
+    visiveis[0],
   );
 
   return (
@@ -50,7 +65,7 @@ export default function MasteryCard({ masteries }: { masteries: MasteryResolvida
       </div>
 
       <div style={{ display: "grid", gap: 6 }}>
-        {masteries.map((m) => {
+        {visiveis.map((m) => {
           const label = LABEL_GRUPO[m.grupo] ?? { rotulo: m.grupo, icon: "•" };
           return (
             <div key={m.grupo} style={{ display: "grid", gap: 3 }}>
@@ -64,6 +79,11 @@ export default function MasteryCard({ masteries }: { masteries: MasteryResolvida
                 <span>
                   <span style={{ marginRight: 6 }}>{label.icon}</span>
                   {label.rotulo}
+                  {label.vtaper && (
+                    <span style={{ marginLeft: 4, fontSize: 9, color: "var(--belt-gold)" }}>
+                      ★
+                    </span>
+                  )}
                   <span
                     style={{
                       marginLeft: 6,
