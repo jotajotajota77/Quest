@@ -1315,6 +1315,227 @@ export async function encerrarTravel(userId: string, reentryDias = 3): Promise<v
     .eq("user_id", userId);
 }
 
+// ---------- achievements v2 (PR11) ----------
+
+export interface AchievementDef {
+  slug: string;
+  categoria: string;
+  nome: string;
+  descricao: string | null;
+  criterio: Record<string, unknown>;
+  raridade: "comum" | "raro" | "epico" | "lendario";
+  cosmetic_slug: string | null;
+}
+
+export interface UserAchievement {
+  slug: string;
+  unlocked_em: string;
+  contexto: Record<string, unknown>;
+}
+
+export async function catalogoAchievements(): Promise<AchievementDef[]> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("achievement_def")
+    .select("slug, categoria, nome, descricao, criterio, raridade, cosmetic_slug")
+    .eq("ativo", true);
+  return (data ?? []) as AchievementDef[];
+}
+
+export async function achievementsDeUser(userId: string): Promise<UserAchievement[]> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("user_achievement")
+    .select("slug, unlocked_em, contexto")
+    .eq("user_id", userId)
+    .order("unlocked_em", { ascending: false });
+  return (data ?? []) as UserAchievement[];
+}
+
+/**
+ * Avalia critérios e desbloqueia achievements que ainda não foram
+ * desbloqueados. Idempotente pelo primary key (user_id, slug).
+ *
+ * Cada critério = query específica. Mantém as fórmulas simples porque
+ * o motor de achievement pode evoluir num PR de manutenção.
+ */
+export async function reavaliarAchievements(userId: string): Promise<string[]> {
+  const supabase = createClient();
+  const [catalogo, jaTem] = await Promise.all([
+    catalogoAchievements(),
+    achievementsDeUser(userId),
+  ]);
+  const desbloqueados = new Set(jaTem.map((a) => a.slug));
+  const novos: string[] = [];
+
+  for (const a of catalogo) {
+    if (desbloqueados.has(a.slug)) continue;
+    const c = a.criterio as { acao?: string; valor?: number | string };
+    if (!c.acao) continue;
+    let bateu = false;
+    switch (c.acao) {
+      case "daily_checkin_count_min": {
+        const { count } = await supabase.from("daily_checkin").select("id", { count: "exact", head: true }).eq("user_id", userId);
+        bateu = (count ?? 0) >= Number(c.valor ?? 1);
+        break;
+      }
+      case "weekly_checkin_full_count_min": {
+        const { count } = await supabase
+          .from("weekly_checkin")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", userId)
+          .not("cintura_media_cm", "is", null);
+        bateu = (count ?? 0) >= Number(c.valor ?? 1);
+        break;
+      }
+      case "personal_record_count_min": {
+        const { count } = await supabase.from("personal_record").select("id", { count: "exact", head: true }).eq("user_id", userId);
+        bateu = (count ?? 0) >= Number(c.valor ?? 1);
+        break;
+      }
+      case "treino_sessao_count_min": {
+        const { count } = await supabase.from("treino_sessoes").select("user_id", { count: "exact", head: true }).eq("user_id", userId).eq("finalizada", true);
+        bateu = (count ?? 0) >= Number(c.valor ?? 1);
+        break;
+      }
+      case "phase_completed_count_min": {
+        const { count } = await supabase.from("physique_phase").select("id", { count: "exact", head: true }).eq("user_id", userId).eq("status", "concluida");
+        bateu = (count ?? 0) >= Number(c.valor ?? 1);
+        break;
+      }
+      case "phase_completed_type": {
+        const { count } = await supabase
+          .from("physique_phase")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", userId)
+          .eq("status", "concluida")
+          .eq("type", String(c.valor));
+        bateu = (count ?? 0) >= 1;
+        break;
+      }
+      case "transition_aceito_count_min": {
+        const { count } = await supabase.from("phase_transition").select("id", { count: "exact", head: true }).eq("user_id", userId).eq("estado", "aceito");
+        bateu = (count ?? 0) >= Number(c.valor ?? 1);
+        break;
+      }
+      case "priority_s_min": {
+        const { count } = await supabase.from("physique_priority").select("user_id", { count: "exact", head: true }).eq("user_id", userId).eq("tier", "s");
+        bateu = (count ?? 0) >= Number(c.valor ?? 1);
+        break;
+      }
+      case "checkin_streak": {
+        // Streak simplificado: nº de dias consecutivos com check-in
+        // contando pra trás desde hoje. Se today missing, começa em 0.
+        const { data: linhas } = await supabase
+          .from("daily_checkin")
+          .select("data")
+          .eq("user_id", userId)
+          .order("data", { ascending: false })
+          .limit(60);
+        const set = new Set(((linhas ?? []) as { data: string }[]).map((r) => r.data));
+        let streak = 0;
+        for (let i = 0; i < 60; i++) {
+          const d = new Date();
+          d.setDate(d.getDate() - i);
+          const iso = d.toISOString().slice(0, 10);
+          if (set.has(iso)) streak++;
+          else break;
+        }
+        bateu = streak >= Number(c.valor ?? 7);
+        break;
+      }
+      case "sono_7h_last14_min": {
+        const desde = new Date(); desde.setDate(desde.getDate() - 14);
+        const { data } = await supabase.from("daily_checkin").select("sono_h").eq("user_id", userId).gte("data", desde.toISOString().slice(0, 10));
+        const n = ((data ?? []) as { sono_h: number | null }[]).filter((r) => r.sono_h != null && r.sono_h! >= 7).length;
+        bateu = n >= Number(c.valor ?? 7);
+        break;
+      }
+      case "saber_sessao_count_min": {
+        const { count } = await supabase.from("saber_sessoes").select("id", { count: "exact", head: true }).eq("user_id", userId);
+        bateu = (count ?? 0) >= Number(c.valor ?? 1);
+        break;
+      }
+    }
+    if (bateu) {
+      const { error } = await supabase.from("user_achievement").insert({
+        user_id: userId,
+        slug: a.slug,
+        contexto: { criterio: c },
+      });
+      if (!error) novos.push(a.slug);
+    }
+  }
+  return novos;
+}
+
+// ---------- personagem_bond (PR11 §91) ----------
+
+export interface BondRow {
+  personagem_slug: string;
+  xp: number;
+  nivel: number;
+  atualizado_em: string;
+}
+
+const BOND_CURVA = [0, 100, 250, 500, 900, 1500, 2500, 4000, 6500, 10000];
+
+function nivelDeBond(xp: number): number {
+  for (let i = BOND_CURVA.length - 1; i >= 0; i--) {
+    if (xp >= BOND_CURVA[i]) return i + 1;
+  }
+  return 1;
+}
+
+export async function bondsDeUser(userId: string): Promise<BondRow[]> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("personagem_bond")
+    .select("personagem_slug, xp, nivel, atualizado_em")
+    .eq("user_id", userId)
+    .order("xp", { ascending: false });
+  return (data ?? []) as BondRow[];
+}
+
+/**
+ * Ganha XP de bond por personagem. Idempotente-ish: cada log é único
+ * na chamada. Chamado pelo POST /api/log (fan-out) no futuro; por
+ * enquanto, exposto pra ser plugado por callers específicos.
+ */
+export async function ganharBond(
+  userId: string,
+  personagemSlug: string,
+  xp: number,
+): Promise<BondRow> {
+  const supabase = createClient();
+  const { data: atual } = await supabase
+    .from("personagem_bond")
+    .select("xp, nivel")
+    .eq("user_id", userId)
+    .eq("personagem_slug", personagemSlug)
+    .maybeSingle();
+  const xpAtual = (atual?.xp as number | null) ?? 0;
+  const novoXp = xpAtual + Math.max(0, Math.round(xp));
+  const novoNivel = nivelDeBond(novoXp);
+
+  const { data: row, error } = await supabase
+    .from("personagem_bond")
+    .upsert(
+      {
+        user_id: userId,
+        personagem_slug: personagemSlug,
+        xp: novoXp,
+        nivel: novoNivel,
+        atualizado_em: new Date().toISOString(),
+      },
+      { onConflict: "user_id,personagem_slug" },
+    )
+    .select("personagem_slug, xp, nivel, atualizado_em")
+    .single();
+  if (error) throw error;
+  return row as BondRow;
+}
+
 // ---------- helpers ----------
 
 function unidadeDefault(kind: BodyMeasurementKind): string {
