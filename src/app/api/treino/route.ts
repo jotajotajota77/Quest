@@ -82,8 +82,13 @@ const SHARDS_FECHAR_SESSAO = 1;
 //   Chan-ho, danca com Ji-seok.
 const PERSONAGEM_POR_GRUPO: Partial<Record<GrupoMuscular, PersonagemSlug>> = {
   chest: "min",
+  upper_chest: "min",
   back: "hujin-kim",
+  back_width: "hujin-kim",
+  back_thickness: "hujin-kim",
   shoulders: "sanha",
+  shoulders_side: "sanha",
+  shoulders_rear: "sanha",
   biceps: "hujin-kim",
   triceps: "hujin-kim",
   lower: "sanhee-park",

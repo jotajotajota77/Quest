@@ -8,11 +8,22 @@
 // I/O em lib/data.ts (aplicarMasteryPorSerie).
 // ============================================================
 
-/** Grupos musculares canônicos. Bate com mastery_musculo.grupo. */
+/** Grupos musculares canônicos. Bate com mastery_musculo.grupo.
+ * PR8 (§10, §16, §39, §100) adicionou os 5 grupos V-Taper:
+ *   upper_chest, back_width, back_thickness, shoulders_side, shoulders_rear.
+ * Os grupos antigos `back` e `shoulders` continuam declarados por
+ * compatibilidade retroativa; a migração 0044 zera essas linhas depois
+ * de splitar o XP nos novos grupos. `chest` continua ativo (é agora
+ * "peito geral", separado de upper_chest). */
 export const GRUPOS_MUSCULARES = [
   "chest",
+  "upper_chest",
   "back",
+  "back_width",
+  "back_thickness",
   "shoulders",
+  "shoulders_side",
+  "shoulders_rear",
   "biceps",
   "triceps",
   "lower",
@@ -22,6 +33,15 @@ export const GRUPOS_MUSCULARES = [
 ] as const;
 
 export type GrupoMuscular = (typeof GRUPOS_MUSCULARES)[number];
+
+/** Só os 5 novos grupos V-Taper (usados nas UIs de priorities/skill tree). */
+export const GRUPOS_VTAPER: readonly GrupoMuscular[] = [
+  "back_width",
+  "shoulders_side",
+  "upper_chest",
+  "back_thickness",
+  "shoulders_rear",
+] as const;
 
 /**
  * Threshold XP para subir do nível N pro N+1. Curva mais lenta que faixa
@@ -91,28 +111,28 @@ export function aplicarXpMastery(
 type Distrib = Partial<Record<GrupoMuscular, number>>;
 
 const MAPA_EXERCICIO: Array<{ padrao: RegExp; distrib: Distrib }> = [
-  // Peito
-  { padrao: /supino inclin/i, distrib: { chest: 0.7, triceps: 0.2, shoulders: 0.1 } },
-  { padrao: /supino declin/i, distrib: { chest: 0.7, triceps: 0.2, shoulders: 0.1 } },
-  { padrao: /supino reto|supino( |$)|bench press/i, distrib: { chest: 0.6, triceps: 0.25, shoulders: 0.15 } },
-  { padrao: /peck deck|crossover|voador|fly/i, distrib: { chest: 0.85, shoulders: 0.15 } },
-  { padrao: /mergulho|dip|paralela/i, distrib: { chest: 0.5, triceps: 0.4, shoulders: 0.1 } },
-  { padrao: /flex(ã|a)o|push[- ]up/i, distrib: { chest: 0.55, triceps: 0.25, shoulders: 0.15, core: 0.05 } },
+  // Peito — supino inclinado prioriza UPPER_CHEST (§10 V-Taper A-tier).
+  { padrao: /supino inclin/i, distrib: { upper_chest: 0.75, chest: 0.1, triceps: 0.1, shoulders_rear: 0.05 } },
+  { padrao: /supino declin/i, distrib: { chest: 0.75, triceps: 0.2, shoulders_rear: 0.05 } },
+  { padrao: /supino reto|supino( |$)|bench press/i, distrib: { chest: 0.6, upper_chest: 0.15, triceps: 0.15, shoulders_rear: 0.1 } },
+  { padrao: /peck deck|crossover|voador|fly/i, distrib: { chest: 0.85, upper_chest: 0.15 } },
+  { padrao: /mergulho|dip|paralela/i, distrib: { chest: 0.5, triceps: 0.4, shoulders_rear: 0.1 } },
+  { padrao: /flex(ã|a)o|push[- ]up/i, distrib: { chest: 0.5, upper_chest: 0.1, triceps: 0.25, shoulders_rear: 0.1, core: 0.05 } },
 
-  // Costas
-  { padrao: /barra fixa|pull[- ]up|chin[- ]up/i, distrib: { back: 0.7, biceps: 0.25, core: 0.05 } },
-  { padrao: /puxada|lat pulldown/i, distrib: { back: 0.75, biceps: 0.25 } },
-  { padrao: /remada curvada|barbell row/i, distrib: { back: 0.7, biceps: 0.2, shoulders: 0.1 } },
-  { padrao: /remada|row/i, distrib: { back: 0.75, biceps: 0.2, shoulders: 0.05 } },
-  { padrao: /pullover/i, distrib: { back: 0.6, chest: 0.3, triceps: 0.1 } },
+  // Costas — puxada/barra fixa = LARGURA. Remadas = ESPESSURA. (§10)
+  { padrao: /barra fixa|pull[- ]up|chin[- ]up/i, distrib: { back_width: 0.7, biceps: 0.25, core: 0.05 } },
+  { padrao: /puxada|lat pulldown/i, distrib: { back_width: 0.75, biceps: 0.25 } },
+  { padrao: /remada curvada|barbell row/i, distrib: { back_thickness: 0.7, biceps: 0.2, shoulders_rear: 0.1 } },
+  { padrao: /remada|row/i, distrib: { back_thickness: 0.75, biceps: 0.2, shoulders_rear: 0.05 } },
+  { padrao: /pullover/i, distrib: { back_width: 0.6, chest: 0.3, triceps: 0.1 } },
 
-  // Ombros
-  { padrao: /desenvolvimento militar|overhead press|ohp/i, distrib: { shoulders: 0.65, triceps: 0.25, chest: 0.1 } },
-  { padrao: /desenvolvimento (halter|dumbbell)/i, distrib: { shoulders: 0.7, triceps: 0.2, chest: 0.1 } },
-  { padrao: /eleva(ç|c)(ã|a)o lateral|lateral raise/i, distrib: { shoulders: 1.0 } },
-  { padrao: /eleva(ç|c)(ã|a)o frontal|front raise/i, distrib: { shoulders: 0.9, chest: 0.1 } },
-  { padrao: /face pull|pull apart/i, distrib: { shoulders: 0.7, back: 0.3 } },
-  { padrao: /encolhimento|shrug/i, distrib: { shoulders: 0.5, back: 0.5 } },
+  // Ombros — elevação lateral = SIDE (S-tier §10). Face pull/encolhimento = REAR.
+  { padrao: /desenvolvimento militar|overhead press|ohp/i, distrib: { shoulders_side: 0.5, shoulders_rear: 0.15, triceps: 0.25, upper_chest: 0.1 } },
+  { padrao: /desenvolvimento (halter|dumbbell)/i, distrib: { shoulders_side: 0.55, shoulders_rear: 0.15, triceps: 0.2, upper_chest: 0.1 } },
+  { padrao: /eleva(ç|c)(ã|a)o lateral|lateral raise/i, distrib: { shoulders_side: 1.0 } },
+  { padrao: /eleva(ç|c)(ã|a)o frontal|front raise/i, distrib: { shoulders_side: 0.4, upper_chest: 0.4, shoulders_rear: 0.2 } },
+  { padrao: /face pull|pull apart/i, distrib: { shoulders_rear: 0.7, back_thickness: 0.3 } },
+  { padrao: /encolhimento|shrug/i, distrib: { shoulders_rear: 0.5, back_thickness: 0.5 } },
 
   // Bíceps
   { padrao: /rosca direta|curl( |$)/i, distrib: { biceps: 1.0 } },
@@ -128,8 +148,8 @@ const MAPA_EXERCICIO: Array<{ padrao: RegExp; distrib: Distrib }> = [
   { padrao: /agachamento livre|back squat/i, distrib: { lower: 0.85, core: 0.15 } },
   { padrao: /agachamento( |$)|squat/i, distrib: { lower: 0.9, core: 0.1 } },
   { padrao: /leg press/i, distrib: { lower: 1.0 } },
-  { padrao: /stiff|romanian dead|rdl|good morning/i, distrib: { lower: 0.7, back: 0.2, core: 0.1 } },
-  { padrao: /levantamento terra|deadlift/i, distrib: { lower: 0.55, back: 0.3, core: 0.15 } },
+  { padrao: /stiff|romanian dead|rdl|good morning/i, distrib: { lower: 0.7, back_thickness: 0.2, core: 0.1 } },
+  { padrao: /levantamento terra|deadlift/i, distrib: { lower: 0.55, back_thickness: 0.3, core: 0.15 } },
   { padrao: /cadeira extensora|leg extension/i, distrib: { lower: 1.0 } },
   { padrao: /cadeira flexora|leg curl|mesa flexora/i, distrib: { lower: 1.0 } },
   { padrao: /panturrilha|calf/i, distrib: { lower: 1.0 } },
