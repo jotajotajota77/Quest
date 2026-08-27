@@ -64,6 +64,28 @@ function diaDoSplit(split: string): string {
   return "extras";
 }
 
+// v14: retroativo — dado uma sigla de dia da semana (seg/ter/…/dom),
+// retorna a data ISO (YYYY-MM-DD) DENTRO DA SEMANA ATUAL correspondente.
+// Se o dia é hoje ou futuro (nesta semana), retorna undefined (usa now).
+// Se é passado, retorna o ISO do dia — engine grava com ts = meio-dia
+// daquele dia.
+function dataDoDia(dia: string): string | undefined {
+  const alvo = SIGLAS_DIA.indexOf(dia as (typeof SIGLAS_DIA)[number]);
+  if (alvo < 0) return undefined;
+  const hoje = new Date();
+  const hojeDow = hoje.getDay();
+  // Se o dia é hoje, sem retroatividade.
+  if (alvo === hojeDow) return undefined;
+  // Se o dia é DEPOIS de hoje na semana atual, também não faz sentido
+  // registrar (mas deixamos passar como HOJE — usa now).
+  // Se é ANTES de hoje, calcula o dia dessa semana.
+  const diff = alvo - hojeDow;
+  if (diff > 0) return undefined; // dia futuro
+  const d = new Date(hoje);
+  d.setDate(d.getDate() + diff);
+  return d.toISOString().slice(0, 10);
+}
+
 export default function TrainingModule({
   plano,
   series,
@@ -218,6 +240,9 @@ export default function TrainingModule({
     const e = entradas[ex.id] ?? ENTRADA_VAZIA;
     const metric = metricTypeDe(ex.nome);
     const numOr = (s: string | undefined) => (s ? Number(s) : null);
+    // v14: se o dia ativo é passado, envia `data` pra API gravar
+    // retroativo. Dia futuro = ignora (sem sentido).
+    const dataAlvo = dataDoDia(diaAtivo);
     const r = await api({
       action: "serie",
       exercicio_id: ex.id,
@@ -228,6 +253,7 @@ export default function TrainingModule({
       seconds: numOr(e.seconds),
       assist_kg: numOr(e.assist_kg),
       distance_m: numOr(e.distance_m),
+      data: dataAlvo,
     });
     if (r.is_pr) {
       somPr();
@@ -484,13 +510,32 @@ export default function TrainingModule({
         </div>
       )}
 
-      {/* Label completo do split ativo (o que ANTES aparecia como tab longa). */}
-      {splitAlvo && (
-        <div className="subtle" style={{ fontSize: "0.72rem", marginBottom: 8 }}>
-          {LABEL_PROGRAMA_SPLIT[splitAlvo as never] ?? SPLIT_LABEL[splitAlvo] ?? splitAlvo}
-          {gruposPorSplit.get(splitAlvo) ? ` · ${gruposPorSplit.get(splitAlvo)}` : ""}
-        </div>
-      )}
+      {/* Label completo do split ativo + badge de retroativo. */}
+      {splitAlvo && (() => {
+        const dataAlvo = dataDoDia(diaAtivo);
+        return (
+          <div className="subtle" style={{ fontSize: "0.72rem", marginBottom: 8 }}>
+            {LABEL_PROGRAMA_SPLIT[splitAlvo as never] ?? SPLIT_LABEL[splitAlvo] ?? splitAlvo}
+            {gruposPorSplit.get(splitAlvo) ? ` · ${gruposPorSplit.get(splitAlvo)}` : ""}
+            {dataAlvo && (
+              <span
+                style={{
+                  marginLeft: 8,
+                  padding: "1px 6px",
+                  borderRadius: 4,
+                  background: "color-mix(in srgb, var(--belt-gold) 20%, transparent)",
+                  color: "var(--belt-gold)",
+                  fontSize: "0.65rem",
+                  fontWeight: 700,
+                }}
+                title={`registrando em ${dataAlvo}`}
+              >
+                ⏪ RETROATIVO · {LABEL_DIA[diaAtivo]}
+              </span>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Empty state se o dia escolhido não tem split no plano. */}
       {splitsDoDia.length === 0 && (

@@ -23,9 +23,16 @@ const HUMORES: { valor: Humor; label: string; emoji: string }[] = [
 
 interface Props {
   inicial: DailyCheckin | null;
+  /** Data alvo do check-in (YYYY-MM-DD). Default = hoje. */
+  dataAlvo?: string;
+  /** Data de hoje ISO. Server-injected — evita usar new Date() no cliente pra
+   *  timezone drift. */
+  hoje?: string;
+  /** Se true, form tá em modo retroativo (data != hoje). */
+  retroativo?: boolean;
 }
 
-export default function CheckinDailyForm({ inicial }: Props) {
+export default function CheckinDailyForm({ inicial, dataAlvo, hoje, retroativo }: Props) {
   const router = useRouter();
   const [salvando, setSalvando] = useState(false);
   const [salvoEm, setSalvoEm] = useState<string | null>(inicial?.criado_em ?? null);
@@ -64,6 +71,7 @@ export default function CheckinDailyForm({ inicial }: Props) {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           action: "daily",
+          data: dataAlvo,
           peso_kg: pesoKg === "" ? null : Number(pesoKg),
           sono_h: sonoH === "" ? null : Number(sonoH),
           sono_qualidade: sonoQualidade,
@@ -94,6 +102,55 @@ export default function CheckinDailyForm({ inicial }: Props) {
 
   return (
     <div style={{ display: "grid", gap: 14 }}>
+      {/* v14: seletor de data. Sempre visível, badge quando retroativo. */}
+      <div
+        style={{
+          background: retroativo
+            ? "color-mix(in srgb, var(--belt-gold) 12%, var(--surface))"
+            : "var(--surface)",
+          border: `1px solid ${retroativo ? "var(--belt-gold)" : "var(--hairline)"}`,
+          borderRadius: 16,
+          padding: 12,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: 10,
+        }}
+      >
+        <div>
+          <div style={{ fontSize: 11, color: "var(--ink-dim)", letterSpacing: 0.5, textTransform: "uppercase" }}>
+            Data
+          </div>
+          <div style={{ fontSize: 14, marginTop: 4 }}>
+            {retroativo && (
+              <span style={{ color: "var(--belt-gold)", fontWeight: 700, marginRight: 6 }}>
+                ⏪ Retroativo
+              </span>
+            )}
+            <strong>{dataAlvo ? fmtDataBr(dataAlvo) : "hoje"}</strong>
+          </div>
+        </div>
+        <input
+          type="date"
+          value={dataAlvo ?? hoje ?? ""}
+          max={hoje}
+          onChange={(e) => {
+            const v = e.target.value;
+            const url = v && v !== hoje ? `/checkin?date=${v}` : "/checkin";
+            router.push(url);
+          }}
+          style={{
+            padding: "6px 10px",
+            background: "var(--ground)",
+            color: "var(--ink)",
+            border: "1px solid var(--hairline)",
+            borderRadius: 8,
+            fontSize: 13,
+            colorScheme: "dark",
+          }}
+        />
+      </div>
+
       <Card titulo="Como tá?" >
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {HUMORES.map((h) => (
@@ -308,6 +365,12 @@ function Field({
       {sufixo && <span style={{ color: "var(--ink-dim)", fontSize: 13, width: 22 }}>{sufixo}</span>}
     </label>
   );
+}
+
+function fmtDataBr(iso: string): string {
+  // Evita new Date(iso) que parseia como UTC e vira dia anterior no Brasil.
+  const [y, m, d] = iso.split("-");
+  return `${d}/${m}/${y}`;
 }
 
 function Chip({ label, ativo, onClick }: { label: string; ativo: boolean; onClick: () => void }) {
