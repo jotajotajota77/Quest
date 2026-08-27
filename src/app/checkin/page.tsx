@@ -3,6 +3,9 @@
 // ------------------------------------------------------------
 // PR1: server component busca o check-in do dia + fase ativa, delega
 // pro client component o formulário. Sem XP, sem gamificação. Só grava.
+//
+// v14: suporta ?date=YYYY-MM-DD pra carregar/registrar check-in
+// retroativo de dia anterior.
 // ============================================================
 
 import { redirect } from "next/navigation";
@@ -14,17 +17,27 @@ import {
 import CheckinDailyForm from "@/components/CheckinDailyForm";
 import BottomNav from "@/components/BottomNav";
 
-export default async function CheckinDailyPage() {
+export default async function CheckinDailyPage({
+  searchParams,
+}: {
+  searchParams?: { date?: string };
+}) {
   const supabase = createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  const hoje = new Date().toISOString().slice(0, 10);
+  const raw = searchParams?.date ?? "";
+  const dataAlvo = /^\d{4}-\d{2}-\d{2}$/.test(raw) && raw <= hoje ? raw : hoje;
+
   const [fase, dia] = await Promise.all([
     garantirFaseAtiva(user.id),
-    checkinDoDia(user.id),
+    checkinDoDia(user.id, dataAlvo),
   ]);
+
+  const retroativo = dataAlvo !== hoje;
 
   return (
     <main className="app-shell">
@@ -36,7 +49,7 @@ export default async function CheckinDailyPage() {
         </p>
       </header>
 
-      <CheckinDailyForm inicial={dia} />
+      <CheckinDailyForm inicial={dia} dataAlvo={dataAlvo} hoje={hoje} retroativo={retroativo} />
 
       <BottomNav />
     </main>

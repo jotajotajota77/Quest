@@ -265,6 +265,17 @@ export async function POST(request: Request) {
       const exercicioId = body.exercicio_id ? String(body.exercicio_id) : null;
       if (!nome) return NextResponse.json({ error: "nome vazio" }, { status: 400 });
 
+      // v14: registro retroativo. Se `data` (YYYY-MM-DD) vier, seta ts pra
+      // meio-dia daquele dia. Se não, deixa default (now).
+      const dataRaw = String(body.data ?? "").trim();
+      let tsRetroativo: string | null = null;
+      if (dataRaw && /^\d{4}-\d{2}-\d{2}$/.test(dataRaw)) {
+        const d = new Date(`${dataRaw}T12:00:00`);
+        if (!Number.isNaN(d.getTime()) && d.getTime() <= Date.now()) {
+          tsRetroativo = d.toISOString();
+        }
+      }
+
       const requested = String(body.metric_type ?? "").trim();
       const metric: MetricType = METRIC_TYPES.includes(requested as MetricType)
         ? (requested as MetricType)
@@ -297,24 +308,27 @@ export async function POST(request: Request) {
       const isPr = ehPr(metric, campos, melhor);
       const recorde = isPr && melhor !== null;
 
+      const insertPayload: Record<string, unknown> = {
+        user_id: user.id,
+        exercicio_id: exercicioId,
+        nome,
+        peso: campos.peso,
+        reps: campos.reps,
+        seconds: campos.seconds,
+        assist_kg: campos.assist_kg,
+        bodyweight_used_kg: campos.bodyweight_used_kg,
+        distance_m: campos.distance_m,
+        intensity: campos.intensity,
+        rir: campos.rir,
+        rpe: campos.rpe,
+        metric_type: metric,
+        is_pr: isPr,
+      };
+      if (tsRetroativo) insertPayload.ts = tsRetroativo;
+
       const { data: serieRow, error } = await supabase
         .from("treino_series")
-        .insert({
-          user_id: user.id,
-          exercicio_id: exercicioId,
-          nome,
-          peso: campos.peso,
-          reps: campos.reps,
-          seconds: campos.seconds,
-          assist_kg: campos.assist_kg,
-          bodyweight_used_kg: campos.bodyweight_used_kg,
-          distance_m: campos.distance_m,
-          intensity: campos.intensity,
-          rir: campos.rir,
-          rpe: campos.rpe,
-          metric_type: metric,
-          is_pr: isPr,
-        })
+        .insert(insertPayload)
         .select("id")
         .single();
       if (error) return NextResponse.json({ error: "falha série" }, { status: 500 });
